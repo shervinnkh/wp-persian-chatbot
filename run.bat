@@ -105,7 +105,7 @@ echo [error] Could not create the virtual environment. Install Python 3.10+ and 
 exit /b 1
 
 :ensure_packages
-python -c "import fastapi, uvicorn, pydantic_settings, sqlalchemy, aiosqlite, qdrant_client, openai, tiktoken, httpx, pdfplumber, lxml" 2>nul
+python -c "import fastapi, uvicorn, pydantic_settings, sqlalchemy, aiosqlite, qdrant_client, openai, tiktoken, httpx" 2>nul
 if not errorlevel 1 exit /b 0
 echo [setup] Installing requirements...
 python -m pip install --upgrade pip

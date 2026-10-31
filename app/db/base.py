@@ -43,8 +43,11 @@ class Database:
         return cls(settings.database_url)
 
     async def init(self) -> None:
-        """Create missing tables (Alembic migrations arrive with the conversations DB step)."""
-        from app.db import models  # noqa: F401  (registers the tables on Base.metadata)
+        """Create missing tables (Alembic migrations arrive in a later step)."""
+        from app.db import (  # noqa: F401  (registers the tables on Base.metadata)
+            messaging_models,
+            models,
+        )
 
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

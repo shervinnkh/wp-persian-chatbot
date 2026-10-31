@@ -95,7 +95,8 @@ def setup_logging(settings: Settings) -> None:
             "formatters": {
                 "text": {
                     "format": (
-                        "%(asctime)s | %(levelname)-8s | %(request_id)s | %(name)s | %(message)s"
+                        "%(asctime)s | %(levelname)-8s | %(request_id)s | "
+                        "%(name)s | %(message)s"
                     ),
                     "datefmt": "%Y-%m-%d %H:%M:%S",
                 },

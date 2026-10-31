@@ -11,14 +11,12 @@ qdrant-client==1.20.0
 openai==3.41.0
 tiktoken==0.14.0
 
-# Knowledge files (download + text extraction from pdf / docx / txt)
+# Messaging (chat attachment download)
 httpx==0.28.1
-pdfplumber==0.11.9
-lxml==6.0.2
-charset-normalizer==3.4.6
 
 # ---- Planned (added in later steps, see PROJECT.md roadmap) ----
 # asyncpg + alembic                                     -> PostgreSQL / migrations (conversations DB)
-# (httpx is now a runtime dependency)                   -> plugin callbacks, LLM APIs
+# (httpx is installed since 0.3.4)                      -> plugin callbacks, LLM APIs
 # python-multipart                                      -> only if direct uploads are added
+# pypdf, python-docx                                    -> file text extraction
 # (openai is already installed)                         -> LLM / STT / TTS / vision

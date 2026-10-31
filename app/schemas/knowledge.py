@@ -5,15 +5,7 @@ from __future__ import annotations
 import json
 from typing import Annotated, Any, Literal
 
-from pydantic import (
-    AliasChoices,
-    BaseModel,
-    ConfigDict,
-    Field,
-    StringConstraints,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 # "product:14542", "blog:15650", "product_taxonomies:all", "site:1", "text:1730000000000"
 RecordId = Annotated[
@@ -61,9 +53,6 @@ class UpsertItemResult(BaseModel):
     embedding_tokens: int = 0  # prompt_tokens billed by the embedding API for this record
     duration_ms: int = 0
     error: str | None = None
-    error_code: str | None = None  # machine-readable (files/texts: file_too_large, ...)
-    url: str | None = None  # files: download link
-    size_bytes: int | None = None  # files: size of the downloaded file
 
 
 class UpsertSummary(BaseModel):
@@ -135,74 +124,3 @@ class RecordDetailResponse(BaseModel):
     chunks: list[ChunkOut]  # from the text DB
     qdrant_points: list[dict[str, Any]]  # payloads found in Qdrant (no vectors)
     in_sync: bool  # same chunk ids in text DB and Qdrant
-
-
-# ----------------------------------------------------------------- texts and files
-TextId = Annotated[
-    str, StringConstraints(strip_whitespace=True, pattern=r"^text:[A-Za-z0-9_.\-]{1,64}$")
-]
-FileId = Annotated[
-    str, StringConstraints(strip_whitespace=True, pattern=r"^file:[A-Za-z0-9_.\-]{1,64}$")
-]
-
-
-def _list_body(key: str):
-    """Accept a bare JSON list as well as {key: [...]}."""
-
-    def check(cls, v: Any) -> Any:  # noqa: ANN001, ANN401
-        return {key: v} if isinstance(v, list) else v
-
-    return model_validator(mode="before")(classmethod(check))
-
-
-class TextRecordIn(RecordIn):
-    """{"id": "text:1793259417135", "data": {"type":"text","chunks":[...],"text":"..."}}"""
-
-    id: TextId  # type: ignore[assignment]
-
-
-class TextsRequest(BaseModel):
-    records: list[TextRecordIn] = Field(min_length=1, max_length=100)
-    force: bool = False
-    list_body = _list_body("records")
-
-
-class FileItemIn(BaseModel):
-    """One file: id (file:..), title, file_orginal_name (sic, also file_original_name), path."""
-
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
-
-    id: FileId = Field(validation_alias=AliasChoices("id", "if", "file_id"))
-    title: str = Field("", max_length=300)
-    file_original_name: str = Field(
-        "",
-        max_length=300,
-        validation_alias=AliasChoices("file_original_name", "file_orginal_name", "original_name"),
-    )
-    path: str = Field(min_length=1, max_length=1000)
-
-
-class FilesRequest(BaseModel):
-    files: list[FileItemIn] = Field(min_length=1, max_length=50)
-    force: bool = False
-    list_body = _list_body("files")
-
-
-class TextIdsRequest(BaseModel):
-    ids: list[TextId] = Field(min_length=1, max_length=500)
-    list_body = _list_body("ids")
-
-    @field_validator("ids")
-    @classmethod
-    def _dedupe(cls, v: list[str]) -> list[str]:
-        return list(dict.fromkeys(v))
-
-
-class FileIdsRequest(BaseModel):
-    ids: list[FileId] = Field(min_length=1, max_length=500)
-    list_body = _list_body("ids")
-
-    @field_validator("ids")
-    @classmethod
-    def _dedupe(cls, v: list[str]) -> list[str]:
-        return list(dict.fromkeys(v))

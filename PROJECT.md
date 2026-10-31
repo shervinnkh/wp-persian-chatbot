@@ -5,7 +5,7 @@
 
 | مورد | مقدار |
 |---|---|
-| نسخهٔ فعلی | `0.4.0` (پایگاه دانش: رکوردهای استخراج‌شده + **متن‌های دستی** + **فایل‌ها** pdf/txt/docx: دانلود ← استخراج ← چانک هم‌اندازه ← امبدینگ ← Qdrant + دیتابیس متنی؛ افزودن/ویرایش/حذف) |
+| نسخهٔ فعلی | `0.3.4` (پیام‌رسانی: گفتگو/پیام در دیتابیس، ثبت و حذف پیام، دانلود عکس/ویس؛ بالای بخش اول پایگاه دانش 0.3.x) |
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -66,7 +66,7 @@ persian-ai-backend/
 ├─ PROJECT.md              این سند (موردهای اجباری در بالا)
 ├─ run.bat                 راه‌انداز ویندوز (venv + workerها + FastAPI)
 ├─ requirements.txt        وابستگی‌های اجرا (+ فهرست وابستگی‌های مراحل بعد به‌صورت کامنت)
-├─ requirements-dev.txt    pytest, ruff
+├─ requirements-dev.txt    pytest, ruff, httpx
 ├─ pyproject.toml          تنظیم pytest/ruff
 ├─ .env.example            نمونهٔ تنظیمات (کپی ← .env؛ .env هرگز commit نشود)
 ├─ app/
@@ -81,33 +81,29 @@ persian-ai-backend/
 │  ├─ api/
 │  │  ├─ deps.py           require_signed_request (احراز هویت + IP allowlist)
 │  │  ├─ router.py         مونتاژ routerها؛ `/v1` با وابستگی احراز هویت
-│  │  └─ v1/               health.py (عمومی)، system.py (/v1/ping)، knowledge.py (رکوردها)،
-│  │                       knowledge_files.py (متن‌ها و فایل‌ها، 0.4.0)
-│  ├─ schemas/             مدل‌های Pydantic درخواست/پاسخ (common.py، knowledge.py)
+│  │  └─ v1/               health.py (عمومی)، system.py (/v1/ping)، knowledge.py (رکوردها)، messaging.py (پیام‌ها)
+│  ├─ schemas/             مدل‌های Pydantic درخواست/پاسخ (common.py، knowledge.py، messaging.py)
 │  ├─ services/
 │  │  ├─ chunking/         normalize.py (نرمال‌سازی فارسی)، render.py (رکورد ← متن فارسی)،
 │  │  │                    splitter.py (چانک بر اساس توکن)، tokens.py (tiktoken)،
-│  │  │                    jalali.py (تاریخ شمسی)، pipeline.py (build_plan)،
-│  │  │                    doc_chunker.py (چانکر هم‌اندازهٔ DP برای فایل‌ها و متن‌های بزرگ)
+│  │  │                    jalali.py (تاریخ شمسی)، pipeline.py (build_plan)
 │  │  ├─ embedding/        openai_embedder.py (batch + لاگ usage)
 │  │  ├─ vectorstore/      qdrant.py (collection، upsert، حذف با فیلتر record_id)
-│  │  ├─ ingestion/        service.py (KnowledgeService: upsert_many / delete_many / store_prebuilt)،
-│  │  │                    content.py (ContentService: متن‌ها و فایل‌ها، 0.4.0)
-│  │  ├─ extractors/       pdf_extractor.py، txt_extractor.py، docs_extractor.py (docx)، common.py + loader.py
-│  │  ├─ files/            download.py (DownloadManager)
-│  │  └─ llm, tools, speech, vision, conversation   (آیندهٔ نزدیک؛ فعلاً docstring)
+│  │  ├─ ingestion/        service.py (KnowledgeService: upsert_many / delete_many)
+│  │  ├─ messaging/        service.py (MessagingService: ثبت/حذف پیام)، storage.py (دانلود امن پیوست)، errors.py
+│  │  └─ llm, tools, speech, vision   (آیندهٔ نزدیک؛ فعلاً docstring)
 │  ├─ db/                  base.py (engine/session)، models.py (records, chunks)،
+│  │                       messaging_models.py (conversations, messages)، messaging_repository.py (MessagingRepository)،
 │  │                       repository.py (تنها جای SQL پایگاه دانش)
 │  └─ workers/             (در صورت نیاز)
 ├─ scripts/
 │  ├─ preview_chunks.py    پیش‌نمایش چانک‌ها از یک فایل JSON (بدون شبکه)
 │  ├─ kb_upsert.py / kb_delete.py / kb_show.py   تست endpointها با امضا (سرور باید روشن باشد)
-│  ├─ kb_files.py          تست endpointهای متن‌ها/فایل‌ها (`files|texts add|update|delete`)
 │  ├─ inspect_db.py        خواندن مستقیم SQLite (رکوردها و متن چانک‌ها)؛ `_client.py` کمکی
 │  ├─ generate_secret.py   ساخت راز (`--write` داخل .env می‌نویسد)
 │  └─ sign_request.py      کلاینت مرجع برای تست دستی با امضا
 ├─ deploy/                 nginx.conf.example، firewall-ufw.sh، ai-backend.service
-├─ tests/                  pytest (امنیت + API + چانکینگ + پایگاه دانش؛ ۶۲ تست)
+├─ tests/                  pytest (امنیت + API + چانکینگ + پایگاه دانش + پیام‌رسانی)
 └─ data/  uploads/  logs/  (اجرا-زمان؛ داخل git نیستند)
 ```
 
@@ -189,18 +185,15 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `TIKTOKEN_ENCODING` / `TIKTOKEN_CACHE_DIR` | `cl100k_base` / `data/tiktoken_cache` | واژگان tiktoken یک‌بار دانلود و اینجا کش می‌شود |
 | `CHUNK_TARGET_TOKENS` `CHUNK_MAX_TOKENS` `CHUNK_OVERLAP_TOKENS` `CHUNK_MIN_TOKENS` | `400` `600` `60` `80` | بخش «آستانه‌های چانکینگ» پایین‌تر |
 
-**جدید در 0.4.0** (فایل‌ها):
+**جدید در 0.3.4:**
 
 | کلید | پیش‌فرض | توضیح |
 |---|---|---|
-| `FILES_BASE_URL` | `http://aiwpassistant.local/` | دامنهٔ سایت؛ لینک دانلود = `FILES_BASE_URL + path`. فقط path پذیرفته می‌شود و ریدایرکت فقط روی همین هاست مجاز است. بعداً فقط همین مقدار عوض شود |
-| `FILES_MAX_MB` | `100` | سقف حجم هر فایل (هم با `Content-Length` هم هنگام استریم) |
-| `FILES_DIR` | خالی ← `<UPLOADS_DIR>/knowledge_files` | پوشهٔ مدیریت‌شدهٔ دانلودها؛ هر رکورد یک پوشه: `file_<id>/source.<ext>` |
-| `FILES_KEEP_ORIGINAL` | `true` | `false` ← فایل اصلی بعد از ایندکس موفق پاک می‌شود |
-| `FILES_CONNECT_TIMEOUT` `FILES_READ_TIMEOUT` `FILES_DOWNLOAD_RETRIES` | `10` `60` `2` | دانلود (تلاش مجدد فقط برای خطای شبکه/5xx) |
-| `FILES_MAX_EXTRACTED_CHARS` | `5000000` | محافظ حجم متن استخراجی |
+| `PLUGIN_BASE_URL` | خالی | آدرس سایت وردپرس (مثلاً `https://example.com`)؛ دانلود پیوست‌های چت **فقط** از همین میزبان/پورت مجاز است. خالی ← هیچ پیوستی دانلود نمی‌شود (`attachment_status=failed`) |
+| `MESSAGE_ATTACHMENT_MAX_MB` | `20` | سقف حجم هر عکس/ویس چت |
+| `MESSAGE_DOWNLOAD_TIMEOUT` | `30` | timeout دانلود پیوست (ثانیه) |
 
-مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `PLUGIN_BASE_URL`، `PLUGIN_CALLBACK_SECRET`. (سقف کل ۲۰۰MB پوشهٔ آپلود فعلاً اعمال نمی‌شود؛ فقط سقف هر فایل.)
+مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`، `PLUGIN_CALLBACK_SECRET`.
 
 ## ۶. فرمت یکنواخت خطا
 
@@ -220,21 +213,23 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `PUT /v1/knowledge/records` | امضادار | ✅ 0.3.3 | همان بدنهٔ POST؛ برای هر رکورد: ابتدا حذف کامل (`delete_many`) و سپس افزودن (`upsert_many`)، یکی‌یکی. اگر حذف شکست بخورد افزودن انجام نمی‌شود |
 | `GET /v1/knowledge/records?limit&offset&kind` | امضادار | ✅ 0.3.2 | فهرست رکوردهای ذخیره‌شده (دیباگ) |
 | `GET /v1/knowledge/records/{id}` | امضادار | ✅ 0.3.2 | رکورد + داده خام + چانک‌ها + payloadهای Qdrant + `in_sync` (دیباگ) |
-| `POST\|PUT\|DELETE /v1/knowledge/texts` | امضادار | ✅ 0.4.0 | متن‌های دستی `text:*`. بدنه: لیست `[{id,data}]` یا `{"records":[...],"force":false}`؛ DELETE: `{"ids":[...]}` (یا لیست خالص). چانک‌های افزونه (`data.chunks`) حفظ می‌شوند و فقط چانک‌های بزرگ‌تر از `CHUNK_MAX_TOKENS` دوباره به چند چانک هم‌اندازه شکسته می‌شوند. PUT = اول حذف، بعد افزودن. پاسخ همان فرمت `/records` |
-| `POST\|PUT\|DELETE /v1/knowledge/files` | امضادار | ✅ 0.4.0 | فایل‌های `file:*`. بدنه: لیست `[{id,title,file_orginal_name,path}]` یا `{"files":[...],"force":false}` (حداکثر ۵۰)؛ DELETE: `{"ids":[...]}`. دانلود از `FILES_BASE_URL + path` ← استخراج (pdf/txt/docx) ← چانکر هم‌اندازه ← امبدینگ ← Qdrant + دیتابیس. PUT = اول حذف کامل (دیتابیس + Qdrant + فایل دانلودشده)، بعد افزودن. در `results[]` فیلدهای `error_code`، `url`، `size_bytes` هم هست |
-| `GET /v1/storage` | امضادار | ⏳ | مصرف پوشهٔ فایل‌ها (فعلاً فقط سقف هر فایل `FILES_MAX_MB` اعمال می‌شود) |
+| `PUT /v1/knowledge/texts/{id}` · `DELETE …` | امضادار | ⏳ 0.3.0 | متن‌های دستی (چانک‌ها از افزونه می‌آیند) |
+| `PUT /v1/knowledge/files/{id}` · `DELETE …` | امضادار | ⏳ 0.4.0 | `{url,title}` ← دانلود ← متن ← چانک؛ سقف ۲۰۰MB |
+| `GET /v1/storage` | امضادار | ⏳ 0.4.0 | مصرف uploads نسبت به سقف |
 | `POST /v1/chat/reply` | امضادار | ⏳ 0.5.0 | پیام(ها)+پیوست+tools ← پاسخ/پیشنهادها/ویس/پیوست |
-| `POST /v1/chat/messages` | امضادار | ⏳ 0.2.0 | ثبت پیام پشتیبان انسانی در تاریخچه |
-| `GET /v1/conversations/{id}/messages` · `DELETE …` | امضادار | ⏳ 0.2.0 | تاریخچه/حذف گفتگو |
+| `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. بخش «پیام‌رسانی» |
+| `DELETE /v1/conversations/{conversation_id}/messages/{message_id}` | امضادار | ✅ 0.3.4 | حذف یک پیام (+ فایل پیوست) |
+| `DELETE /v1/conversations/{conversation_id}/messages` | امضادار | ✅ 0.3.4 | حذف همهٔ پیام‌های گفتگو (+ فایل‌ها)؛ خود گفتگو می‌ماند |
+| `GET /v1/conversations/{id}/messages` | امضادار | ⏳ | تاریخچه (تابع `list_messages` در repository آماده است) |
 
 اضافه‌کردن endpoint: فایل جدید در `app/api/v1/`، ثبت در `app/api/router.py` زیر `v1_router` (احراز هویت خودکار اعمال می‌شود)، schema در `app/schemas/`، منطق در `app/services/`.
 
 ## ۸. نقشهٔ راه
 
 - [x] **0.1.0** — ساختار، تنظیمات، لاگینگ، HMAC، `/health` و `/v1/ping`، تست‌ها، `run.bat`، فایل‌های دیپلوی
-- [ ] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصهٔ هر ۱۵ پیام
-- [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ✅ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
-- [x] **0.4.0** — متن‌های دستی + فایل‌ها: دانلود (سقف هر فایل `FILES_MAX_MB`)، استخراج متن (PDF/DOCX/TXT)، چانک هم‌اندازه. (فعلاً هم‌زمان داخل درخواست؛ worker پس‌زمینه و سقف کل پوشه ⏳)
+- [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصهٔ هر ۱۵ پیام: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ⏳ Alembic، خلاصه‌سازی هر ۱۵ پیام، endpoint تاریخچه
+- [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ⏳ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
+- [ ] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه
 - [ ] **0.5.0** — تولید پاسخ: RAG + تاریخچهٔ خلاصه + پرامپت + LLM
 - [ ] **0.6.0** — ابزارها (tools) و callback امضادار به افزونه برای داده‌های زنده
 - [ ] **0.7.0** — ویس: STT برای ورودی، TTS برای پاسخ
@@ -251,11 +246,47 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - تأخیر/تجمیع پیام‌ها (`ai_delay`) سمت افزونه است؛ بک‌اند یک بستهٔ پیام (`message` + `messages[]`) دریافت می‌کند.
 - لاگ‌ها: افزونه جدول `paia_logs` دارد (`LogStore::add(status,message,data)`)؛ مسیر انتقال لاگ بک‌اند ← افزونه هنوز طراحی نشده.
 
-### دیتابیس گفتگو (0.2.0)
-- `conversations(id, site_id, visitor_uid, wp_user_id, summary, summarized_upto_message_id, created_at, updated_at)`
-- `messages(id, conversation_id, role, content, attachments JSON, support_name, external_id, created_at)` با `role ∈ {user, assistant, support}`.
-- برای LLM فقط دو نقش وجود دارد: `support` به‌صورت `assistant` با برچسب «این پیام را پشتیبان انسانی فرستاده» در تاریخچه می‌آید.
-- خلاصه‌سازی: با رسیدن هر ۱۵ پیامِ خلاصه‌نشده، پیام‌های قدیمی‌تر با خلاصهٔ قبلی ادغام و `summary` به‌روز می‌شود؛ پرامپت = system + ابزارها + RAG + خلاصه + پیام‌های اخیرِ خلاصه‌نشده.
+### پیام‌رسانی (پیاده‌شده در 0.3.4)
+
+**نقش‌ها:** `user` (بازدیدکننده)، `admin` (پشتیبان انسانی)، `assistant` (هوش مصنوعی). برای LLM فقط دو نقش وجود دارد: `admin` به‌صورت `assistant` با برچسب «این پیام را پشتیبان انسانی فرستاده» در تاریخچه می‌آید (مرحلهٔ 0.5.0).
+
+**هر کاربر فقط یک گفتگو دارد.** کلید یکتا `conversations.owner_key`: `u:{wp_user_id}` برای کاربر واردشده، `v:{visitor_uid}` برای مهمان. اگر مهمانی که قبلاً چت کرده وارد شود (و گفتگوی `u:` نداشته باشد) همان گفتگو به حساب او منتقل می‌شود؛ `wp_user_id=0` (مهمان وردپرس) معادل `null` است. ساخت همزمان با unique + savepoint امن است.
+
+| جدول | ستون‌ها |
+|---|---|
+| `conversations` | `id`، `owner_key` (unique)، `visitor_uid`، `wp_user_id`، `created_at`، `updated_at` |
+| `messages` | `id`، `conversation_id` (FK، cascade)، `visitor_uid`، `wp_user_id`، `role`، `content`، `attachment_type` (`image\|voice`)، `attachment_url`، `attachment_path`، `suggestions` (JSON، حداکثر ۴)، `admin_user_id`، `admin_name`، `created_at` |
+
+ستون‌های `summary` / `summarized_upto_message_id` (خلاصه‌سازی هر ۱۵ پیام) هنوز نیستند و با Alembic در مرحلهٔ 0.5.0 اضافه می‌شوند (`create_all` ستون به جدول موجود اضافه نمی‌کند).
+
+**`POST /v1/chat/messages`**
+
+```jsonc
+{"conversation_id": null,            // اختیاری؛ اگر نبود، با visitor_uid (+wp_user_id) گفتگو پیدا/ساخته می‌شود
+ "visitor_uid": "abc123", "wp_user_id": 12,
+ "role": "user",                     // user | admin | assistant
+ "content": "سلام",
+ "attachment_type": "voice",         // image | voice (همراه attachment_url)
+ "attachment_url": "https://example.com/wp-content/uploads/…/a.ogg",
+ "suggestions": ["…"],               // حداکثر ۴ (برای assistant)
+ "admin_user_id": 3, "admin_name": "علی"}   // برای role=admin، admin_user_id اجباری است
+// ← 200
+{"conversation_id": 7, "created_conversation": false,
+ "attachment_status": "stored",      // none | stored | failed
+ "message": {"id": 91, "conversation_id": 7, "visitor_uid": "abc123", "wp_user_id": 12, "role": "user",
+             "content": "سلام", "attachment_type": "voice", "attachment_url": "…",
+             "attachment_path": "voice/2026/10/<uuid>.ogg", "suggestions": null,
+             "created_at": "2026-10-30T10:00:00Z", "admin_user_id": null, "admin_name": null}}
+```
+جریان: ① اعتبارسنجی ② گفتگو پیدا/ساخته می‌شود ③ پیام **بلافاصله commit** می‌شود ④ اگر پیوست بود دانلود می‌شود و `attachment_path` در همان ردیف به‌روز می‌شود. اگر دانلود شکست بخورد پیام می‌ماند، `attachment_path=null` و `attachment_status=failed` (دلیل در لاگ `messaging.attachment_failed`)؛ افزونه نباید پیام را دوباره بفرستد.
+
+**پیوست‌ها:** مسیر در دیتابیس **نسبی به `UPLOADS_DIR`** است (`{نوع}/{سال}/{ماه}/{uuid}.{پسوند}`)؛ برای خواندن فایل در مرحلهٔ LLM از `storage.resolve_attachment_path(settings, path)` استفاده کنید (مسیر خارج از uploads را رد می‌کند). نوع فایل از امضای بایت‌ها تشخیص داده می‌شود (عکس: jpg/png/gif/webp؛ ویس: ogg/mp3/wav/webm/m4a/aac/amr/flac). SSRF: فقط میزبان/پورت `PLUGIN_BASE_URL`، بدون redirect، https (در development http هم مجاز). فایل‌های چت فعلاً در سقف ۲۰۰MB پایگاه دانش حساب نمی‌شوند (تصمیم باز ۴).
+
+**حذف:** `DELETE …/messages/{message_id}` یک پیام و فایلش را پاک می‌کند (404 اگر پیام در آن گفتگو نبود)؛ `DELETE …/messages` همهٔ پیام‌ها و فایل‌ها را پاک می‌کند و خود گفتگو می‌ماند. پاک‌کردن فایل پس از commit و بهترین‌تلاش است.
+
+**ساخت سرویس:** `MessagingService` (با `Database` مخصوص خودش، مثل `KnowledgeService`) در startup روی `app.state.messaging_service` ساخته می‌شود و در `lifespan` بسته می‌شود؛ تست‌ها با `create_app(settings, messaging_service=...)` سرویس خودشان را تزریق می‌کنند. `Database.init()` جدول‌های messaging را هم با `create_all` می‌سازد (import مدل‌ها در `app/db/base.py`).
+
+**لاگ‌ها** (بدون متن پیام و URL): `messaging.message_saved`، `messaging.attachment_stored` / `attachment_failed` / `attachment_error` / `attachment_db_failed`، `messaging.message_deleted`، `messaging.messages_cleared`.
 
 ### پایگاه دانش: چانکینگ ← امبدینگ ← Qdrant (پیاده‌شده در 0.3.0)
 
@@ -329,14 +360,10 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 **محدودیت‌های شناخته‌شده:** (۱) lock هر رکورد فقط درون یک پردازش است؛ با `WORKERS>1` دو درخواست همزمان روی یک شناسه محافظت نمی‌شوند. (۲) جدول‌ها با `create_all` ساخته می‌شوند؛ Alembic همراه مرحلهٔ 0.2.0 می‌آید. (۳) فیلد `site_id` فعلاً نیست (تک‌سایتی؛ تصمیم باز ۵). (۴) رندر `attributes`/`variations` حدسی/عمومی است چون نمونهٔ واقعی نداشتیم؛ با اولین نمونهٔ واقعی دقیق شود.
 
-### متن‌ها و فایل‌ها (پیاده‌شده در 0.4.0)
-- **متن‌ها (`text:{ms}`):** `data = {type:"text", chunks:[...], text, words, chars}`. چانک‌های افزونه همان‌طور ذخیره می‌شوند؛ هر چانکِ بزرگ‌تر از `CHUNK_MAX_TOKENS` با `doc_chunker.rechunk_text_chunks` به چند چانک هم‌اندازه (با overlap) شکسته می‌شود. `records.type=text`، `title` = اولین خط متن. اگر `data.chunks` نبود، `data.text` چانک می‌شود.
-- **فایل‌ها (`file:{ms}`):** ورودی `{id, title, file_orginal_name, path}` (کلیدهای `file_original_name` و `if` هم پذیرفته می‌شوند). فقط `.pdf .txt .docx` (پسوند path و نام اصلی + بررسی امضای محتوا؛ صفحهٔ HTML به‌جای فایل رد می‌شود). جریان: `DownloadManager.download` (استریم به `.part` ← atomic، سقف حجم) ← استخراج‌گر مناسب داخل thread (`extractors/loader.py` ← `paragraphs` خروجی `common.build_result`) ← `chunk_document` ← `KnowledgeService.store_prebuilt` (امبدینگ فقط چانک‌های تغییرکرده ← Qdrant ← حذف نقطه‌های اضافه ← دیتابیس). در شکست هر مرحله فایل دانلودشده پاک می‌شود. ارسال دوبارهٔ همان فایل (همان sha256/عنوان/path) = `unchanged` بدون امبدینگ؛ `force=true` اجبار.
-- **چانکر هم‌اندازه (`doc_chunker.py`):** خط‌های وسط‌جمله‌شکسته ترمیم، سند به اتم‌ها (جمله/خط/ردیف جدول) شکسته و با برنامه‌ریزی پویا افراز می‌شود تا اندازهٔ چانک‌ها نزدیک `CHUNK_TARGET_TOKENS` باشد (آخرین چانک ریز نمی‌شود)، ترجیحاً در مرز عنوان/پاراگراف، و هیچ چانکی از `CHUNK_MAX_TOKENS` نمی‌گذرد. هر چانک با `فایل: عنوان` و `بخش: الف › ب` (همان قالب splitter) شروع می‌شود؛ overlap فقط وسط یک بخش. لاگ اندازه‌ها: `chunker.document` / `chunker.text`. نسخهٔ الگوریتم `CHUNKER_VERSION="doc-1"` در `pipeline` رکورد می‌آید (تغییرش ← بازچانک).
-- **ذخیره:** `records.kind=file|text`؛ `records.data` فایل: `download_url, size_bytes, sha256, stored_path, extraction{extractor,language,stats,encoding}, warnings, chars`. payload کیودرنت مثل بقیه (`kind=main`, `type=file|text`, `url`=لینک دانلود).
-- **ویرایش (PUT)** = حذف کامل (دیتابیس + Qdrant + پوشهٔ فایل) و بعد افزودن؛ اگر حذف شکست بخورد افزودن انجام نمی‌شود. حذف داخل PUT از همان primitiveهای `delete_many` استفاده می‌کند (زیر قفل رکورد، بدون قفل دوباره).
-- **خطاها در `results[].error_code`:** `unsupported_extension, invalid_path, invalid_file, file_not_found, file_too_large, empty_file, download_failed, no_text_extracted, extracted_text_too_large, extractor_unavailable, delete_failed, unprocessable_record`.
-- محدودیت‌ها: پردازش هم‌زمان داخل درخواست (≤۵۰ فایل در هر درخواست؛ فایل‌های بزرگ را در دسته‌های کوچک بفرستید)؛ OCR برای PDF اسکن‌شده نیست (`no_text_extracted`).
+### فایل‌ها و سقف ۲۰۰MB (0.4.0)
+- ورودی فقط URL است (بدنهٔ JSON کوچک)؛ سرور با httpx استریم‌دانلود می‌کند در `uploads/{نوع}/{سال}/{ماه}/{uuid}.{پسوند}`، با بررسی نوع/امضای فایل و سقف حجم هر فایل.
+- سقف کل ۲۰۰MB: مجموع حجم ثبت‌شده + حجم فایل جدید (و هنگام استریم) از سقف بیشتر شود ← خطای `storage_quota_exceeded` (HTTP 507 یا 413) و هیچ دانلود/چانکینگی انجام نمی‌شود.
+- **SSRF:** دانلود فقط از دامنهٔ سایت پذیرنده (`PLUGIN_BASE_URL`) و https؛ آدرس‌های داخلی/لوپ‌بک رد می‌شوند.
 
 ### ابزارها (0.6.0)
 - لیست ابزارها در هر پیام از کلاینت می‌آید (`name, description, parameters`)؛ در پرامپت/function-calling به مدل داده می‌شود.
@@ -351,7 +378,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 1. مدل/سرویس LLM، STT و TTS (پیشنهاد: ارائه‌دهندهٔ واحد برای سادگی؛ افزونه فعلاً `gpt-5-4` را نشان می‌دهد). *(Embedding روشن شد: OpenAI `text-embedding-3-large`.)*
 2. پایگاه داده: SQLite کافی است یا از ابتدا PostgreSQL؟ *(فعلاً SQLite پیش‌فرض؛ با `DATABASE_URL` به PostgreSQL قابل‌تعویض است.)*
 3. صف کارها: `BackgroundTasks`/asyncio داخل پروسه یا worker جدا (ARQ/Celery + Redis)؟ (روی `run.bat` اثر دارد.)
-4. آیا سقف ۲۰۰MB فقط برای فایل‌های دانش‌پایه است یا ویس/عکس‌های چت هم حساب می‌شوند؟ (پیشنهاد: فقط دانش‌پایه؛ ویس/عکس بعد از پردازش پاک یا با TTL.)
+4. آیا سقف ۲۰۰MB فقط برای فایل‌های دانش‌پایه است یا ویس/عکس‌های چت هم حساب می‌شوند؟ (پیشنهاد: فقط دانش‌پایه؛ ویس/عکس بعد از پردازش پاک یا با TTL.) *(فعلاً در 0.3.4 فایل‌های چت حساب نمی‌شوند و تا حذف پیام می‌مانند.)*
 5. یک سایت (فعلی) یا چندسایته با راز جدا برای هر سایت؟ (payload از همین حالا `site_id` دارد.)
 
 ## ۱۰. دیپلوی (لینوکس VPS)
@@ -400,12 +427,11 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 ### 0.3.3
 - `PUT /v1/knowledge/records` (ویرایش): برای هر `{id,data}` ابتدا متد حذف و سپس متد افزودن فراخوانی می‌شود (بدون منطق جدید؛ در پاسخ وضعیت همیشه `created` است چون از نو ساخته می‌شود). `run.bat` تغییری نکرد.
 
-### 0.4.0
-- **متن‌های دستی:** `POST|PUT|DELETE /v1/knowledge/texts` (چانک‌های افزونه حفظ، چانک‌های بزرگ دوباره شکسته می‌شوند).
-- **فایل‌ها:** `POST|PUT|DELETE /v1/knowledge/files` — دانلود از `FILES_BASE_URL + path` (سقف `FILES_MAX_MB`)، فقط pdf/txt/docx، سه استخراج‌گر، چانکر هم‌اندازهٔ جدید، ذخیره در همان دیتابیس/Qdrant، ویرایش = حذف + افزودن.
-- کد: `services/{ingestion/content.py, chunking/doc_chunker.py, files/download.py, extractors/*}`، `api/v1/knowledge_files.py`، `KnowledgeService.store_prebuilt` (مرحله‌های ۲–۵ از `_upsert_one` به `_commit_plan` منتقل شد؛ رفتار قبلی بدون تغییر)، `FileProcessingError` در `errors.py`، تنظیمات `FILES_*`، اسکریپت `scripts/kb_files.py`.
-- وابستگی‌های جدید: `httpx` (حالا runtime)، `pdfplumber`، `lxml`، `charset-normalizer`.
-- **`run.bat` بازنویسی شد:** بررسی بسته‌ها (`ensure_packages`) حالا `httpx, pdfplumber, lxml` را هم چک می‌کند ← بعد از اعمال این نسخه، `run.bat` خودش وابستگی‌ها را نصب می‌کند.
-- ruff: برای `app/services/extractors/*` قوانین سبک‌تر (فایل‌های استخراج‌گر مستقل/CLI هستند).
-- تست: ۶۲ تست قبلی سبز؛ جریان کامل متن/فایل (دانلود از وب‌سرور محلی، استخراج واقعی docx/txt/pdf، امبدینگ جعلی، Qdrant درون‌حافظه، SQLite) با یک اسکریپت موقت بررسی شد (تست دائمی طبق درخواست اضافه نشد). اجرا نشده: OpenAI/Qdrant واقعی و tiktoken واقعی.
-
+### 0.3.4
+- **پیام‌رسانی (بخشی از 0.2.0):** جدول‌های `conversations` و `messages` (`app/db/messaging_models.py`)، سه نقش `user|admin|assistant`، یک گفتگو برای هر کاربر (`owner_key`)، `MessagingRepository` در `app/db/messaging_repository.py`، `MessagingService` در `app/services/messaging/`.
+- endpointها (`app/api/v1/messaging.py`، ثبت‌شده در `app/api/router.py`): `POST /v1/chat/messages` (ثبت فوری پیام + دانلود عکس/ویس داخل `UPLOADS_DIR` و ذخیرهٔ مسیر نسبی)، `DELETE /v1/conversations/{id}/messages/{message_id}` و `DELETE /v1/conversations/{id}/messages`.
+- `app/db/base.py`: `Database.init()` مدل‌های messaging را هم ثبت می‌کند. `app/main.py`: ساخت/بستن `MessagingService` در `lifespan` و پارامتر `create_app(messaging_service=...)`. نسخهٔ برنامه و `pyproject.toml` ← `0.3.4`.
+- تنظیمات جدید `.env`: `PLUGIN_BASE_URL`، `MESSAGE_ATTACHMENT_MAX_MB`، `MESSAGE_DOWNLOAD_TIMEOUT` (در `Settings`، `.env.example` و جدول بخش ۵). `httpx==0.28.1` از `requirements-dev.txt` به `requirements.txt` منتقل شد (دانلود پیوست در runtime).
+- **`run.bat` بازنویسی شد:** بررسی نصب بسته‌ها (`:ensure_packages`) اکنون `httpx` را هم import می‌کند، پس در venv موجود `pip install -r requirements.txt` خودکار اجرا می‌شود. worker/دستور جدیدی لازم نبود.
+- تست: `tests/test_messaging_api.py` (احراز هویت، یک گفتگو برای هر کاربر، مهمان←کاربر واردشده، اعتبارسنجی، نقش‌ها، دانلود عکس/ویس با میزبان جعلی، شکست دانلود، SSRF، سقف حجم، حذف تکی/کامل، تشخیص نوع فایل) نوشته شد. **اجرا نشده:** محیط توسعه شبکه/پکیج نداشت (pytest/ruff/fastapi نصب نبود). فقط compile و منطق `storage.py` (تشخیص نوع فایل و بررسی URL) بدون وابستگی بیرونی آزموده شد. قبل از استفاده `run.bat test` و `ruff check .` را اجرا کنید.
+- محدودیت‌های شناخته‌شده: Alembic هنوز نیست؛ ثبت پیام idempotent نیست (ارسال مجدد = پیام تکراری)؛ دانلود پیوست داخل handler انجام می‌شود (سقف حجم/زمان دارد)؛ لاک همزمانی روی یک گفتگو نیست؛ خلاصه‌سازی و endpoint تاریخچه در مراحل بعد.
