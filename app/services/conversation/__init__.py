@@ -1,1 +1,1 @@
-"""Conversations, messages, rolling summaries (planned 0.2.0)."""
+"""Conversation history, answer generation (placeholder) and rolling summaries."""

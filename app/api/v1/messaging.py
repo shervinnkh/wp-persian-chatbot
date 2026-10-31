@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, Request
 
 from app.schemas.common import ErrorResponse
 from app.schemas.messaging import (
+    AiAnswerOut,
     ClearMessagesResponse,
     DeleteMessageResponse,
     MessageOut,
@@ -41,15 +42,30 @@ Service = Annotated[MessagingService, Depends(get_messaging_service)]
     "/chat/messages",
     response_model=SendMessageResponse,
     responses=_RESPONSES,
-    summary="Save a message (user | admin | assistant); image/voice attachments are downloaded",
+    summary="Save a message; generate_ai_answer=true on a user message also returns an AI reply",
 )
-async def send_message(body: SendMessageRequest, service: Service) -> SendMessageResponse:
+async def send_message(
+    body: SendMessageRequest, service: Service, background: BackgroundTasks
+) -> SendMessageResponse:
     result = await service.send(body)
+    ai = result.ai
+    if ai.summarize_upto_message_id is not None:
+        # Runs AFTER the response reached the client, so the visitor never waits for it.
+        background.add_task(
+            service.enqueue_summary, result.conversation_id, ai.summarize_upto_message_id
+        )
     return SendMessageResponse(
         conversation_id=result.conversation_id,
         created_conversation=result.created_conversation,
         attachment_status=result.attachment_status,
         message=MessageOut.model_validate(result.message),
+        ai_answer=AiAnswerOut(
+            status=ai.status,
+            message=MessageOut.model_validate(ai.message) if ai.message else None,
+            full_history_tokens=ai.full_history_tokens,
+            context_tokens=ai.context_tokens,
+            summarization_scheduled=ai.summarization_scheduled,
+        ),
     )
 
 

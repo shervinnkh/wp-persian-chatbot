@@ -7,7 +7,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from sqlalchemy import event
+from sqlalchemy import event, inspect
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -51,6 +51,7 @@ class Database:
 
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_add_missing_columns)
         logger.info("Database ready: dialect=%s", self.engine.dialect.name)
 
     @asynccontextmanager
@@ -68,3 +69,29 @@ def _sqlite_pragmas(dbapi_conn, _record) -> None:
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA busy_timeout=5000")
     cursor.close()
+
+
+def _add_missing_columns(conn) -> None:
+    """Stop-gap until Alembic: `create_all` never adds columns to an EXISTING table, so add
+    missing NULLABLE columns of the models with `ALTER TABLE ... ADD COLUMN`."""
+    insp = inspect(conn)
+    prep = conn.dialect.identifier_preparer
+    for table in Base.metadata.sorted_tables:
+        if not insp.has_table(table.name):
+            continue
+        existing = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            if not col.nullable or col.primary_key:
+                logger.error(
+                    "Table %s misses the non-nullable column %s; migrate it manually",
+                    table.name, col.name,
+                )  # fmt: skip
+                continue
+            ddl = (
+                f"ALTER TABLE {prep.format_table(table)} "
+                f"ADD COLUMN {prep.format_column(col)} {col.type.compile(dialect=conn.dialect)}"
+            )
+            conn.exec_driver_sql(ddl)
+            logger.info("Database: added column %s.%s", table.name, col.name)

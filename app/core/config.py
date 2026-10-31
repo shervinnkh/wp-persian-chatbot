@@ -92,6 +92,23 @@ class Settings(BaseSettings):
     MESSAGE_ATTACHMENT_MAX_MB: int = Field(20, ge=1, le=100)
     MESSAGE_DOWNLOAD_TIMEOUT: int = Field(30, ge=5, le=300)
 
+    # --- Conversation history + summarization ---
+    # History sent to the AI = last summary + the last HISTORY_RECENT_PAIRS (user + reply) pairs
+    # in full + the newest user message. When the token count of the whole unsummarized
+    # conversation exceeds SUMMARY_TRIGGER_TOKENS, a summarization request is queued (after the
+    # answer was returned to the client) and the summarizer worker handles it.
+    HISTORY_RECENT_PAIRS: int = Field(3, ge=1, le=20)
+    SUMMARY_TRIGGER_TOKENS: int = Field(3000, ge=200, le=200000)
+    SUMMARY_MODEL: str = "gpt-4.1-mini"  # any chat model of the OpenAI-compatible API
+    SUMMARY_MAX_OUTPUT_TOKENS: int = Field(1200, ge=100, le=8000)
+    SUMMARY_TIMEOUT: int = Field(120, ge=10, le=900)
+    SUMMARY_MAX_RETRIES: int = Field(2, ge=0, le=10)  # SDK-level retries per call
+    SUMMARY_MAX_ATTEMPTS: int = Field(3, ge=1, le=20)  # worker-level attempts per request
+    SUMMARY_RETRY_DELAY_SECONDS: int = Field(30, ge=1, le=3600)
+    SUMMARY_WORKER_POLL_SECONDS: float = Field(3.0, ge=0.2, le=300)
+    # a request stuck in "processing" for longer than this (crashed worker) is retried
+    SUMMARY_STALE_SECONDS: int = Field(600, ge=30, le=86400)
+
     # ---------- validators ----------
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod

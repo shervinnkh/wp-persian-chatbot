@@ -5,7 +5,7 @@
 
 | مورد | مقدار |
 |---|---|
-| نسخهٔ فعلی | `0.3.4` (پیام‌رسانی: گفتگو/پیام در دیتابیس، ثبت و حذف پیام، دانلود عکس/ویس؛ بالای بخش اول پایگاه دانش 0.3.x) |
+| نسخهٔ فعلی | `0.3.5` (پیام‌رسانی + آماده‌سازی تاریخچه، پاسخ ثابت بدون AI با کلید `generate_ai_answer`، سیستم خلاصه‌سازی با worker؛ بالای بخش اول پایگاه دانش 0.3.x) |
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -30,7 +30,7 @@
 2. اجرا: **`run.bat`** — کارهایی که انجام می‌دهد:
    - venv را فعال می‌کند (`0.env\venv\Scripts\activate.bat`)؛ اگر نبود می‌سازد و `requirements.txt` را نصب می‌کند.
    - اگر `.env` نبود از `.env.example` می‌سازد و یک `API_SHARED_SECRET` تصادفی (۳۲ بایت) داخلش می‌نویسد.
-   - همهٔ workerها را (فعلاً هیچ) و FastAPI را هرکدام در یک پنجرهٔ cmd جدا (با venv فعال) اجرا می‌کند. پنجرهٔ خودِ دستور هم venv فعال می‌ماند.
+   - همهٔ workerها را (فعلاً `summarizer`) و FastAPI را هرکدام در یک پنجرهٔ cmd جدا (با venv فعال) اجرا می‌کند. پنجرهٔ خودِ دستور هم venv فعال می‌ماند.
 3. پیش از اولین ارسال رکورد: Qdrant روشن باشد (`QDRANT_URL`) و `OPENAI_API_KEY` در `.env` پر شده باشد (اگر خالی باشد `run.bat` هشدار می‌دهد).
 4. آدرس محلی: `http://127.0.0.1:8000` — `/health` عمومی، `/docs` فقط در حالت development.
 5. تست اتصال امضادار: `python scripts\sign_request.py GET http://127.0.0.1:8000/v1/ping`
@@ -38,6 +38,8 @@
 پیش‌نمایش چانک‌ها بدون هیچ ارتباط شبکه‌ای: `python scripts\preview_chunks.py record.json --id product:13199` (از همان `CHUNK_*` در `.env` استفاده می‌کند).
 
 دستورهای دیگر: `run.bat install` (نصب دوبارهٔ پکیج‌ها)، `run.bat test` (نصب وابستگی‌های dev + اجرای تست‌ها)، `run.bat secret` (چاپ یک راز تازه).
+
+**workerها:** `worker_summarizer` (خلاصه‌سازی گفتگوها، `python -m app.workers.summarizer`) همراه `run.bat` بالا می‌آید؛ بدون آن، خلاصه‌ای ساخته نمی‌شود (درخواست‌ها در جدول `summary_requests` منتظر می‌مانند).
 
 **اضافه‌کردن worker در آینده:** در `run.bat` بخش `WORKERS` یک خط `start "AI Worker - نام" cmd /k ""%~f0" worker_نام"` اضافه می‌شود و یک برچسب `:role_worker_نام` (همان الگوی کامنت‌شده) که venv را فعال کرده و `python -m app.workers.نام` را اجرا می‌کند.
 
@@ -90,12 +92,14 @@ persian-ai-backend/
 │  │  ├─ embedding/        openai_embedder.py (batch + لاگ usage)
 │  │  ├─ vectorstore/      qdrant.py (collection، upsert، حذف با فیلتر record_id)
 │  │  ├─ ingestion/        service.py (KnowledgeService: upsert_many / delete_many)
-│  │  ├─ messaging/        service.py (MessagingService: ثبت/حذف پیام)، storage.py (دانلود امن پیوست)، errors.py
+│  │  ├─ messaging/        service.py (MessagingService: ثبت/حذف پیام + تولید پاسخ)، storage.py (دانلود امن پیوست)، errors.py
+│  │  ├─ conversation/     history.py (HistoryBuilder: خلاصه + ۳ زوج آخر + پیام آخر، شمارش توکن)، answer.py (پاسخ ثابت؛ جای LLM)،
+│  │  │                    summarizer.py (پرامپت انگلیسی + کلاینت OpenAI)، summary_service.py (صف: enqueue / process_next)
 │  │  └─ llm, tools, speech, vision   (آیندهٔ نزدیک؛ فعلاً docstring)
 │  ├─ db/                  base.py (engine/session)، models.py (records, chunks)،
-│  │                       messaging_models.py (conversations, messages)، messaging_repository.py (MessagingRepository)،
+│  │                       messaging_models.py (conversations, messages, summary_requests)، messaging_repository.py (MessagingRepository)،
 │  │                       repository.py (تنها جای SQL پایگاه دانش)
-│  └─ workers/             (در صورت نیاز)
+│  └─ workers/             summarizer.py (`python -m app.workers.summarizer`)
 ├─ scripts/
 │  ├─ preview_chunks.py    پیش‌نمایش چانک‌ها از یک فایل JSON (بدون شبکه)
 │  ├─ kb_upsert.py / kb_delete.py / kb_show.py   تست endpointها با امضا (سرور باید روشن باشد)
@@ -103,7 +107,7 @@ persian-ai-backend/
 │  ├─ generate_secret.py   ساخت راز (`--write` داخل .env می‌نویسد)
 │  └─ sign_request.py      کلاینت مرجع برای تست دستی با امضا
 ├─ deploy/                 nginx.conf.example، firewall-ufw.sh، ai-backend.service
-├─ tests/                  pytest (امنیت + API + چانکینگ + پایگاه دانش + پیام‌رسانی)
+├─ tests/                  pytest (امنیت + API + چانکینگ + پایگاه دانش + پیام‌رسانی + تاریخچه/خلاصه‌سازی)
 └─ data/  uploads/  logs/  (اجرا-زمان؛ داخل git نیستند)
 ```
 
@@ -193,6 +197,19 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `MESSAGE_ATTACHMENT_MAX_MB` | `20` | سقف حجم هر عکس/ویس چت |
 | `MESSAGE_DOWNLOAD_TIMEOUT` | `30` | timeout دانلود پیوست (ثانیه) |
 
+**جدید در 0.3.5** (تاریخچه و خلاصه‌سازی؛ worker از `OPENAI_API_KEY` / `OPENAI_BASE_URL` بالا استفاده می‌کند):
+
+| کلید | پیش‌فرض | توضیح |
+|---|---|---|
+| `HISTORY_RECENT_PAIRS` | `3` | تعداد زوج‌های آخر (پیام کاربر + پاسخ‌ها) که کامل در تاریخچه می‌آید |
+| `SUMMARY_TRIGGER_TOKENS` | `3000` | اگر توکنِ «خلاصه + همهٔ پیام‌های خلاصه‌نشده» از این بیشتر شود، درخواست خلاصه‌سازی ثبت می‌شود |
+| `SUMMARY_MODEL` | `gpt-4.1-mini` | مدل چت برای خلاصه‌سازی (هر مدل سازگار با API چت OpenAI) |
+| `SUMMARY_MAX_OUTPUT_TOKENS` | `1200` | سقف طول خلاصه |
+| `SUMMARY_TIMEOUT` / `SUMMARY_MAX_RETRIES` | `120` / `2` | timeout هر فراخوانی / تلاش مجدد SDK |
+| `SUMMARY_MAX_ATTEMPTS` / `SUMMARY_RETRY_DELAY_SECONDS` | `3` / `30` | تلاش‌های worker برای هر درخواست؛ فاصلهٔ تلاش مجدد = تأخیر × شمارهٔ تلاش |
+| `SUMMARY_WORKER_POLL_SECONDS` | `3` | فاصلهٔ بررسی صف وقتی کاری نیست |
+| `SUMMARY_STALE_SECONDS` | `600` | درخواستِ گیرکرده در `processing` (worker خراب‌شده) بعد از این مدت دوباره pending می‌شود |
+
 مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`، `PLUGIN_CALLBACK_SECRET`.
 
 ## ۶. فرمت یکنواخت خطا
@@ -217,7 +234,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `PUT /v1/knowledge/files/{id}` · `DELETE …` | امضادار | ⏳ 0.4.0 | `{url,title}` ← دانلود ← متن ← چانک؛ سقف ۲۰۰MB |
 | `GET /v1/storage` | امضادار | ⏳ 0.4.0 | مصرف uploads نسبت به سقف |
 | `POST /v1/chat/reply` | امضادار | ⏳ 0.5.0 | پیام(ها)+پیوست+tools ← پاسخ/پیشنهادها/ویس/پیوست |
-| `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. بخش «پیام‌رسانی» |
+| `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. با `generate_ai_answer=true` روی پیام کاربر، پاسخ (فعلاً ثابت) هم تولید و ذخیره و برگردانده می‌شود؛ بخش «پیام‌رسانی» و «تاریخچه، تولید پاسخ و خلاصه‌سازی» |
 | `DELETE /v1/conversations/{conversation_id}/messages/{message_id}` | امضادار | ✅ 0.3.4 | حذف یک پیام (+ فایل پیوست) |
 | `DELETE /v1/conversations/{conversation_id}/messages` | امضادار | ✅ 0.3.4 | حذف همهٔ پیام‌های گفتگو (+ فایل‌ها)؛ خود گفتگو می‌ماند |
 | `GET /v1/conversations/{id}/messages` | امضادار | ⏳ | تاریخچه (تابع `list_messages` در repository آماده است) |
@@ -227,10 +244,10 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 ## ۸. نقشهٔ راه
 
 - [x] **0.1.0** — ساختار، تنظیمات، لاگینگ، HMAC، `/health` و `/v1/ping`، تست‌ها، `run.bat`، فایل‌های دیپلوی
-- [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصهٔ هر ۱۵ پیام: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ⏳ Alembic، خلاصه‌سازی هر ۱۵ پیام، endpoint تاریخچه
+- [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصه‌سازی: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ✅ آماده‌سازی تاریخچه، کلید `generate_ai_answer`، پاسخ ثابت، خلاصه‌سازی بر پایهٔ توکن با worker (0.3.5)؛ ⏳ Alembic، endpoint تاریخچه
 - [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ⏳ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
 - [ ] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه
-- [ ] **0.5.0** — تولید پاسخ: RAG + تاریخچهٔ خلاصه + پرامپت + LLM
+- [ ] **0.5.0** — تولید پاسخ: RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
 - [ ] **0.6.0** — ابزارها (tools) و callback امضادار به افزونه برای داده‌های زنده
 - [ ] **0.7.0** — ویس: STT برای ورودی، TTS برای پاسخ
 - [ ] **0.8.0** — تصویر: تحلیل عکس ورودی و ارسال عکس به‌عنوان پیوست پاسخ
@@ -254,10 +271,10 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 | جدول | ستون‌ها |
 |---|---|
-| `conversations` | `id`، `owner_key` (unique)، `visitor_uid`، `wp_user_id`، `created_at`، `updated_at` |
+| `conversations` | `id`، `owner_key` (unique)، `visitor_uid`، `wp_user_id`، `created_at`، `updated_at`، `summary`، `summarized_upto_message_id`، `summary_updated_at` |
 | `messages` | `id`، `conversation_id` (FK، cascade)، `visitor_uid`، `wp_user_id`، `role`، `content`، `attachment_type` (`image\|voice`)، `attachment_url`، `attachment_path`، `suggestions` (JSON، حداکثر ۴)، `admin_user_id`، `admin_name`، `created_at` |
 
-ستون‌های `summary` / `summarized_upto_message_id` (خلاصه‌سازی هر ۱۵ پیام) هنوز نیستند و با Alembic در مرحلهٔ 0.5.0 اضافه می‌شوند (`create_all` ستون به جدول موجود اضافه نمی‌کند).
+ستون‌های خلاصه (`summary`، `summarized_upto_message_id`، `summary_updated_at`) روی `conversations` و جدول `summary_requests` در 0.3.5 اضافه شدند. چون Alembic هنوز نیست، `Database.init()` ستون‌های nullableِ جدید را روی جدول‌های موجود با `ALTER TABLE ... ADD COLUMN` اضافه می‌کند (`_add_missing_columns` در `app/db/base.py`)؛ دیتابیس قدیمی نیازی به پاک‌شدن ندارد.
 
 **`POST /v1/chat/messages`**
 
@@ -269,14 +286,19 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
  "attachment_type": "voice",         // image | voice (همراه attachment_url)
  "attachment_url": "https://example.com/wp-content/uploads/…/a.ogg",
  "suggestions": ["…"],               // حداکثر ۴ (برای assistant)
- "admin_user_id": 3, "admin_name": "علی"}   // برای role=admin، admin_user_id اجباری است
+ "admin_user_id": 3, "admin_name": "علی",   // برای role=admin، admin_user_id اجباری است
+ "generate_ai_answer": true}                 // فقط برای role=user معنا دارد؛ نبود/false = فقط ذخیره
 // ← 200
 {"conversation_id": 7, "created_conversation": false,
  "attachment_status": "stored",      // none | stored | failed
  "message": {"id": 91, "conversation_id": 7, "visitor_uid": "abc123", "wp_user_id": 12, "role": "user",
              "content": "سلام", "attachment_type": "voice", "attachment_url": "…",
              "attachment_path": "voice/2026/10/<uuid>.ogg", "suggestions": null,
-             "created_at": "2026-10-30T10:00:00Z", "admin_user_id": null, "admin_name": null}}
+             "created_at": "2026-10-30T10:00:00Z", "admin_user_id": null, "admin_name": null},
+ "ai_answer": {"status": "generated",         // skipped | generated | failed
+               "message": {"id": 92, "role": "assistant", "content": "…", …},   // پاسخ ذخیره‌شده؛ null اگر skipped/failed
+               "full_history_tokens": 812, "context_tokens": 640,
+               "summarization_scheduled": false}}
 ```
 جریان: ① اعتبارسنجی ② گفتگو پیدا/ساخته می‌شود ③ پیام **بلافاصله commit** می‌شود ④ اگر پیوست بود دانلود می‌شود و `attachment_path` در همان ردیف به‌روز می‌شود. اگر دانلود شکست بخورد پیام می‌ماند، `attachment_path=null` و `attachment_status=failed` (دلیل در لاگ `messaging.attachment_failed`)؛ افزونه نباید پیام را دوباره بفرستد.
 
@@ -287,6 +309,24 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 **ساخت سرویس:** `MessagingService` (با `Database` مخصوص خودش، مثل `KnowledgeService`) در startup روی `app.state.messaging_service` ساخته می‌شود و در `lifespan` بسته می‌شود؛ تست‌ها با `create_app(settings, messaging_service=...)` سرویس خودشان را تزریق می‌کنند. `Database.init()` جدول‌های messaging را هم با `create_all` می‌سازد (import مدل‌ها در `app/db/base.py`).
 
 **لاگ‌ها** (بدون متن پیام و URL): `messaging.message_saved`، `messaging.attachment_stored` / `attachment_failed` / `attachment_error` / `attachment_db_failed`، `messaging.message_deleted`، `messaging.messages_cleared`.
+
+### تاریخچه، تولید پاسخ و خلاصه‌سازی (پیاده‌شده در 0.3.5)
+
+**کلید `generate_ai_answer`:** داخل همان JSON پیام (`POST /v1/chat/messages`). پیام `admin` و `assistant` همیشه فقط ذخیره می‌شود (حتی اگر کلید `true` باشد). پیام `user` بدون کلید یا با `false` فقط ذخیره می‌شود. با `true`: ① پیام ذخیره (commit) ② تاریخچه ساخته می‌شود ③ پاسخ تولید و با نقش `assistant` ذخیره می‌شود ④ پاسخ در `ai_answer.message` به کلاینت برمی‌گردد ⑤ **بعد از ارسال پاسخ به کلاینت** (FastAPI `BackgroundTasks`) در صورت نیاز درخواست خلاصه‌سازی ثبت می‌شود؛ کلاینت منتظر آن نمی‌ماند. اگر ساخت پاسخ خطا بدهد، پیام کاربر ذخیره‌شده می‌ماند و `ai_answer.status="failed"` است (دلیل در لاگ `messaging.answer_failed`).
+
+**تاریخچه (`app/services/conversation/history.py` ← `HistoryBuilder.build`):** اگر خلاصه‌ای نیست ← **کل گفتگو** کامل + پیام آخر. اگر خلاصه هست ← خلاصه + **همهٔ پیام‌های بعد از مرز خلاصه** کامل + پیام آخر؛ و اگر بعد از مرز کمتر از ۳ زوج باشد، ۳ زوج آخر هم کامل می‌آید (با خلاصه کمی هم‌پوشانی دارد، عمدی). «زوج» = یک پیام کاربر + همهٔ پاسخ‌های بعدش (assistant و/یا admin) تا پیام بعدی کاربر؛ زوج‌ها با شمارش پیام‌های *user* از آخر پیدا می‌شوند. خروجی `PreparedHistory`: `summary`، `recent`، `question`، `full_history_tokens`، `context_tokens`، `needs_summary` و `llm_messages()` (فهرست `{role, content}`؛ `admin` برای مدل `assistant` است با برچسب «[Message from a human support agent]»). **هیچ اتصال به AI و system prompt هنوز نیست**؛ مرحلهٔ 0.5.0 فقط `PreparedHistory` را می‌گیرد. پیام بدون متن: ویس/عکس با `[voice message]` / `[image]` نشان داده می‌شود.
+
+**پاسخ ثابت:** `FixedAnswerGenerator` (`answer.py`) همیشه `FIXED_ANSWER` را برمی‌گرداند؛ رابط `AnswerGenerator.generate(history)` همان است که LLM واقعی جایش می‌آید (تزریق از `MessagingService(answer_generator=...)`).
+
+**شمارش توکن و آستانه:** `full_history_tokens` = توکن (tiktoken) «خلاصهٔ ذخیره‌شده + همهٔ پیام‌هایی که هنوز در خلاصه نیامده‌اند (شامل پیام آخر)». اگر از `SUMMARY_TRIGGER_TOKENS` بیشتر باشد، `needs_summary=true` و بعد از ارسال پاسخ درخواست ثبت می‌شود (`upto_message_id` = شناسهٔ همان پاسخ). اگر برای آن گفتگو درخواست pending/processing باشد، درخواست تازه ثبت نمی‌شود.
+
+**جدول `summary_requests`:** `id`، `conversation_id` (FK، cascade)، `upto_message_id`، `status` (`pending|processing|done|failed`)، `attempts`، `error`، `available_at`، `started_at`، `finished_at`، `created_at`، `updated_at`.
+
+**worker (`python -m app.workers.summarizer`):** صف را poll می‌کند؛ هر درخواست را اتمیک برمی‌دارد (`pending→processing`)، «خلاصهٔ قبلی + پیام‌های بعد از آن تا `upto_message_id`» را به AI می‌دهد (پرامپت انگلیسی `SUMMARIZATION_SYSTEM_PROMPT` در `summarizer.py`؛ خلاصه به زبان کاربر یعنی فارسی نوشته می‌شود، شناسه‌ها/عددها دقیق نگه داشته می‌شوند، متن گفتگو «داده» است نه دستور)، و نتیجه را در `conversations.summary` + `summarized_upto_message_id` ذخیره می‌کند. خطا ← تلاش مجدد با تأخیر (`SUMMARY_MAX_ATTEMPTS`)، سپس `failed`. اگر وسط کار گفتگو پاک شده باشد نتیجه دور ریخته می‌شود؛ خلاصهٔ جدیدتر هرگز با قدیمی‌تر جایگزین نمی‌شود.
+
+**پاک‌کردن:** `DELETE …/messages` (پاک‌کردن کل گفتگو) خلاصه، مرز آن و همهٔ `summary_requests` را هم پاک می‌کند. حذف *یک* پیام خلاصهٔ موجود را تغییر نمی‌دهد.
+
+**لاگ‌ها** (بدون متن): `messaging.answer_generated` (توکن‌ها و `needs_summary`)، `messaging.answer_failed`، `summary.enqueued` / `enqueue_skipped` / `enqueue_failed`، `summary.done` (نتیجه: `saved|already_covered|nothing_to_summarize|conversation_deleted|discarded_*`)، `summary.retry`، `summary.failed`، `summarizer.request` (توکن‌های مصرفی).
 
 ### پایگاه دانش: چانکینگ ← امبدینگ ← Qdrant (پیاده‌شده در 0.3.0)
 
@@ -375,7 +415,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - تصویر ورودی: دانلود ← تحلیل با مدل بینایی ← توضیح به زمینهٔ پاسخ اضافه می‌شود. تصویر خروجی: به‌صورت `attachments[]` در پاسخ.
 
 ### تصمیم‌های باز (قبل از مراحل مربوطه روشن شود)
-1. مدل/سرویس LLM، STT و TTS (پیشنهاد: ارائه‌دهندهٔ واحد برای سادگی؛ افزونه فعلاً `gpt-5-4` را نشان می‌دهد). *(Embedding روشن شد: OpenAI `text-embedding-3-large`.)*
+1. مدل/سرویس LLM، STT و TTS (پیشنهاد: ارائه‌دهندهٔ واحد برای سادگی؛ افزونه فعلاً `gpt-5-4` را نشان می‌دهد). *(Embedding روشن شد: OpenAI `text-embedding-3-large`. مدل خلاصه‌سازی فعلاً `SUMMARY_MODEL=gpt-4.1-mini` از همان کلید OpenAI؛ قابل‌تغییر از `.env`.)*
 2. پایگاه داده: SQLite کافی است یا از ابتدا PostgreSQL؟ *(فعلاً SQLite پیش‌فرض؛ با `DATABASE_URL` به PostgreSQL قابل‌تعویض است.)*
 3. صف کارها: `BackgroundTasks`/asyncio داخل پروسه یا worker جدا (ARQ/Celery + Redis)؟ (روی `run.bat` اثر دارد.)
 4. آیا سقف ۲۰۰MB فقط برای فایل‌های دانش‌پایه است یا ویس/عکس‌های چت هم حساب می‌شوند؟ (پیشنهاد: فقط دانش‌پایه؛ ویس/عکس بعد از پردازش پاک یا با TTL.) *(فعلاً در 0.3.4 فایل‌های چت حساب نمی‌شوند و تا حذف پیام می‌مانند.)*
@@ -435,3 +475,12 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - **`run.bat` بازنویسی شد:** بررسی نصب بسته‌ها (`:ensure_packages`) اکنون `httpx` را هم import می‌کند، پس در venv موجود `pip install -r requirements.txt` خودکار اجرا می‌شود. worker/دستور جدیدی لازم نبود.
 - تست: `tests/test_messaging_api.py` (احراز هویت، یک گفتگو برای هر کاربر، مهمان←کاربر واردشده، اعتبارسنجی، نقش‌ها، دانلود عکس/ویس با میزبان جعلی، شکست دانلود، SSRF، سقف حجم، حذف تکی/کامل، تشخیص نوع فایل) نوشته شد. **اجرا نشده:** محیط توسعه شبکه/پکیج نداشت (pytest/ruff/fastapi نصب نبود). فقط compile و منطق `storage.py` (تشخیص نوع فایل و بررسی URL) بدون وابستگی بیرونی آزموده شد. قبل از استفاده `run.bat test` و `ruff check .` را اجرا کنید.
 - محدودیت‌های شناخته‌شده: Alembic هنوز نیست؛ ثبت پیام idempotent نیست (ارسال مجدد = پیام تکراری)؛ دانلود پیوست داخل handler انجام می‌شود (سقف حجم/زمان دارد)؛ لاک همزمانی روی یک گفتگو نیست؛ خلاصه‌سازی و endpoint تاریخچه در مراحل بعد.
+
+### 0.3.5
+- **تاریخچه + پاسخ ثابت:** کلید `generate_ai_answer` در بدنهٔ `POST /v1/chat/messages`؛ `true` روی پیام کاربر ← ساخت تاریخچه (بدون خلاصه: کل گفتگو؛ با خلاصه: خلاصه + همهٔ پیام‌های بعد از آن، حداقل ۳ زوج آخر؛ `HistoryBuilder`)، پاسخ ثابت (`FixedAnswerGenerator`، بدون AI و بدون system prompt) ذخیره با نقش `assistant` و برگشت در `ai_answer`. `admin`/`assistant`/بدون کلید/`false` ← فقط ذخیره.
+- **خلاصه‌سازی:** شمارش توکن کل تاریخچهٔ خلاصه‌نشده؛ بیش از `SUMMARY_TRIGGER_TOKENS` ← بعد از ارسال پاسخ به کلاینت (BackgroundTasks) یک ردیف در `summary_requests`؛ worker جدید `app/workers/summarizer.py` آن را با پرامپت انگلیسی و `SUMMARY_MODEL` خلاصه و در رکورد گفتگو (`summary`، `summarized_upto_message_id`، `summary_updated_at`) ذخیره می‌کند. تلاش مجدد/شکست، بازیابی درخواست گیرکرده، دورریختن نتیجه اگر گفتگو پاک شده.
+- دیتابیس: مدل `SummaryRequest`، ستون‌های جدید `conversations`، و `_add_missing_columns` (افزودن خودکار ستون‌های nullable به جدول‌های موجود تا زمان Alembic). `DELETE …/messages` خلاصه و درخواست‌ها را هم پاک می‌کند.
+- تنظیمات جدید `.env`: `HISTORY_RECENT_PAIRS`، `SUMMARY_*` (جدول بخش ۵، `.env.example`). نسخهٔ برنامه و `pyproject.toml` ← `0.3.5`.
+- **`run.bat` بازنویسی شد:** worker جدید `worker_summarizer` (پنجرهٔ جدا، `python -m app.workers.summarizer`) هم‌زمان با FastAPI بالا می‌آید. وابستگی جدیدی لازم نیست.
+- تست: `tests/test_conversation_summary.py` (کلید generate، نقش‌ها، شکل تاریخچه با admin، آستانه و صف، worker، تلاش مجدد، پاک‌کردن گفتگو، پرامپت، افزودن ستون به دیتابیس قدیمی). `pytest` و `ruff check .` سبز. اجرا نشده: فراخوانی واقعی OpenAI برای خلاصه‌سازی (کلید/شبکه نبود؛ در تست با summarizer جعلی) و `run.bat` روی ویندوز.
+- محدودیت‌های شناخته‌شده: تا وقتی worker خلاصه را نساخته، پیام‌های خلاصه‌نشده همه در تاریخچه می‌آیند (اگر worker خاموش باشد تاریخچه رشد می‌کند)؛ حذف یک پیام خلاصهٔ موجود را بازنویسی نمی‌کند؛ دو پیام همزمان از یک گفتگو ممکن است دو پاسخ بسازد (قفل گفتگو نیست).

@@ -2,7 +2,7 @@
 rem ====================================================================
 rem  Persian AI Backend - launcher (Windows cmd)
 rem
-rem    run.bat            activate venv, start all workers + FastAPI
+rem    run.bat            activate venv, start all workers (summarizer) + FastAPI
 rem    run.bat install    (re)install requirements.txt
 rem    run.bat test       install dev requirements and run the tests
 rem    (Qdrant must already be running: QDRANT_URL in .env, default http://127.0.0.1:6333)
@@ -27,6 +27,7 @@ if /i "%~1"=="api"     goto :role_api
 if /i "%~1"=="install" goto :cmd_install
 if /i "%~1"=="test"    goto :cmd_test
 if /i "%~1"=="secret"  goto :cmd_secret
+if /i "%~1"=="worker_summarizer" goto :role_worker_summarizer
 rem if /i "%~1"=="worker_ingestion" goto :role_worker_ingestion
 
 :main
@@ -40,9 +41,9 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo [run] Starting workers...
-rem ---- WORKERS (one line per worker; none exist yet) -----------------
+rem ---- WORKERS (one line per worker) ---------------------------------
+start "AI Worker - summarizer" cmd /k ""%~f0" worker_summarizer"
 rem start "AI Worker - ingestion" cmd /k ""%~f0" worker_ingestion"
-echo [run] No workers defined yet.
 rem ---- /WORKERS ------------------------------------------------------
 
 echo [run] Starting FastAPI...
@@ -60,6 +61,15 @@ echo [api] venv activated. Starting FastAPI: python -m app
 python -m app
 echo.
 echo [api] Server stopped with exit code %errorlevel%.
+exit /b %errorlevel%
+
+:role_worker_summarizer
+title AI Worker - summarizer
+call "%AIB_VENV%\Scripts\activate.bat"
+echo [worker_summarizer] venv activated. Starting: python -m app.workers.summarizer
+python -m app.workers.summarizer
+echo.
+echo [worker_summarizer] Worker stopped with exit code %errorlevel%.
 exit /b %errorlevel%
 
 rem :role_worker_ingestion

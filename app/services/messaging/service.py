@@ -20,6 +20,14 @@ from app.db.base import Database
 from app.db.messaging_models import Message
 from app.db.messaging_repository import MessagingRepository
 from app.schemas.messaging import SendMessageRequest
+from app.services.chunking.tokens import TokenCounter
+from app.services.conversation.answer import (
+    AiAnswerResult,
+    AnswerGenerator,
+    FixedAnswerGenerator,
+)
+from app.services.conversation.history import HistoryBuilder
+from app.services.conversation.summary_service import SummaryService
 from app.services.messaging import storage
 from app.services.messaging.errors import ConversationNotFoundError, MessageNotFoundError
 
@@ -34,13 +42,24 @@ class SendResult:
     created_conversation: bool
     attachment_status: AttachmentStatus
     message: Message
+    ai: AiAnswerResult
 
 
 class MessagingService:
-    def __init__(self, *, settings: Settings, db: Database):
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        db: Database,
+        answer_generator: AnswerGenerator | None = None,
+        token_counter: TokenCounter | None = None,
+    ):
         self.settings = settings
         self.db = db
         self.repo = MessagingRepository(db)
+        self.answer_generator: AnswerGenerator = answer_generator or FixedAnswerGenerator()
+        self._counter = token_counter
+        self.summaries = SummaryService(settings=settings, repo=self.repo)  # enqueue only
         self._ready = False
         self._ready_lock = asyncio.Lock()
 
@@ -97,7 +116,67 @@ class MessagingService:
             msg, status = await self._fetch_attachment(
                 msg, req.attachment_url, req.attachment_type.value
             )
-        return SendResult(conv.id, created, status, msg)
+
+        ai = AiAnswerResult()
+        if req.generate_ai_answer and req.role.value == "user":
+            ai = await self._generate_answer(conv.id, msg)
+        return SendResult(conv.id, created, status, msg, ai)
+
+    # ------------------------------------------------------------------ AI answer
+    @property
+    def counter(self) -> TokenCounter:
+        if self._counter is None:  # loads the tiktoken vocabulary once
+            self._counter = TokenCounter.from_settings(self.settings)
+        return self._counter
+
+    async def enqueue_summary(self, conversation_id: int, upto_message_id: int) -> bool:
+        """Background task: runs after the response was sent to the client."""
+        return await self.summaries.enqueue(conversation_id, upto_message_id)
+
+    async def _generate_answer(self, conversation_id: int, question: Message) -> AiAnswerResult:
+        """History -> (fixed for now) answer -> saved as `assistant`. Never raises: the user
+        message is already stored, so a failure here only marks the answer as failed."""
+        try:
+            conv = await self.repo.get_conversation(conversation_id)
+            if conv is None:
+                raise ConversationNotFoundError("Conversation not found")
+            builder = HistoryBuilder(
+                self.repo,
+                self.counter,
+                recent_pairs=self.settings.HISTORY_RECENT_PAIRS,
+                trigger_tokens=self.settings.SUMMARY_TRIGGER_TOKENS,
+            )
+            history = await builder.build(conv, question)
+            text = await self.answer_generator.generate(history)
+            reply = await self.repo.add_message(
+                conversation_id,
+                visitor_uid=conv.visitor_uid,
+                wp_user_id=conv.wp_user_id,
+                role="assistant",
+                content=text,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "messaging.answer_failed conversation_id=%s message_id=%s",
+                conversation_id, question.id,
+            )  # fmt: skip
+            return AiAnswerResult(status="failed")
+
+        logger.info(
+            "messaging.answer_generated conversation_id=%s question_id=%s answer_id=%s "
+            "full_history_tokens=%d context_tokens=%d needs_summary=%s",
+            conversation_id, question.id, reply.id, history.full_history_tokens,
+            history.context_tokens, history.needs_summary,
+        )  # fmt: skip
+        return AiAnswerResult(
+            status="generated",
+            message=reply,
+            full_history_tokens=history.full_history_tokens,
+            context_tokens=history.context_tokens,
+            summarization_scheduled=history.needs_summary,
+            # The summary also covers this answer; the request is queued after the response.
+            summarize_upto_message_id=reply.id if history.needs_summary else None,
+        )
 
     async def _fetch_attachment(
         self, msg: Message, url: str, kind: str

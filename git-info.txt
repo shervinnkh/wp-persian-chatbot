@@ -7,5 +7,5 @@ git add .	آماده‌سازی تغییرات برای Commit
 git commit -m "message"	ثبت تغییرات
 git log --oneline	مشاهده Commitها
 تا commint نکردی به master نرو
-git merge feature	آوردن تغییرات Feature به Master
+git merge feature	آوردن تغییرات Feature به Master => esc :wq enter
 git branch -d feature	حذف Branch ادغام‌شده

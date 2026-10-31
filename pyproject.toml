@@ -1,6 +1,6 @@
 [project]
 name = "persian-ai-backend"
-version = "0.3.4"
+version = "0.3.5"
 description = "FastAPI backend (RAG, chat, tools) for the Persian AI Assistant WordPress plugin"
 requires-python = ">=3.10"
 

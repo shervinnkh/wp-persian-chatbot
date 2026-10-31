@@ -1,4 +1,5 @@
 """Request/response models for messaging."""
+
 from __future__ import annotations
 
 import re
@@ -27,6 +28,10 @@ class SendMessageRequest(BaseModel):
 
     admin_user_id: int | None = Field(None, ge=1)
     admin_name: str | None = Field(None, max_length=120)
+
+    # Only meaningful for role=user: true -> an answer is generated and saved as `assistant`.
+    # Missing / false -> the message is only saved. Ignored for admin/assistant messages.
+    generate_ai_answer: bool = False
 
     @field_validator("wp_user_id")
     @classmethod
@@ -76,6 +81,8 @@ class SendMessageRequest(BaseModel):
         else:
             self.admin_user_id = None
             self.admin_name = None
+        if self.role != MessageRole.user:
+            self.generate_ai_answer = False
         return self
 
 
@@ -102,12 +109,23 @@ class MessageOut(BaseModel):
         return v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v
 
 
+class AiAnswerOut(BaseModel):
+    # skipped = no answer requested | generated = `message` is the saved reply | failed = the
+    # user message is saved but the answer could not be produced (reason in the server log)
+    status: Literal["skipped", "generated", "failed"]
+    message: MessageOut | None = None
+    full_history_tokens: int | None = None  # summary + all unsummarized messages
+    context_tokens: int | None = None  # what the AI would receive (summary + last pairs + question)
+    summarization_scheduled: bool = False  # queued right after this response was sent
+
+
 class SendMessageResponse(BaseModel):
     conversation_id: int
     created_conversation: bool
     # none = no attachment | stored = downloaded | failed = message saved, download failed
     attachment_status: Literal["none", "stored", "failed"]
     message: MessageOut
+    ai_answer: AiAnswerOut
 
 
 class DeleteMessageResponse(BaseModel):
