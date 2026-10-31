@@ -75,17 +75,6 @@ class Settings(BaseSettings):
     EMBEDDING_TIMEOUT: int = Field(60, ge=5, le=600)
     EMBEDDING_MAX_RETRIES: int = Field(3, ge=0, le=10)
 
-    # --- Knowledge files (pdf / txt / docx downloaded from the WordPress site) ---
-    # Download link = FILES_BASE_URL + path (the plugin only sends the relative path).
-    FILES_BASE_URL: str = "http://aiwpassistant.local/"
-    FILES_MAX_MB: int = Field(100, ge=1, le=2000)  # per-file size limit
-    FILES_DIR: Path | None = None  # None = <UPLOADS_DIR>/knowledge_files
-    FILES_KEEP_ORIGINAL: bool = True  # False = delete the downloaded file after indexing
-    FILES_CONNECT_TIMEOUT: float = Field(10.0, ge=1, le=120)
-    FILES_READ_TIMEOUT: float = Field(60.0, ge=5, le=600)
-    FILES_DOWNLOAD_RETRIES: int = Field(2, ge=0, le=5)
-    FILES_MAX_EXTRACTED_CHARS: int = Field(5_000_000, ge=10_000)  # guard against huge texts
-
     # --- Chunking (token counts use tiktoken) ---
     TIKTOKEN_ENCODING: str = "cl100k_base"  # also used by text-embedding-3-large
     # tiktoken downloads its vocabulary once; it is cached here (drop the file in manually
@@ -95,6 +84,13 @@ class Settings(BaseSettings):
     CHUNK_MAX_TOKENS: int = Field(600, ge=150, le=8000)
     CHUNK_OVERLAP_TOKENS: int = Field(60, ge=0, le=1000)
     CHUNK_MIN_TOKENS: int = Field(80, ge=10, le=2000)
+
+    # --- Messaging (conversations + chat attachments) ---
+    # WordPress site address. Chat attachments (image/voice) are downloaded ONLY from this
+    # host (SSRF protection). Empty = attachments are not downloaded.
+    PLUGIN_BASE_URL: str = ""
+    MESSAGE_ATTACHMENT_MAX_MB: int = Field(20, ge=1, le=100)
+    MESSAGE_DOWNLOAD_TIMEOUT: int = Field(30, ge=5, le=300)
 
     # ---------- validators ----------
     @field_validator("LOG_LEVEL", mode="before")
@@ -122,18 +118,13 @@ class Settings(BaseSettings):
             raise ValueError("API_SHARED_SECRET looks low-entropy; generate a random one.")
         return v
 
-    @field_validator("FILES_DIR", mode="before")
+    @field_validator("PLUGIN_BASE_URL")
     @classmethod
-    def _empty_files_dir(cls, v):
-        return None if isinstance(v, str) and not v.strip() else v
-
-    @field_validator("FILES_BASE_URL")
-    @classmethod
-    def _check_files_base_url(cls, v: str) -> str:
+    def _check_plugin_url(cls, v: str) -> str:
         v = v.strip()
-        if not v.lower().startswith(("http://", "https://")):
-            raise ValueError("FILES_BASE_URL must start with http:// or https://")
-        return v if v.endswith("/") else v + "/"
+        if v and not re.match(r"^https?://[^/\s]+", v, re.I):
+            raise ValueError("PLUGIN_BASE_URL must look like https://your-site.com")
+        return v
 
     @field_validator("ALLOWED_IPS")
     @classmethod
@@ -190,14 +181,6 @@ class Settings(BaseSettings):
     @property
     def uploads_dir(self) -> Path:
         return self._abs(self.UPLOADS_DIR)
-
-    @property
-    def files_dir(self) -> Path:
-        return self._abs(self.FILES_DIR) if self.FILES_DIR else self.uploads_dir / "knowledge_files"
-
-    @property
-    def files_max_bytes(self) -> int:
-        return self.FILES_MAX_MB * 1024 * 1024
 
     @property
     def tiktoken_cache_dir(self) -> Path:

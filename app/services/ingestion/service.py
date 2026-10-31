@@ -19,9 +19,9 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from app.core.config import Settings
-from app.core.errors import AppError, UnprocessableRecordError
+from app.core.errors import AppError
 from app.db.base import Database
-from app.db.repository import ChunkWrite, KnowledgeRepository, RecordState, RecordWrite
+from app.db.repository import ChunkWrite, KnowledgeRepository, RecordWrite
 from app.schemas.knowledge import (
     DeleteItemResult,
     UpsertItemResult,
@@ -29,10 +29,8 @@ from app.schemas.knowledge import (
 from app.services.chunking.pipeline import (
     CHUNKER_VERSION,
     ChunkPlan,
-    PlannedChunk,
     build_plan,
     data_hash,
-    make_chunk_id,
 )
 from app.services.chunking.splitter import ChunkConfig
 from app.services.chunking.tokens import TokenCounter
@@ -187,23 +185,8 @@ class KnowledgeService:
             self.counter.exact, (time.perf_counter() - t0) * 1000,
         )  # fmt: skip
 
-        return await self._commit_plan(
-            record_id, state, plan, data, digest, force, self.pipeline_id
-        )
-
-    async def _commit_plan(
-        self,
-        record_id: str,
-        state: RecordState | None,
-        plan: ChunkPlan,
-        data: dict[str, Any],
-        digest: str,
-        force: bool,
-        pipeline: str,
-    ) -> UpsertItemResult:
-        """Steps 2-5: embed changed chunks -> Qdrant -> drop stale points -> text DB."""
         # 2. embed only the chunks whose text changed (or all, when pipeline/force says so)
-        reuse = state is not None and not force and state.pipeline == pipeline
+        reuse = state is not None and not force and state.pipeline == self.pipeline_id
         old_hashes = state.chunk_hashes if (state and reuse) else {}
         to_embed = [c for c in plan.chunks if old_hashes.get(c.index) != c.hash]
         embedding_tokens = 0
@@ -263,7 +246,7 @@ class KnowledgeService:
                 url=plan.url,
                 data=data,
                 data_hash=digest,
-                pipeline=pipeline,
+                pipeline=self.pipeline_id,
             ),
             [ChunkWrite(c.chunk_id, c.index, c.text, c.tokens, c.hash) for c in plan.chunks],
         )
@@ -279,55 +262,6 @@ class KnowledgeService:
             tokens=plan.total_tokens,
             embedding_tokens=embedding_tokens,
         )
-
-    # ------------------------------------------------------- pre-chunked records
-    async def get_state(self, record_id: str) -> RecordState | None:
-        await self.ensure_ready()
-        return await self.repo.get_state(record_id)
-
-    def pipeline_for(self, suffix: str) -> str:
-        """Pipeline id of texts/files: the standard one + the doc-chunker version."""
-        return f"{self.pipeline_id}|{suffix}"
-
-    async def store_prebuilt(
-        self,
-        record_id: str,
-        *,
-        record_type: str,
-        title: str,
-        url: str | None,
-        data: dict[str, Any],
-        digest: str,
-        chunks: list[tuple[str, int, str]],  # (text, tokens, text_hash)
-        pipeline: str,
-        force: bool = False,
-        state: RecordState | None = None,
-    ) -> UpsertItemResult:
-        """Embed + store chunks that were already built elsewhere (texts / files).
-
-        Same write order and idempotency as `upsert_many`; unchanged chunk texts are not
-        re-embedded. The caller must hold `self.lock(record_id)`.
-        """
-        await self.ensure_ready()
-        if not chunks:
-            raise UnprocessableRecordError("Record produced no text chunks")
-        if state is None:
-            state = await self.repo.get_state(record_id)
-        plan = ChunkPlan(record_id=record_id, record_type=record_type, title=title, url=url)
-        for i, (text, tokens, h) in enumerate(chunks):
-            plan.chunks.append(
-                PlannedChunk(i, make_chunk_id(record_id, i), "main", text, tokens, h)
-            )
-        plan.text_chars = sum(len(c[0]) for c in chunks)
-        logger.info(
-            "knowledge.prebuilt id=%s type=%s chunks=%d tokens=%s total_tokens=%d",
-            record_id, record_type, len(chunks), [c[1] for c in chunks], plan.total_tokens,
-        )  # fmt: skip
-        return await self._commit_plan(record_id, state, plan, data, digest, force, pipeline)
-
-    def lock(self, record_id: str):
-        """Per-record lock (async context manager) shared with upsert/delete."""
-        return self._locks.hold(record_id)
 
     # ------------------------------------------------------------------ delete
     async def delete_many(self, ids: list[str]) -> list[DeleteItemResult]:

@@ -59,19 +59,6 @@ class UnprocessableRecordError(AppError):
     code = "unprocessable_record"
 
 
-class FileProcessingError(AppError):
-    """A file/text record cannot be downloaded, read or indexed. `code` is per-instance
-    (e.g. file_too_large, unsupported_extension, file_not_found, no_text_extracted)."""
-
-    status_code = 422
-    code = "file_error"
-
-    def __init__(self, code: str, message: str, *, retryable: bool = False, details: Any = None):
-        super().__init__(message, details=details)
-        self.code = code
-        self.retryable = retryable
-
-
 class UpstreamError(AppError):
     """An external service (embedding API) failed or returned something unusable."""
 

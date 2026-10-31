@@ -55,13 +55,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await service.ensure_ready()
         except Exception as exc:  # noqa: BLE001
             logger.error("Knowledge service not ready at startup (will retry on use): %s", exc)
+    messaging = getattr(app.state, "messaging_service", None)
+    if messaging is None:
+        try:
+            from app.services.messaging import MessagingService
+
+            messaging = MessagingService.from_settings(settings)
+            app.state.messaging_service = messaging
+        except Exception:
+            logger.exception("Messaging service could not be created at startup")
+    if messaging is not None:
+        try:
+            await messaging.ensure_ready()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Messaging service not ready at startup (will retry on use): %s", exc)
     yield
     if service is not None:
         await service.close()
+    if messaging is not None:
+        await messaging.close()
     logger.info("Shutting down")
 
 
-def create_app(settings: Settings | None = None, knowledge_service=None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, knowledge_service=None, messaging_service=None
+) -> FastAPI:
     settings = settings or get_settings()
     setup_logging(settings)
 
@@ -76,6 +94,7 @@ def create_app(settings: Settings | None = None, knowledge_service=None) -> Fast
     )
     app.state.settings = settings
     app.state.knowledge_service = knowledge_service  # None = built lazily
+    app.state.messaging_service = messaging_service  # None = built lazily
     register_exception_handlers(app)
 
     # add_middleware: the last one added is the outermost.
