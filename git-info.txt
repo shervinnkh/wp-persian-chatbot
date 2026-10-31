@@ -1,0 +1,11 @@
+git status	وضعیت تغییرات
+git branch	نمایش Branchها
+git branch feature	ساخت Branch جدید
+git switch feature	رفتن به Branch
+git diff	دیدن تغییرات ثبت‌نشده
+git add .	آماده‌سازی تغییرات برای Commit
+git commit -m "message"	ثبت تغییرات
+git log --oneline	مشاهده Commitها
+تا commint نکردی به master نرو
+git merge feature	آوردن تغییرات Feature به Master
+git branch -d feature	حذف Branch ادغام‌شده
