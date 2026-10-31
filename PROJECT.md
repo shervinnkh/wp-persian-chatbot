@@ -5,7 +5,7 @@
 
 | مورد | مقدار |
 |---|---|
-| نسخهٔ فعلی | `0.3.5` (پیام‌رسانی + آماده‌سازی تاریخچه، پاسخ ثابت بدون AI با کلید `generate_ai_answer`، سیستم خلاصه‌سازی با worker؛ بالای بخش اول پایگاه دانش 0.3.x) |
+| نسخهٔ فعلی | `0.3.6` (صف ingestion + worker جدا + callback تکمیل پردازش به افزونه؛ روی 0.3.5: پیام‌رسانی، تاریخچه، خلاصه‌سازی) |
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -39,7 +39,10 @@
 
 دستورهای دیگر: `run.bat install` (نصب دوبارهٔ پکیج‌ها)، `run.bat test` (نصب وابستگی‌های dev + اجرای تست‌ها)، `run.bat secret` (چاپ یک راز تازه).
 
-**workerها:** `worker_summarizer` (خلاصه‌سازی گفتگوها، `python -m app.workers.summarizer`) همراه `run.bat` بالا می‌آید؛ بدون آن، خلاصه‌ای ساخته نمی‌شود (درخواست‌ها در جدول `summary_requests` منتظر می‌مانند).
+**workerها** (همه با `run.bat` بالا می‌آیند):
+- `worker_ingestion` (`python -m app.workers.ingestion`): چانکینگ ← امبدینگ ← Qdrant + دیتابیس برای کارهای صف (`ingest_jobs`). بدون آن، رکوردها در صف می‌مانند. **اگر `QDRANT_PATH` پر باشد** (Qdrant توکار فقط با یک پروسه باز می‌شود) همین حلقه داخل خود API اجرا می‌شود (`INGEST_RUN_IN_API` خودکار) و `run.bat` پنجرهٔ ingestion را باز نمی‌کند.
+- `worker_delivery` (`python -m app.workers.delivery`): فرستادن «کار فلان رکورد تمام شد» به افزونه (outbox `callback_deliveries`). فقط دیتابیس + HTTP می‌خواهد؛ **دقیقاً یک نمونه** اجرا شود.
+- `worker_summarizer` (`python -m app.workers.summarizer`): خلاصه‌سازی گفتگوها؛ بدون آن درخواست‌ها در `summary_requests` منتظر می‌مانند.
 
 **اضافه‌کردن worker در آینده:** در `run.bat` بخش `WORKERS` یک خط `start "AI Worker - نام" cmd /k ""%~f0" worker_نام"` اضافه می‌شود و یک برچسب `:role_worker_نام` (همان الگوی کامنت‌شده) که venv را فعال کرده و `python -m app.workers.نام` را اجرا می‌کند.
 
@@ -83,23 +86,24 @@ persian-ai-backend/
 │  ├─ api/
 │  │  ├─ deps.py           require_signed_request (احراز هویت + IP allowlist)
 │  │  ├─ router.py         مونتاژ routerها؛ `/v1` با وابستگی احراز هویت
-│  │  └─ v1/               health.py (عمومی)، system.py (/v1/ping)، knowledge.py (رکوردها)، messaging.py (پیام‌ها)
-│  ├─ schemas/             مدل‌های Pydantic درخواست/پاسخ (common.py، knowledge.py، messaging.py)
+│  │  └─ v1/               health.py (عمومی)، system.py (/v1/ping)، knowledge.py (رکوردها؛ فقط صف)، jobs.py (وضعیت job)، messaging.py (پیام‌ها)
+│  ├─ schemas/             مدل‌های Pydantic درخواست/پاسخ (common.py، knowledge.py، messaging.py، ingest.py)
 │  ├─ services/
 │  │  ├─ chunking/         normalize.py (نرمال‌سازی فارسی)، render.py (رکورد ← متن فارسی)،
 │  │  │                    splitter.py (چانک بر اساس توکن)، tokens.py (tiktoken)،
 │  │  │                    jalali.py (تاریخ شمسی)، pipeline.py (build_plan)
 │  │  ├─ embedding/        openai_embedder.py (batch + لاگ usage)
 │  │  ├─ vectorstore/      qdrant.py (collection، upsert، حذف با فیلتر record_id)
-│  │  ├─ ingestion/        service.py (KnowledgeService: upsert_many / delete_many)
+│  │  ├─ ingestion/        service.py (KnowledgeService: upsert_many / delete_many)، queue.py (سمت API: اعتبارسنجی + ثبت job + وضعیت)،
+│  │  │                    processor.py (سمت worker)، delivery.py (ارسال callback: batch/backoff/breaker/ping)، callback.py (SSRF + قفل سایت)
 │  │  ├─ messaging/        service.py (MessagingService: ثبت/حذف پیام + تولید پاسخ)، storage.py (دانلود امن پیوست)، errors.py
 │  │  ├─ conversation/     history.py (HistoryBuilder: خلاصه + ۳ زوج آخر + پیام آخر، شمارش توکن)، answer.py (پاسخ ثابت؛ جای LLM)،
 │  │  │                    summarizer.py (پرامپت انگلیسی + کلاینت OpenAI)، summary_service.py (صف: enqueue / process_next)
 │  │  └─ llm, tools, speech, vision   (آیندهٔ نزدیک؛ فعلاً docstring)
 │  ├─ db/                  base.py (engine/session)، models.py (records, chunks)،
 │  │                       messaging_models.py (conversations, messages, summary_requests)، messaging_repository.py (MessagingRepository)،
-│  │                       repository.py (تنها جای SQL پایگاه دانش)
-│  └─ workers/             summarizer.py (`python -m app.workers.summarizer`)
+│  │                       repository.py (تنها جای SQL پایگاه دانش)، ingest_models.py + ingest_repository.py (صف ingestion و outbox callback)
+│  └─ workers/             summarizer.py · ingestion.py · delivery.py (`python -m app.workers.<نام>`)
 ├─ scripts/
 │  ├─ preview_chunks.py    پیش‌نمایش چانک‌ها از یک فایل JSON (بدون شبکه)
 │  ├─ kb_upsert.py / kb_delete.py / kb_show.py   تست endpointها با امضا (سرور باید روشن باشد)
@@ -210,14 +214,35 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `SUMMARY_WORKER_POLL_SECONDS` | `3` | فاصلهٔ بررسی صف وقتی کاری نیست |
 | `SUMMARY_STALE_SECONDS` | `600` | درخواستِ گیرکرده در `processing` (worker خراب‌شده) بعد از این مدت دوباره pending می‌شود |
 
-مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`، `PLUGIN_CALLBACK_SECRET`.
+**جدید در 0.3.6** (صف ingestion و callback):
+
+| کلید | پیش‌فرض | توضیح |
+|---|---|---|
+| `INGEST_RUN_IN_API` | خالی = خودکار | خالی: فقط وقتی `QDRANT_PATH` پر است حلقهٔ ingestion داخل API اجرا می‌شود. `true/false` اجبار می‌کند |
+| `INGEST_WORKER_CONCURRENCY` | `2` | تعداد رکوردی که هم‌زمان پردازش می‌شود (یک رکورد هرگز دو بار هم‌زمان) |
+| `INGEST_WORKER_POLL_SECONDS` | `1` | فاصلهٔ بررسی صف وقتی کاری نیست |
+| `INGEST_MAX_ATTEMPTS` / `INGEST_RETRY_DELAY_SECONDS` | `3` / `30` | تلاش مجدد برای خطای موقت (OpenAI/Qdrant)؛ تأخیر × شمارهٔ تلاش. خطای دائمی (مثلاً متن خالی) تلاش مجدد ندارد |
+| `INGEST_STALE_SECONDS` | `900` | job گیرکرده در `processing` (worker مرده) دوباره pending می‌شود |
+| `INGEST_RETENTION_DAYS` | `7` | job/deliveryهای تمام‌شده بعد از این مدت پاک می‌شوند |
+| `PLUGIN_CALLBACK_SECRET` | خالی ← `API_SHARED_SECRET` | کلید امضای callback (همان `api_key` افزونه) |
+| `CALLBACK_ALLOW_PRIVATE_NETWORKS` | `false` | فقط توسعه: http و آدرس‌های داخلی/لوپ‌بک مجاز. در production ممنوع (استارت رد می‌شود) |
+| `CALLBACK_BATCH_WINDOW_SECONDS` | `10` | نتیجه‌ها این‌قدر صبر می‌کنند تا چند تا در یک درخواست بروند |
+| `CALLBACK_INITIAL_BATCH_SIZE` | `50` | اندازهٔ اولیهٔ دسته؛ با سرعت سایت تطبیق می‌یابد (۱۰..۵۰۰) |
+| `CALLBACK_CONNECT_TIMEOUT` / `CALLBACK_TOTAL_TIMEOUT` | `3` / `10` | timeout سخت هر درخواست به سایت (ثانیه) |
+| `CALLBACK_MAX_CONCURRENCY` | `8` | حداکثر سایت‌های هم‌زمان (برای هر سایت همیشه یکی) |
+| `CALLBACK_MIN_INTERVAL_SECONDS` | `1` | فاصلهٔ حداقل بین دو ارسال به یک سایت |
+| `CALLBACK_MAX_ATTEMPTS` | `8` | بعد از این‌همه ارسال ناموفق، نتیجه `dead` می‌شود (جبران با `/v1/jobs/status`) |
+| `CALLBACK_BREAKER_FAILURES` / `CALLBACK_PING_INTERVAL_SECONDS` | `5` / `300` | بعد از N شکست پیاپی فقط ping دوره‌ای تا سایت برگردد |
+| `CALLBACK_WORKER_POLL_SECONDS` | `2` | فاصلهٔ حلقهٔ worker تحویل |
+
+مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`.
 
 ## ۶. فرمت یکنواخت خطا
 
 ```json
 {"error": {"code": "unauthorized", "message": "Invalid signature", "request_id": "b3f4f577981a441a", "details": null}}
 ```
-کدها: `unauthorized` (401)، `forbidden` (403)، `not_found` (404)، `method_not_allowed` (405)، `payload_too_large` (413)، `validation_error` (422، `details` = فهرست `loc/msg/type` بدون برگرداندن ورودی)، `https_required` (400)، `unprocessable_record` (422؛ رکورد متن قابل‌استفاده ندارد)، `upstream_error` (502؛ API امبدینگ)، `service_unavailable` (503؛ Qdrant/دیتابیس/کلید تنظیم‌نشده)، `internal_error` (500؛ جزئیات فقط در لاگ). در endpointهای دسته‌ای خطای هر رکورد داخل `results[].error` برمی‌گردد و بقیه ادامه می‌دهند. خطای جدید = زیرکلاس `AppError` در `core/errors.py`.
+کدها: `unauthorized` (401)، `forbidden` (403)، `not_found` (404)، `method_not_allowed` (405)، `payload_too_large` (413)، `validation_error` (422، `details` = فهرست `loc/msg/type` بدون برگرداندن ورودی)، `https_required` (400)، `unprocessable_record` (422؛ رکورد متن قابل‌استفاده ندارد)، `invalid_callback` (422؛ آدرس callback نامعتبر/خطرناک/متعلق به سایت دیگر)، `upstream_error` (502؛ API امبدینگ)، `service_unavailable` (503؛ Qdrant/دیتابیس/کلید تنظیم‌نشده)، `internal_error` (500؛ جزئیات فقط در لاگ). در endpointهای دسته‌ای خطای هر رکورد داخل `results[].error` برمی‌گردد و بقیه ادامه می‌دهند. خطای جدید = زیرکلاس `AppError` در `core/errors.py`.
 
 ## ۷. Endpointها
 
@@ -225,9 +250,10 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 |---|---|---|---|
 | `GET /health` | عمومی | ✅ | `{"status":"ok"}` |
 | `GET\|POST /v1/ping` | امضادار | ✅ | تست اتصال/امضا؛ `server_time`، `received_bytes` |
-| `POST /v1/knowledge/records` | امضادار | ✅ 0.3.0 | لیست `{id, data}` ← یکی‌یکی: چانک ← امبدینگ ← Qdrant + دیتابیس متنی (create/update خودکار) |
-| `DELETE /v1/knowledge/records` | امضادار | ✅ 0.3.0 | بدنه `{ids:[...]}` ← حذف کامل از دیتابیس متنی و Qdrant |
-| `PUT /v1/knowledge/records` | امضادار | ✅ 0.3.3 | همان بدنهٔ POST؛ برای هر رکورد: ابتدا حذف کامل (`delete_many`) و سپس افزودن (`upsert_many`)، یکی‌یکی. اگر حذف شکست بخورد افزودن انجام نمی‌شود |
+| `POST /v1/knowledge/records` | امضادار | ✅ 0.3.6 | **فقط صف**: اعتبارسنجی + ثبت job ← **200 فوری**؛ worker بعداً چانک ← امبدینگ ← Qdrant + دیتابیس و بعد callback. دو شکل بدنه (دسته‌ای / تک‌رکوردی افزونه) |
+| `DELETE /v1/knowledge/records` | امضادار | ✅ 0.3.6 | بدنه `{ids:[...], callback?}` ← صف؛ worker حذف کامل از دیتابیس متنی و Qdrant (callback: `untrained`) |
+| `PUT /v1/knowledge/records` | امضادار | ✅ 0.3.6 | همان بدنهٔ POST؛ صف؛ worker برای هر رکورد: ابتدا حذف کامل و سپس افزودن. اگر حذف شکست بخورد افزودن انجام نمی‌شود |
+| `POST /v1/jobs/status` | امضادار | ✅ 0.3.6 | بدنه `{ids:[...]}` ← آخرین وضعیت هر رکورد: `trained`/`untrained`/`failed`/`processing`/`unknown` (+`rev`, `job_id`, `error`)؛ تور ایمنی وقتی callback گم شود (README افزونه §6) |
 | `GET /v1/knowledge/records?limit&offset&kind` | امضادار | ✅ 0.3.2 | فهرست رکوردهای ذخیره‌شده (دیباگ) |
 | `GET /v1/knowledge/records/{id}` | امضادار | ✅ 0.3.2 | رکورد + داده خام + چانک‌ها + payloadهای Qdrant + `in_sync` (دیباگ) |
 | `PUT /v1/knowledge/texts/{id}` · `DELETE …` | امضادار | ⏳ 0.3.0 | متن‌های دستی (چانک‌ها از افزونه می‌آیند) |
@@ -246,7 +272,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - [x] **0.1.0** — ساختار، تنظیمات، لاگینگ، HMAC، `/health` و `/v1/ping`، تست‌ها، `run.bat`، فایل‌های دیپلوی
 - [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصه‌سازی: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ✅ آماده‌سازی تاریخچه، کلید `generate_ai_answer`، پاسخ ثابت، خلاصه‌سازی بر پایهٔ توکن با worker (0.3.5)؛ ⏳ Alembic، endpoint تاریخچه
 - [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ⏳ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
-- [ ] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه
+- [~] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه: ✅ زیرساخت worker/صف/callback (0.3.6؛ برای هر `id` با هر پیشوند کار می‌کند)؛ ⏳ endpointهای `text:*` و `file:*`، دانلود و استخراج متن
 - [ ] **0.5.0** — تولید پاسخ: RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
 - [ ] **0.6.0** — ابزارها (tools) و callback امضادار به افزونه برای داده‌های زنده
 - [ ] **0.7.0** — ویس: STT برای ورودی، TTS برای پاسخ
@@ -377,7 +403,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 **ارسال مجدد هوشمند:** اگر `data_hash` و `pipeline` همان قبلی باشد ← `unchanged` (بدون امبدینگ). اگر داده عوض شده باشد فقط چانک‌هایی که `hash` متنشان فرق کرده امبدینگ می‌شوند (`embedded_chunks` / `reused_chunks`). `force=true` همه را دوباره می‌سازد.
 
-**قرارداد API:**
+**قرارداد API (از 0.3.6 پاسخ POST/PUT/DELETE فقط «پذیرفته شد» است؛ این بخش بدنهٔ ورودی و فیلدهای نتیجهٔ هر رکورد را توضیح می‌دهد که حالا در `ingest_jobs.result` ذخیره می‌شود؛ شکل پاسخ جدید: بخش «صف ingestion»):**
 
 ```jsonc
 // POST /v1/knowledge/records   (بدنه حداکثر MAX_BODY_BYTES؛ ۱..۱۰۰ رکورد؛ `data` شیء JSON یا رشتهٔ JSON)
@@ -394,11 +420,64 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 // ← 200 {"confirmed_ids": [...], "failed_ids": [...],
 //        "results": [{"id": "...", "status": "deleted|not_found|failed", "chunks_removed": 2, "error": null}]}
 ```
-افزونه باید فقط `confirmed_ids` را «آموزش‌دیده» علامت بزند. `status` ∈ `created|updated|unchanged|failed`. اگر کل بدنه نامعتبر باشد 422 و اگر Qdrant/دیتابیس از ابتدا در دسترس نباشد 503 می‌آید. بدنه‌های بزرگ: با سقف ۵MB، دسته‌های ~۲۰ رکوردی بفرستید.
+از 0.3.6 افزونه رکورد را با 200 «در حال پردازش» (`ai_status=1`) می‌کند و فقط با callback `trained` (یا `/v1/jobs/status`) «پردازش‌شده» (`2`) می‌شود. `status` ∈ `created|updated|unchanged|failed`. اگر کل بدنه نامعتبر باشد 422 و اگر Qdrant/دیتابیس از ابتدا در دسترس نباشد 503 می‌آید. بدنه‌های بزرگ: با سقف ۵MB، دسته‌های ~۲۰ رکوردی بفرستید.
 
 **لاگ‌ها** (`logs/app.log`، بدون متن رکورد/راز؛ فقط شناسه و عدد): `knowledge.upsert_batch` ← `knowledge.upsert_start` ← `knowledge.chunked` (نوع، تعداد چانک، توکن هر چانک، مجموع، طول متن، دقیق‌بودن tokenizer، زمان) ← `embedding.request` (تعداد ورودی، `prompt_tokens`، `total_tokens`، زمان) ← `knowledge.qdrant_upserted` / `knowledge.qdrant_stale_removed` ← `knowledge.db_saved` ← `knowledge.upsert_done` (وضعیت نهایی، توکن‌ها، زمان). حالت‌های ویژه: `knowledge.unchanged`، `knowledge.no_new_chunks`، `knowledge.token_mismatch` (اختلاف >۱۵٪ بین tiktoken و usage API)، `knowledge.upsert_failed`، و برای حذف `knowledge.delete_batch` / `knowledge.delete_done`. اگر tiktoken نتواند واژگانش را دانلود کند، هشدار «APPROXIMATE token counter» در لاگ می‌آید و شمارش تقریبی (نویسه ÷ ۲٫۲) استفاده می‌شود.
 
 **محدودیت‌های شناخته‌شده:** (۱) lock هر رکورد فقط درون یک پردازش است؛ با `WORKERS>1` دو درخواست همزمان روی یک شناسه محافظت نمی‌شوند. (۲) جدول‌ها با `create_all` ساخته می‌شوند؛ Alembic همراه مرحلهٔ 0.2.0 می‌آید. (۳) فیلد `site_id` فعلاً نیست (تک‌سایتی؛ تصمیم باز ۵). (۴) رندر `attributes`/`variations` حدسی/عمومی است چون نمونهٔ واقعی نداشتیم؛ با اولین نمونهٔ واقعی دقیق شود.
+
+### صف ingestion و callback تکمیل (پیاده‌شده در 0.3.6)
+
+**اصل:** کلاینت (افزونه) و سرور هیچ‌وقت منتظر چانکینگ/امبدینگ نمی‌مانند. درخواست فقط ثبت می‌شود؛ کار سنگین در worker جدا؛ و وقتی تمام شد، سرور به افزونه خبر می‌دهد (قرارداد افزونه: `apis/README.md`، نسخهٔ قرارداد 1).
+
+```
+افزونه ─POST {event,id,rev,data,callback}─▶ API: اعتبارسنجی + یک تراکنش insert ─▶ 200 {job_id}   (ارتباط بسته می‌شود؛ افزونه ai_status=1)
+                                                │ ingest_jobs (pending)
+                      worker_ingestion:  چانک → امبدینگ → Qdrant → دیتابیس متنی   (هر job یک رکورد؛ تلاش مجدد برای خطای موقت)
+                                                │ در همان تراکنشِ پایان job:  یک ردیف در callback_deliveries (outbox)
+                      worker_delivery:   دسته‌ای  POST {callback.url} {job_id, delivery_id, results:[{id,status,rev}]}  (امضا HMAC)
+افزونه: ai_status=2 (trained) ◀──────────────┘
+```
+
+**درخواست (دو شکل معتبر):**
+
+```jsonc
+// شکل افزونه (README §7): یک رکورد
+{"event": "create|update", "id": "product:23", "rev": "5d41402a…", "data": {…}, "callback": {…descriptor…}}
+// شکل دسته‌ای (۱..۱۰۰ رکورد)؛ rev/event هر رکورد اختیاری، callback یکی برای همه
+{"records": [{"id": "product:23", "data": {…}, "rev": "…"}], "force": false, "callback": {…}}
+// ← 200 فوری
+{"accepted": true, "job_id": "j_8f3a1c2d0e", "queued_ids": ["product:23"],
+ "jobs": [{"id": "product:23", "job_id": "j_8f3a1c2d0e", "status": "queued"}],
+ "superseded": 0, "callback": "registered"}      // "none" اگر callback نبود (آن‌وقت فقط با /v1/jobs/status پیگیری شود)
+```
+- کد پاسخ **200** است (افزونه هر 2xx را «گرفتم» می‌داند؛ اگر 202 خواستید فقط `status_code` در `knowledge.py` عوض شود).
+- `422 invalid_callback`: آدرس نامعتبر؛ `503`: صف/دیتابیس در دسترس نیست ← افزونه `ai_status` را 0 نگه می‌دارد. همهٔ رکوردهای یک درخواست یا با هم ثبت می‌شوند یا هیچ‌کدام.
+- ثبت درخواست **به OpenAI/Qdrant وابسته نیست**؛ حتی اگر آن‌ها خاموش باشند درخواست ثبت می‌شود و job بعداً انجام می‌شود.
+- `rev` ذخیره و **بدون تغییر** در callback برمی‌گردد (افزونه نتیجهٔ کهنه را `stale` می‌گیرد). `callback` هم کنار job ذخیره می‌شود؛ آدرس هرگز از جای دیگر نمی‌آید.
+
+**قواعد صف:**
+- جایگزینی: ارسال تازه برای رکوردی که job قبلی‌اش هنوز شروع نشده، آن را `superseded` می‌کند (فقط آخرین نسخه پردازش می‌شود؛ callback نسخهٔ قدیمی فرستاده نمی‌شود).
+- یک رکورد هرگز دو job هم‌زمان ندارد (job بعدی تا پایان قبلی منتظر می‌ماند).
+- `create|update` ← upsert هوشمند (فقط چانک‌های تغییرکرده امبدینگ می‌شوند)؛ `PUT` ← حذف کامل و افزودن؛ `DELETE` ← حذف.
+- خطای موقت (`upstream_error` / `service_unavailable` / `internal_error`) ← تلاش مجدد با تأخیر؛ خطای دائمی (`unprocessable_record`) ← فوراً `failed`. بعد از `INGEST_MAX_ATTEMPTS` هم `failed`. worker مرده ← job بعد از `INGEST_STALE_SECONDS` دوباره برداشته می‌شود.
+- نتیجهٔ callback: upsert موفق ← `trained` (+`rev`)؛ حذف ← `untrained`؛ شکست نهایی ← `failed` (+`error` کوتاه). ستون `payload` بعد از پایان null می‌شود.
+
+**callback (worker_delivery)** — طبق README افزونه §3 و §5:
+- امضا: `X-PAIA-Timestamp`، `X-PAIA-Signature: sha256=hex(HMAC(key, "{ts}.{body}"))`، `X-PAIA-Delivery` (UUID؛ در تلاش مجدد همان، با همان مجموعه نتیجه). کلید = `PLUGIN_CALLBACK_SECRET` یا `API_SHARED_SECRET`.
+- **دسته‌ای:** نتایج هر سایت با `CALLBACK_BATCH_WINDOW_SECONDS` تجمیع و در یک درخواست می‌روند (≤ `max_results` سایت، ≤ ~۹۰۰KB). هر نتیجه علاوه بر قرارداد، فیلد `job_id` خودش را دارد؛ `job_id` سطح بالا وقتی یک job است همان، وگرنه شناسهٔ دسته (`b_…`).
+- **کلاینت کند:** timeout سخت (connect ≤ 3s، کل ≤ 10s، سقف مطلق با `wait_for`)، بدنهٔ پاسخ حداکثر ۸KB، بدون redirect؛ برای هر سایت یک ارسال در هر زمان + فاصلهٔ حداقل؛ سقف سراسری سایت‌های هم‌زمان؛ سایت کند هیچ سایت دیگر و هیچ worker هوش مصنوعی را معطل نمی‌کند.
+- **تلاش مجدد:** timeout/408/429/5xx/۴۰۳ WAF ← backoff نمایی با jitter (30ث، ۲د، ۱۰د، ۱س، ۶س) و احترام به `Retry-After`؛ حداکثر `CALLBACK_MAX_ATTEMPTS` سپس `dead`.
+- **circuit breaker:** بعد از `CALLBACK_BREAKER_FAILURES` شکست پیاپی سایت `unhealthy` می‌شود: هیچ نتیجه‌ای نمی‌رود و فقط `ping_url` هر `CALLBACK_PING_INTERVAL_SECONDS` صدا زده می‌شود؛ با اولین ping موفق ارسال از سر گرفته می‌شود. `401` (کلید اشتباه) ← `auth_failed`؛ `404` / `503 paia_not_configured` ← `suspended`؛ هر دو فقط ping، نتیجه‌ها می‌مانند. `401 paia_stale_timestamp` ← با `server_time` سایت دوباره امضا و یک‌بار تلاش. `400` ← تلاش مجدد ندارد (باگ سمت ما، لاگ ERROR). `413` ← دسته نصف می‌شود.
+- **تطبیق با سرعت سایت:** اندازهٔ دسته با زمان پاسخ تنظیم می‌شود (کند > ۴ث ← نصف، سریع < ۱٫۵ث ← دو برابر، ۱۰..۵۰۰).
+- **SSRF** (README §3): فقط https (در توسعه با `CALLBACK_ALLOW_PRIVATE_NETWORKS` http هم)، فقط پورت 443/8443، بدون credential؛ **هاست `callback.url` باید با `PLUGIN_BASE_URL` (یا اولین سایتی که ثبت شده؛ جدول `callback_sites`) یکی باشد**؛ `ping_url` همان هاست؛ قبل از هر ارسال DNS حل می‌شود، آدرس‌های خصوصی/loopback/link-local/CGNAT رد می‌شوند و اتصال به **همان IP بررسی‌شده** انجام می‌شود (ضد DNS-rebinding؛ SNI/Host اصلی حفظ می‌شود).
+- وضعیت سلامت هر سایت در جدول `callback_sites` (`state`, `consecutive_failures`, `last_error`, `last_latency_ms`, `batch_limit`) قابل مشاهده است.
+
+**جدول‌ها:** `ingest_jobs` (job_id، record_id، action، rev، payload، callback، status، attempts، outcome، result، error…)، `callback_sites`، `callback_deliveries` (outbox: پایان job و ثبت delivery در یک تراکنش؛ نتیجه بین دو مرحله گم نمی‌شود).
+
+**لاگ‌ها** (بدون متن رکورد/راز): `ingest.enqueued`، `ingest.job_done` / `job_retry` / `job_failed` / `job_crashed`، `ingest.purged`، `callback.delivered` / `failed` / `site_stopped` / `site_recovered` / `ping_failed` / `bad_request` / `batch_split` / `delivery_dead` / `clock_offset`.
+
+**محدودیت‌های شناخته‌شده:** (۱) worker تحویل باید یک نمونه باشد (دو نمونه فقط تحویل تکراریِ بی‌ضرر می‌سازند). (۲) `dead` شدن نتیجه یعنی افزونه باید با `POST /v1/jobs/status` وضعیت را بگیرد؛ فراخوانی خودکار آن سمت افزونه هنوز نیست. (۳) فیلد `job_id` هر نتیجه و `job_id` دسته‌ای (`b_…`) افزودهٔ ما به قرارداد است (افزونه باید فیلد ناشناخته را نادیده بگیرد). (۴) SQLite با چند پروسه (API + workerها) کار می‌کند (WAL)؛ برای بار بالا PostgreSQL. (۵) در حالت `QDRANT_PATH` حلقهٔ ingestion داخل API است (چانکینگ در thread)؛ برای production Qdrant سرور + worker جدا. (۶) `text:*` و `file:*` هنوز endpoint ندارند (0.4.0).
 
 ### فایل‌ها و سقف ۲۰۰MB (0.4.0)
 - ورودی فقط URL است (بدنهٔ JSON کوچک)؛ سرور با httpx استریم‌دانلود می‌کند در `uploads/{نوع}/{سال}/{ماه}/{uuid}.{پسوند}`، با بررسی نوع/امضای فایل و سقف حجم هر فایل.
@@ -417,7 +496,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 ### تصمیم‌های باز (قبل از مراحل مربوطه روشن شود)
 1. مدل/سرویس LLM، STT و TTS (پیشنهاد: ارائه‌دهندهٔ واحد برای سادگی؛ افزونه فعلاً `gpt-5-4` را نشان می‌دهد). *(Embedding روشن شد: OpenAI `text-embedding-3-large`. مدل خلاصه‌سازی فعلاً `SUMMARY_MODEL=gpt-4.1-mini` از همان کلید OpenAI؛ قابل‌تغییر از `.env`.)*
 2. پایگاه داده: SQLite کافی است یا از ابتدا PostgreSQL؟ *(فعلاً SQLite پیش‌فرض؛ با `DATABASE_URL` به PostgreSQL قابل‌تعویض است.)*
-3. صف کارها: `BackgroundTasks`/asyncio داخل پروسه یا worker جدا (ARQ/Celery + Redis)؟ (روی `run.bat` اثر دارد.)
+3. صف کارها: *(روشن شد در 0.3.6: صف در جدول‌های دیتابیس (SQLite/PostgreSQL) + worker جدا؛ بدون Redis. اگر چند سرور یا نرخ بالا لازم شد، همین رابط می‌تواند به Redis/ARQ منتقل شود.)*
 4. آیا سقف ۲۰۰MB فقط برای فایل‌های دانش‌پایه است یا ویس/عکس‌های چت هم حساب می‌شوند؟ (پیشنهاد: فقط دانش‌پایه؛ ویس/عکس بعد از پردازش پاک یا با TTL.) *(فعلاً در 0.3.4 فایل‌های چت حساب نمی‌شوند و تا حذف پیام می‌مانند.)*
 5. یک سایت (فعلی) یا چندسایته با راز جدا برای هر سایت؟ (payload از همین حالا `site_id` دارد.)
 
@@ -425,7 +504,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 1. کد و venv در `/opt/persian-ai-backend`؛ `.env` با `APP_ENV=production`, `REQUIRE_HTTPS=true`, `RELOAD=false`, `HOST=127.0.0.1`.
 2. nginx مطابق `deploy/nginx.conf.example` (TLS، `X-Forwarded-Proto`, سقف بدنه).
-3. systemd مطابق `deploy/ai-backend.service`.
+3. systemd مطابق `deploy/ai-backend.service`؛ برای workerها هم سرویس مشابه بسازید: `python -m app.workers.ingestion`، `python -m app.workers.delivery`، `python -m app.workers.summarizer` (همان `.env`/venv، `Restart=always`). Qdrant سرور (نه `QDRANT_PATH`) تا ingestion پروسهٔ جدا باشد.
 4. فایروال: `sudo deploy/firewall-ufw.sh <IP هاست> <IP مدیر>` ← فقط 443 از IP هاست و SSH از IP مدیر؛ Qdrant و پورت 8000 هرگز عمومی نشوند. اگر IP خروجی هاست ثابت نیست/اشتراکی است این قاعده را فعال نکنید و به HMAC تکیه کنید.
 5. ساعت سرور با NTP هماهنگ باشد (احراز هویت به زمان وابسته است).
 
@@ -484,3 +563,14 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - **`run.bat` بازنویسی شد:** worker جدید `worker_summarizer` (پنجرهٔ جدا، `python -m app.workers.summarizer`) هم‌زمان با FastAPI بالا می‌آید. وابستگی جدیدی لازم نیست.
 - تست: `tests/test_conversation_summary.py` (کلید generate، نقش‌ها، شکل تاریخچه با admin، آستانه و صف، worker، تلاش مجدد، پاک‌کردن گفتگو، پرامپت، افزودن ستون به دیتابیس قدیمی). `pytest` و `ruff check .` سبز. اجرا نشده: فراخوانی واقعی OpenAI برای خلاصه‌سازی (کلید/شبکه نبود؛ در تست با summarizer جعلی) و `run.bat` روی ویندوز.
 - محدودیت‌های شناخته‌شده: تا وقتی worker خلاصه را نساخته، پیام‌های خلاصه‌نشده همه در تاریخچه می‌آیند (اگر worker خاموش باشد تاریخچه رشد می‌کند)؛ حذف یک پیام خلاصهٔ موجود را بازنویسی نمی‌کند؛ دو پیام همزمان از یک گفتگو ممکن است دو پاسخ بسازد (قفل گفتگو نیست).
+
+### 0.3.6
+- **صف ingestion + worker جدا:** `POST/PUT/DELETE /v1/knowledge/records` دیگر چانک/امبدینگ/Qdrant را داخل درخواست انجام نمی‌دهند؛ فقط اعتبارسنجی + ثبت در `ingest_jobs` (یک تراکنش) و **پاسخ 200 فوری** با `job_id`. ثبت به OpenAI/Qdrant وابسته نیست. پذیرش هر دو شکل بدنه (دسته‌ای و تک‌رکوردی افزونه `{event,id,rev,data,callback}`)؛ `rev` ذخیره و در callback برگردانده می‌شود.
+- `app/workers/ingestion.py` + `IngestProcessor`: برداشتن اتمیک job، یک رکورد در هر لحظه، جایگزینی jobهای قدیمیِ شروع‌نشده (`superseded`)، تلاش مجدد برای خطای موقت، بازیابی job گیرکرده، پاکسازی دوره‌ای. `KnowledgeService`: نتیجه‌ها `error_code`/`retryable` دارند.
+- **callback تکمیل:** worker جدا `app/workers/delivery.py` (`DeliveryService`) با outbox (`callback_deliveries`، همان تراکنشِ پایان job)، امضای HMAC طبق README افزونه، دسته‌ای، timeout سخت، backoff+jitter+Retry-After، circuit breaker با ping، تطبیق اندازهٔ دسته، اصلاح اختلاف ساعت با `server_time`، SSRF (قفل هاست، بررسی DNS، اتصال به IP بررسی‌شده). جدول‌های `ingest_jobs`، `callback_sites`، `callback_deliveries`.
+- `POST /v1/jobs/status` (بازبینی برای callback گم‌شده) و خطای جدید `invalid_callback` (422).
+- حالت Qdrant توکار (`QDRANT_PATH`): حلقهٔ ingestion خودکار داخل API اجرا می‌شود (`INGEST_RUN_IN_API`)؛ worker جدا در آن حالت با پیام واضح خارج می‌شود.
+- تنظیمات جدید `.env` (جدول بخش ۵)، `.env.example`، `scripts/kb_upsert.py` (صف + انتظار برای نتیجه؛ `--no-wait`). نسخه ← `0.3.6`. مقدار خالی برای `INGEST_RUN_IN_API`/`ENABLE_DOCS` = خودکار.
+- **`run.bat` بازنویسی شد:** workerهای جدید `worker_delivery` و `worker_ingestion` (پنجرهٔ جدا)؛ اگر `QDRANT_PATH` در `.env` پر باشد پنجرهٔ ingestion باز نمی‌شود چون API خودش اجرا می‌کند.
+- تست: ۱۵۹ تست pytest سبز (جدید: `tests/test_ingest_queue.py` صف/تلاش مجدد/اعتبارسنجی و قفل callback؛ `tests/test_callback_delivery.py` دسته‌بندی، امضا، backoff، breaker، 401/404/413، سایت کند، سقف هم‌زمانی، ترنسپورت واقعی روی سرور محلی)؛ `test_knowledge_api.py` با صف تطبیق داده شد. `ruff check .` تمیز. **اجرا نشده:** ارسال به یک سایت وردپرس واقعی با HTTPS، `run.bat` روی ویندوز، OpenAI و Qdrant واقعی.
+- تغییر رفتار (شکستن سازگاری): پاسخ POST/PUT/DELETE دیگر `confirmed_ids/results` ندارد؛ افزونه باید با 200 `ai_status=1` بزند و نتیجه را از callback (یا `/v1/jobs/status`) بگیرد.

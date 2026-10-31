@@ -109,11 +109,45 @@ class Settings(BaseSettings):
     # a request stuck in "processing" for longer than this (crashed worker) is retried
     SUMMARY_STALE_SECONDS: int = Field(600, ge=30, le=86400)
 
+    # --- Ingestion queue (records/texts/files -> chunk -> embed -> Qdrant, done by a worker) ---
+    # The API only validates + queues a request (and answers 200 at once); the ingestion worker
+    # (python -m app.workers.ingestion) does the heavy work and then queues a completion callback.
+    # None = auto: run the worker loop INSIDE the API process only when QDRANT_PATH is set
+    # (embedded Qdrant can be opened by one process only). true/false forces it.
+    INGEST_RUN_IN_API: bool | None = None
+    INGEST_WORKER_CONCURRENCY: int = Field(2, ge=1, le=16)  # records processed at once
+    INGEST_WORKER_POLL_SECONDS: float = Field(1.0, ge=0.1, le=300)
+    INGEST_MAX_ATTEMPTS: int = Field(3, ge=1, le=20)  # per job, for temporary failures
+    INGEST_RETRY_DELAY_SECONDS: int = Field(30, ge=1, le=3600)  # x attempt number
+    INGEST_STALE_SECONDS: int = Field(900, ge=30, le=86400)  # job stuck in "processing" (crash)
+    INGEST_RETENTION_DAYS: int = Field(7, ge=1, le=365)  # finished jobs/deliveries are purged
+
+    # --- Completion callbacks (AI server -> WordPress plugin; sent by the delivery worker) ---
+    # Signing key for callbacks. Empty = API_SHARED_SECRET (the plugin's api_key).
+    PLUGIN_CALLBACK_SECRET: SecretStr = SecretStr("")
+    # Development only: allow http:// and private/loopback callback hosts (never in production).
+    CALLBACK_ALLOW_PRIVATE_NETWORKS: bool = False
+    CALLBACK_BATCH_WINDOW_SECONDS: float = Field(10.0, ge=0, le=300)  # collect results per site
+    CALLBACK_INITIAL_BATCH_SIZE: int = Field(50, ge=1, le=500)  # adapts to the site's speed
+    CALLBACK_CONNECT_TIMEOUT: float = Field(3.0, ge=0.5, le=30)
+    CALLBACK_TOTAL_TIMEOUT: float = Field(10.0, ge=1, le=60)  # hard limit per request
+    CALLBACK_MAX_CONCURRENCY: int = Field(8, ge=1, le=64)  # different sites at once (1 per site)
+    CALLBACK_MIN_INTERVAL_SECONDS: float = Field(1.0, ge=0, le=60)  # gap between sends per site
+    CALLBACK_MAX_ATTEMPTS: int = Field(8, ge=1, le=50)  # per result, then "dead"
+    CALLBACK_BREAKER_FAILURES: int = Field(5, ge=1, le=100)  # failures in a row -> ping-only
+    CALLBACK_PING_INTERVAL_SECONDS: int = Field(300, ge=10, le=86400)
+    CALLBACK_WORKER_POLL_SECONDS: float = Field(2.0, ge=0.2, le=300)
+
     # ---------- validators ----------
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod
     def _upper_level(cls, v):
         return v.upper() if isinstance(v, str) else v
+
+    @field_validator("INGEST_RUN_IN_API", "ENABLE_DOCS", mode="before")
+    @classmethod
+    def _empty_is_auto(cls, v):
+        return None if isinstance(v, str) and not v.strip() else v
 
     @field_validator("API_SHARED_SECRET")
     @classmethod
@@ -160,6 +194,8 @@ class Settings(BaseSettings):
                 raise ValueError("REQUIRE_HTTPS must be true when APP_ENV=production")
             if self.RELOAD:
                 raise ValueError("RELOAD must be false when APP_ENV=production")
+        if self.APP_ENV == "production" and self.CALLBACK_ALLOW_PRIVATE_NETWORKS:
+            raise ValueError("CALLBACK_ALLOW_PRIVATE_NETWORKS must be false in production")
         if not (self.CHUNK_MIN_TOKENS < self.CHUNK_TARGET_TOKENS <= self.CHUNK_MAX_TOKENS):
             raise ValueError(
                 "Chunk sizes must satisfy CHUNK_MIN_TOKENS < CHUNK_TARGET_TOKENS "
@@ -182,6 +218,19 @@ class Settings(BaseSettings):
     def allowed_networks(self) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
         items = (x.strip() for x in self.ALLOWED_IPS.split(",") if x.strip())
         return [ipaddress.ip_network(i, strict=False) for i in items]
+
+    @property
+    def ingest_in_api(self) -> bool:
+        """Run the ingestion loop inside the API process (embedded Qdrant needs that)."""
+        if self.INGEST_RUN_IN_API is not None:
+            return self.INGEST_RUN_IN_API
+        return bool(self.QDRANT_PATH)
+
+    @property
+    def callback_secret(self) -> str:
+        """Key used to sign callbacks to the plugin (default: the shared API secret)."""
+        own = self.PLUGIN_CALLBACK_SECRET.get_secret_value()
+        return own or self.API_SHARED_SECRET.get_secret_value()
 
     @staticmethod
     def _abs(p: Path) -> Path:

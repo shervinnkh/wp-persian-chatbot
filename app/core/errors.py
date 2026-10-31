@@ -59,6 +59,13 @@ class UnprocessableRecordError(AppError):
     code = "unprocessable_record"
 
 
+class InvalidCallbackError(AppError):
+    """The `callback` object of a request is unusable or points to a forbidden host."""
+
+    status_code = 422
+    code = "invalid_callback"
+
+
 class UpstreamError(AppError):
     """An external service (embedding API) failed or returned something unusable."""
 

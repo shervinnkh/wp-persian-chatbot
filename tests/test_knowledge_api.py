@@ -16,7 +16,8 @@ from app.db.base import Database
 from app.main import create_app
 from app.services.chunking.tokens import TokenCounter
 from app.services.embedding import EmbeddingResult
-from app.services.ingestion import KnowledgeService
+from app.services.ingestion import IngestQueueService, KnowledgeService
+from app.services.ingestion.processor import IngestProcessor
 from app.services.vectorstore import VectorStore, point_id
 from tests.conftest import make_settings, signed_headers
 from tests.samples import BLOG, PAGE, PRODUCT, SITE, TAXONOMIES
@@ -49,19 +50,102 @@ class FakeEmbedder:
         pass
 
 
+class _Done:
+    """Looks like the old synchronous response: status 200 + the finished results as JSON."""
+
+    def __init__(self, body, queued):
+        self._body, self.status_code, self.text = body, queued.status_code, queued.text
+
+    def json(self):
+        return self._body
+
+
 class Env:
-    def __init__(self, client, service, embedder, db_path):
+    """Test harness. The API only queues; `upsert()/delete()` post, then let the ingestion worker
+    drain the queue and rebuild the old synchronous response shape from the finished jobs."""
+
+    def __init__(self, client, service, embedder, db_path, processor, queue):
         self.client, self.service, self.embedder, self.db_path = client, service, embedder, db_path
+        self.processor, self.queue = processor, queue
 
     # --- helpers -----------------------------------------------------------------------
+    def _drain(self):
+        # same event loop as the app (the async engine is bound to it)
+        return self.client.portal.call(self.processor.drain)
+
+    def _results(self, accepted):
+        assert accepted["accepted"] is True and accepted["callback"] == "none"
+        self._drain()
+        ids = [j["id"] for j in accepted["jobs"]]
+        status = self.client.post(
+            "/v1/jobs/status", content=json.dumps({"ids": ids}).encode(),
+            headers=signed_headers(json.dumps({"ids": ids}).encode()),
+        ).json()["results"]  # fmt: skip
+        rows = {
+            r[0]: r[1:]
+            for r in self.sql("select job_id, result, error, status from ingest_jobs")
+        }
+        results = []
+        for job in accepted["jobs"]:
+            raw, error, st = rows[job["job_id"]]
+            data = json.loads(raw) if raw else {}
+            if st == "failed":
+                data = {"id": job["id"], "status": "failed", "error": error, **(data or {})}
+                data["error"] = error
+            results.append(data)
+        confirmed = [r["id"] for r in results if r["status"] != "failed"]
+        failed = [r["id"] for r in results if r["status"] == "failed"]
+        assert len(status) == len(ids)
+        return {"confirmed_ids": confirmed, "failed_ids": failed, "results": results,
+                "summary": {k: sum(1 for r in results if r["status"] == k)
+                            for k in ("created", "updated", "unchanged", "failed")}
+                | {"total": len(results)}}  # fmt: skip
+
+    def queue_upsert(self, *records, force=False, **extra):
+        body = json.dumps({"records": list(records), "force": force, **extra}, ensure_ascii=False)
+        return self.client.post(
+            "/v1/knowledge/records", content=body.encode(), headers=signed_headers(body.encode())
+        )
+
     def upsert(self, *records, force=False):
-        body = json.dumps({"records": list(records), "force": force}, ensure_ascii=False).encode()
-        return self.client.post("/v1/knowledge/records", content=body, headers=signed_headers(body))
+        r = self.queue_upsert(*records, force=force)
+        if r.status_code != 200:  # validation errors etc.: hand the raw response back
+            return r
+        return _Done(self._results(r.json()), r)
+
+    def put(self, *records):
+        body = json.dumps({"records": list(records)}, ensure_ascii=False).encode()
+        r = self.client.put("/v1/knowledge/records", content=body, headers=signed_headers(body))
+        if r.status_code != 200:
+            return r
+        return _Done(self._results(r.json()), r)
 
     def delete(self, *ids):
         body = json.dumps({"ids": list(ids)}).encode()
-        return self.client.request(
+        r = self.client.request(
             "DELETE", "/v1/knowledge/records", content=body, headers=signed_headers(body)
+        )
+        if r.status_code != 200:
+            return r
+        accepted = r.json()
+        self._drain()
+        rows = {
+            x[0]: x[1:] for x in self.sql("select job_id, result, status, error from ingest_jobs")
+        }
+        results = []
+        for job in accepted["jobs"]:
+            raw, st, error = rows[job["job_id"]]
+            data = json.loads(raw) if raw else {}
+            if st == "failed":
+                data = {"id": job["id"], "status": "failed", "error": error}
+            results.append(data)
+        return _Done(
+            {
+                "confirmed_ids": [x["id"] for x in results if x["status"] != "failed"],
+                "failed_ids": [x["id"] for x in results if x["status"] == "failed"],
+                "results": results,
+            },
+            r,
         )
 
     def sql(self, query, *params):
@@ -82,7 +166,11 @@ class Env:
 @pytest.fixture
 def env(tmp_path):
     settings = make_settings(
-        tmp_path, QDRANT_URL=":memory:", EMBEDDING_DIMENSIONS=DIMS, LOG_LEVEL="INFO"
+        tmp_path,
+        QDRANT_URL=":memory:",
+        EMBEDDING_DIMENSIONS=DIMS,
+        LOG_LEVEL="INFO",
+        INGEST_MAX_ATTEMPTS=1,  # a failed job fails at once (retries are tested separately)
     )
     embedder = FakeEmbedder()
     service = KnowledgeService(
@@ -92,10 +180,12 @@ def env(tmp_path):
         embedder=embedder,
         counter=TokenCounter.approximate(),
     )
-    app = create_app(settings, knowledge_service=service)
+    queue = IngestQueueService.from_settings(settings)
+    app = create_app(settings, knowledge_service=service, ingest_queue=queue)
+    processor = IngestProcessor(settings=settings, repo=queue.repo, knowledge=service)
     # `with` keeps ONE event loop alive for all requests (needed by the async DB engine)
     with TestClient(app, base_url="http://testserver", client=("203.0.113.10", 5)) as client:
-        yield Env(client, service, embedder, settings.data_dir / "app.db")
+        yield Env(client, service, embedder, settings.data_dir / "app.db", processor, queue)
 
 
 def rec(rid, data):
@@ -331,9 +421,7 @@ def test_list_and_detail_endpoints(env):
 def test_put_updates_by_delete_then_add(env):
     env.upsert(rec("page:9", long_page(30)), rec("blog:15650", BLOG))
 
-    def put(*records):
-        body = json.dumps({"records": list(records)}, ensure_ascii=False).encode()
-        return env.client.put("/v1/knowledge/records", content=body, headers=signed_headers(body))
+    put = env.put
 
     r = put(rec("page:9", long_page(2)), rec("product:13199", PRODUCT))  # 2nd one is new
     assert r.status_code == 200, r.text

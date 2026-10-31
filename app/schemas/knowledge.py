@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+
+from app.schemas.ingest import CallbackIn
 
 # "product:14542", "blog:15650", "product_taxonomies:all", "site:1", "text:1730000000000"
 RecordId = Annotated[
@@ -17,6 +19,10 @@ RecordId = Annotated[
 class RecordIn(BaseModel):
     id: RecordId
     data: dict[str, Any]
+    # The plugin's revision of the record; stored with the job and echoed back unchanged in the
+    # completion callback (the plugin ignores a result whose rev no longer matches: "stale").
+    rev: str | None = Field(None, max_length=128)
+    event: Literal["create", "update"] | None = None  # as sent by AiBackend::send (logged)
 
     @field_validator("data", mode="before")
     @classmethod
@@ -30,8 +36,26 @@ class RecordIn(BaseModel):
 
 
 class UpsertRequest(BaseModel):
+    """Either the batch form {records:[{id,data,rev?}], force?, callback?} or the plugin's
+    single-record form {event, id, rev, data, callback} (converted to a one-record batch)."""
+
     records: list[RecordIn] = Field(min_length=1, max_length=100)
     force: bool = Field(False, description="Re-chunk and re-embed even if the record is unchanged.")
+    callback: CallbackIn | None = Field(
+        None, description="Where to report the result when processing is finished."
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _single_record_form(cls, v: Any) -> Any:
+        if isinstance(v, dict) and "records" not in v and "id" in v:
+            record = {k: v[k] for k in ("id", "data", "rev", "event") if k in v}
+            wrapped = {"records": [record]}
+            for key in ("force", "callback"):
+                if key in v:
+                    wrapped[key] = v[key]
+            return wrapped
+        return v
 
     model_config = {
         "json_schema_extra": {
@@ -53,6 +77,8 @@ class UpsertItemResult(BaseModel):
     embedding_tokens: int = 0  # prompt_tokens billed by the embedding API for this record
     duration_ms: int = 0
     error: str | None = None
+    error_code: str | None = None  # AppError.code of the failure (worker decides on retry)
+    retryable: bool = False  # temporary failure: trying again later may succeed
 
 
 class UpsertSummary(BaseModel):
@@ -72,6 +98,7 @@ class UpsertResponse(BaseModel):
 
 class DeleteRequest(BaseModel):
     ids: list[RecordId] = Field(min_length=1, max_length=500)
+    callback: CallbackIn | None = None
 
     @field_validator("ids")
     @classmethod
@@ -84,6 +111,8 @@ class DeleteItemResult(BaseModel):
     status: Literal["deleted", "not_found", "failed"]
     chunks_removed: int = 0
     error: str | None = None
+    error_code: str | None = None
+    retryable: bool = False
 
 
 class DeleteResponse(BaseModel):

@@ -39,6 +39,10 @@ from app.services.vectorstore import VectorPoint, VectorStore
 
 logger = logging.getLogger(__name__)
 
+# A failure with one of these codes may succeed later (OpenAI/Qdrant hiccup, bug-free retry);
+# anything else (e.g. a record without usable text) will fail the same way again.
+RETRYABLE_CODES = frozenset({"upstream_error", "service_unavailable", "internal_error"})
+
 
 class _KeyedLocks:
     """One asyncio lock per record id, so two requests never write the same record at once."""
@@ -137,11 +141,21 @@ class KnowledgeService:
                     result = await self._upsert_one(record_id, data, force)
             except AppError as exc:
                 logger.warning("knowledge.upsert_failed id=%s error=%s", record_id, exc.message)
-                result = UpsertItemResult(id=record_id, status="failed", error=exc.message)
+                result = UpsertItemResult(
+                    id=record_id,
+                    status="failed",
+                    error=exc.message,
+                    error_code=exc.code,
+                    retryable=exc.code in RETRYABLE_CODES,
+                )
             except Exception:
                 logger.exception("knowledge.upsert_crashed id=%s", record_id)
                 result = UpsertItemResult(
-                    id=record_id, status="failed", error="Internal error (see server log)"
+                    id=record_id,
+                    status="failed",
+                    error="Internal error (see server log)",
+                    error_code="internal_error",
+                    retryable=True,
                 )
             result.duration_ms = int((time.perf_counter() - t0) * 1000)
             logger.info(
@@ -280,11 +294,21 @@ class KnowledgeService:
                     chunks_removed=removed or 0,
                 )
             except AppError as exc:
-                result = DeleteItemResult(id=record_id, status="failed", error=exc.message)
+                result = DeleteItemResult(
+                    id=record_id,
+                    status="failed",
+                    error=exc.message,
+                    error_code=exc.code,
+                    retryable=exc.code in RETRYABLE_CODES,
+                )
             except Exception:
                 logger.exception("knowledge.delete_crashed id=%s", record_id)
                 result = DeleteItemResult(
-                    id=record_id, status="failed", error="Internal error (see server log)"
+                    id=record_id,
+                    status="failed",
+                    error="Internal error (see server log)",
+                    error_code="internal_error",
+                    retryable=True,
                 )
             logger.info(
                 "knowledge.delete_done id=%s status=%s chunks_removed=%d error=%s",

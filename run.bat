@@ -2,10 +2,11 @@
 rem ====================================================================
 rem  Persian AI Backend - launcher (Windows cmd)
 rem
-rem    run.bat            activate venv, start all workers (summarizer) + FastAPI
+rem    run.bat            activate venv, start all workers (summarizer, delivery, ingestion) + FastAPI
 rem    run.bat install    (re)install requirements.txt
 rem    run.bat test       install dev requirements and run the tests
-rem    (Qdrant must already be running: QDRANT_URL in .env, default http://127.0.0.1:6333)
+rem    (Qdrant: a running server at QDRANT_URL, or QDRANT_PATH = embedded mode; with embedded
+rem     Qdrant the ingestion loop runs inside the API, so no ingestion window is opened)
 rem    run.bat secret     print a new random API secret
 rem
 rem  Each service opens in its own cmd window (with the venv activated).
@@ -28,7 +29,8 @@ if /i "%~1"=="install" goto :cmd_install
 if /i "%~1"=="test"    goto :cmd_test
 if /i "%~1"=="secret"  goto :cmd_secret
 if /i "%~1"=="worker_summarizer" goto :role_worker_summarizer
-rem if /i "%~1"=="worker_ingestion" goto :role_worker_ingestion
+if /i "%~1"=="worker_ingestion" goto :role_worker_ingestion
+if /i "%~1"=="worker_delivery" goto :role_worker_delivery
 
 :main
 call :ensure_venv
@@ -43,7 +45,13 @@ echo.
 echo [run] Starting workers...
 rem ---- WORKERS (one line per worker) ---------------------------------
 start "AI Worker - summarizer" cmd /k ""%~f0" worker_summarizer"
-rem start "AI Worker - ingestion" cmd /k ""%~f0" worker_ingestion"
+start "AI Worker - delivery" cmd /k ""%~f0" worker_delivery"
+rem Ingestion (chunk + embed + Qdrant) has its own worker. Embedded Qdrant (QDRANT_PATH set) can
+rem only be opened by one process, so then the API runs the ingestion loop itself.
+set "AIB_EMBEDDED="
+findstr /r /b /c:"QDRANT_PATH=." ".env" >nul && set "AIB_EMBEDDED=1"
+if not defined AIB_EMBEDDED start "AI Worker - ingestion" cmd /k ""%~f0" worker_ingestion"
+if defined AIB_EMBEDDED echo [run] QDRANT_PATH is set: ingestion runs inside the API process (no ingestion window).
 rem ---- /WORKERS ------------------------------------------------------
 
 echo [run] Starting FastAPI...
@@ -72,11 +80,23 @@ echo.
 echo [worker_summarizer] Worker stopped with exit code %errorlevel%.
 exit /b %errorlevel%
 
-rem :role_worker_ingestion
-rem title AI Worker - ingestion
-rem call "%AIB_VENV%\Scripts\activate.bat"
-rem python -m app.workers.ingestion
-rem exit /b %errorlevel%
+:role_worker_ingestion
+title AI Worker - ingestion
+call "%AIB_VENV%\Scripts\activate.bat"
+echo [worker_ingestion] venv activated. Starting: python -m app.workers.ingestion
+python -m app.workers.ingestion
+echo.
+echo [worker_ingestion] Worker stopped with exit code %errorlevel%.
+exit /b %errorlevel%
+
+:role_worker_delivery
+title AI Worker - delivery
+call "%AIB_VENV%\Scripts\activate.bat"
+echo [worker_delivery] venv activated. Starting: python -m app.workers.delivery
+python -m app.workers.delivery
+echo.
+echo [worker_delivery] Worker stopped with exit code %errorlevel%.
+exit /b %errorlevel%
 
 
 :cmd_install

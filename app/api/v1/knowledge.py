@@ -1,4 +1,9 @@
-"""Knowledge base endpoints: batch upsert and batch delete of extracted WordPress records."""
+"""Knowledge base endpoints.
+
+POST / PUT / DELETE only VALIDATE and QUEUE the work and answer 200 at once ("got it"); the
+ingestion worker does chunking/embedding/Qdrant later and the plugin is called back
+(`callback` in the request) when a record is finished. GET endpoints are read-only inspection.
+"""
 
 from __future__ import annotations
 
@@ -8,19 +13,16 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.core.errors import NotFoundError
 from app.schemas.common import ErrorResponse
+from app.schemas.ingest import EnqueueResponse
 from app.schemas.knowledge import (
     ChunkOut,
     DeleteRequest,
-    DeleteResponse,
     RecordDetailResponse,
     RecordListResponse,
     RecordSummary,
-    UpsertItemResult,
     UpsertRequest,
-    UpsertResponse,
-    UpsertSummary,
 )
-from app.services.ingestion import KnowledgeService
+from app.services.ingestion import IngestQueueService, KnowledgeService
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
@@ -40,73 +42,52 @@ def get_knowledge_service(request: Request) -> KnowledgeService:
     return service
 
 
-def _upsert_response(results: list[UpsertItemResult]) -> UpsertResponse:
-    def count(status: str) -> int:
-        return sum(1 for r in results if r.status == status)
+def get_ingest_queue(request: Request) -> IngestQueueService:
+    """Built lazily on first use (tests inject their own via create_app)."""
+    queue = getattr(request.app.state, "ingest_queue", None)
+    if queue is None:
+        queue = IngestQueueService.from_settings(request.app.state.settings)
+        request.app.state.ingest_queue = queue
+    return queue
 
-    return UpsertResponse(
-        confirmed_ids=[r.id for r in results if r.status != "failed"],
-        failed_ids=[r.id for r in results if r.status == "failed"],
-        summary=UpsertSummary(
-            total=len(results),
-            created=count("created"),
-            updated=count("updated"),
-            unchanged=count("unchanged"),
-            failed=count("failed"),
-        ),
-        results=results,
-    )
+
+Queue = Annotated[IngestQueueService, Depends(get_ingest_queue)]
+
+_QUEUE_RESPONSES = {**_RESPONSES, 422: {"model": ErrorResponse}}
 
 
 @router.post(
     "/records",
-    response_model=UpsertResponse,
-    responses=_RESPONSES,
-    summary="Create/update records (chunk -> embed -> Qdrant + text DB), one by one",
+    response_model=EnqueueResponse,
+    responses=_QUEUE_RESPONSES,
+    summary="Queue records for processing (chunk -> embed -> Qdrant + text DB); 200 = accepted",
 )
-async def upsert_records(
-    body: UpsertRequest, service: Annotated[KnowledgeService, Depends(get_knowledge_service)]
-) -> UpsertResponse:
-    results = await service.upsert_many([(r.id, r.data) for r in body.records], force=body.force)
-    return _upsert_response(results)
+async def upsert_records(body: UpsertRequest, queue: Queue) -> EnqueueResponse:
+    return await queue.enqueue_records(
+        body.records, replace=False, force=body.force, callback=body.callback
+    )
 
 
 @router.put(
     "/records",
-    response_model=UpsertResponse,
-    responses=_RESPONSES,
-    summary="Update records: for each one, delete it completely then add it again",
+    response_model=EnqueueResponse,
+    responses=_QUEUE_RESPONSES,
+    summary="Queue records for replacement: the worker deletes each one completely, then adds it",
 )
-async def update_records(
-    body: UpsertRequest, service: Annotated[KnowledgeService, Depends(get_knowledge_service)]
-) -> UpsertResponse:
-    results = []
-    for r in body.records:
-        deleted = (await service.delete_many([r.id]))[0]
-        if deleted.status == "failed":
-            results.append(
-                UpsertItemResult(id=r.id, status="failed", error=f"delete step: {deleted.error}")
-            )
-            continue
-        results.extend(await service.upsert_many([(r.id, r.data)]))
-    return _upsert_response(results)
+async def update_records(body: UpsertRequest, queue: Queue) -> EnqueueResponse:
+    return await queue.enqueue_records(
+        body.records, replace=True, force=body.force, callback=body.callback
+    )
 
 
 @router.delete(
     "/records",
-    response_model=DeleteResponse,
-    responses=_RESPONSES,
-    summary="Delete records completely (text DB rows + Qdrant vectors); body: {ids: [...]}",
+    response_model=EnqueueResponse,
+    responses=_QUEUE_RESPONSES,
+    summary="Queue complete deletion (text DB rows + Qdrant vectors); body: {ids: [...]}",
 )
-async def delete_records(
-    body: DeleteRequest, service: Annotated[KnowledgeService, Depends(get_knowledge_service)]
-) -> DeleteResponse:
-    results = await service.delete_many(body.ids)
-    return DeleteResponse(
-        confirmed_ids=[r.id for r in results if r.status != "failed"],
-        failed_ids=[r.id for r in results if r.status == "failed"],
-        results=results,
-    )
+async def delete_records(body: DeleteRequest, queue: Queue) -> EnqueueResponse:
+    return await queue.enqueue_deletes(body.ids, callback=body.callback)
 
 
 def _summary(rec) -> RecordSummary:
