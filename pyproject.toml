@@ -1,0 +1,25 @@
+[project]
+name = "persian-ai-backend"
+version = "0.4.0"
+description = "FastAPI backend (RAG, chat, tools) for the Persian AI Assistant WordPress plugin"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient`",
+    "ignore:Payload indexes have no effect in the local Qdrant",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+"scripts/*" = ["E501"]
+"app/services/extractors/*" = ["E501", "E701", "E702", "E741", "F401", "B", "UP", "I"]

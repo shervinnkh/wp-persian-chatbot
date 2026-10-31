@@ -1,0 +1,17 @@
+# /etc/systemd/system/ai-backend.service
+# sudo systemctl daemon-reload && sudo systemctl enable --now ai-backend
+[Unit]
+Description=Persian AI Backend (FastAPI)
+After=network.target
+
+[Service]
+User=aibackend
+WorkingDirectory=/opt/persian-ai-backend
+# Settings come from /opt/persian-ai-backend/.env (APP_ENV=production, REQUIRE_HTTPS=true, RELOAD=false)
+ExecStart=/opt/persian-ai-backend/venv/bin/python -m app
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
