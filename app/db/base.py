@@ -45,6 +45,7 @@ class Database:
     async def init(self) -> None:
         """Create missing tables (Alembic migrations arrive in a later step)."""
         from app.db import (  # noqa: F401  (registers the tables on Base.metadata)
+            answer_models,
             ingest_models,
             messaging_models,
             models,

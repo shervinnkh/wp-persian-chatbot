@@ -162,7 +162,11 @@ class IngestQueueService:
             else:
                 items.append(
                     JobStatusItem(
-                        id=record_id, status="failed", job_id=job.job_id, error=job.error
+                        id=record_id,
+                        status="failed",
+                        job_id=job.job_id,
+                        error=job.error,
+                        operation="delete" if job.action == "delete" else None,
                     )
                 )
         return JobStatusResponse(results=items)

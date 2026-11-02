@@ -118,6 +118,14 @@ class CallbackDelivery(Base):
     job_id: Mapped[str] = mapped_column(String(32), nullable=False)
     record_id: Mapped[str] = mapped_column(String(128), nullable=False)
     result_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    # The job's action (upsert|replace|delete). Sent as `operation` only for a FAILED delete, so
+    # the plugin knows to put the record back to "trained" instead of releasing it.
+    action: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # NULL/"record" = a knowledge-record result; "answer" = a finished chat answer, whose whole
+    # callback item is in `payload` (JSON text). For "answer" rows result_status is only
+    # trained (= answered) | failed (the table's check constraint predates chat answers).
+    kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    payload: Mapped[str | None] = mapped_column(Text, nullable=True)
     rev: Mapped[str | None] = mapped_column(String(128), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)  # reported to the plugin
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")

@@ -96,6 +96,7 @@ class IngestProcessor:
             result_status=status,
             rev=job.rev if status == "trained" else None,
             error=error,
+            action=job.action,
         )
 
     async def _done(self, job: IngestJob, outcome: str, result: dict) -> None:

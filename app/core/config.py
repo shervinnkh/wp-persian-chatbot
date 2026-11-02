@@ -109,6 +109,25 @@ class Settings(BaseSettings):
     # a request stuck in "processing" for longer than this (crashed worker) is retried
     SUMMARY_STALE_SECONDS: int = Field(600, ge=30, le=86400)
 
+    # --- AI answer (model list, shared with the plugin's "AI service" select) ---
+    # Comma separated model keys the plugin may ask for (`model` in POST /v1/chat/messages).
+    # The FIRST one is the default: used when the client sends none or one that is not listed.
+    AI_ALLOWED_MODELS: str = "gpt-5-4"
+
+    # --- Async AI answers (generate_ai_answer + callback): queued, answered by a loop INSIDE the
+    # API process, delivered to the plugin by the delivery worker (callback kind "chat_answer").
+    # Answer generation is network I/O only, so a high concurrency costs almost no CPU; the real
+    # ceiling is the AI provider's rate limit (429 -> the job is retried).
+    ANSWER_WORKER_CONCURRENCY: int = Field(50, ge=1, le=500)  # answers generated at once
+    ANSWER_WORKER_POLL_SECONDS: float = Field(1.0, ge=0.1, le=60)
+    ANSWER_MAX_ATTEMPTS: int = Field(3, ge=1, le=10)  # generating the answer
+    ANSWER_RETRY_DELAY_SECONDS: int = Field(5, ge=1, le=300)  # x attempt number
+    ANSWER_STALE_SECONDS: int = Field(300, ge=30, le=86400)  # stuck in "processing" (API crash)
+    # Delivering the finished answer to the site: after this many failed sends, or this long, the
+    # answer is dropped (a chat answer that arrives 10 minutes late is useless).
+    ANSWER_CALLBACK_MAX_ATTEMPTS: int = Field(4, ge=1, le=20)
+    ANSWER_CALLBACK_TTL_SECONDS: int = Field(600, ge=30, le=86400)
+
     # --- Ingestion queue (records/texts/files -> chunk -> embed -> Qdrant, done by a worker) ---
     # The API only validates + queues a request (and answers 200 at once); the ingestion worker
     # (python -m app.workers.ingestion) does the heavy work and then queues a completion callback.
@@ -169,6 +188,17 @@ class Settings(BaseSettings):
             raise ValueError("API_SHARED_SECRET looks low-entropy; generate a random one.")
         return v
 
+    @field_validator("AI_ALLOWED_MODELS")
+    @classmethod
+    def _check_models(cls, v: str) -> str:
+        names = [x.strip() for x in v.split(",") if x.strip()]
+        if not names:
+            raise ValueError("AI_ALLOWED_MODELS needs at least one model name")
+        for name in names:
+            if not re.fullmatch(r"[A-Za-z0-9_.:\-]{1,64}", name):
+                raise ValueError(f"Invalid model name in AI_ALLOWED_MODELS: {name!r}")
+        return ",".join(names)
+
     @field_validator("PLUGIN_BASE_URL")
     @classmethod
     def _check_plugin_url(cls, v: str) -> str:
@@ -225,6 +255,19 @@ class Settings(BaseSettings):
         if self.INGEST_RUN_IN_API is not None:
             return self.INGEST_RUN_IN_API
         return bool(self.QDRANT_PATH)
+
+    @property
+    def allowed_models(self) -> list[str]:
+        return [x.strip() for x in self.AI_ALLOWED_MODELS.split(",") if x.strip()]
+
+    @property
+    def default_model(self) -> str:
+        return self.allowed_models[0]
+
+    def resolve_model(self, requested: str | None) -> str:
+        """The requested model if it is allowed, otherwise the first (default) one."""
+        wanted = (requested or "").strip()
+        return wanted if wanted in self.allowed_models else self.default_model
 
     @property
     def callback_secret(self) -> str:

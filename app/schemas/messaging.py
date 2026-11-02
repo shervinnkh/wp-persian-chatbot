@@ -9,9 +9,26 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.db.messaging_models import AttachmentType, MessageRole
+from app.schemas.ingest import CallbackIn
 
 _UID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,64}$")
 MAX_SUGGESTIONS = 4
+
+
+class ChatSite(BaseModel):
+    """Short facts about the site (plugin settings); only used when an AI answer is generated."""
+
+    title: str | None = Field(None, max_length=200)
+    description: str | None = Field(None, max_length=400)
+
+
+class ChatPage(BaseModel):
+    """The page the visitor is chatting on (tiny, static info that exists on every page)."""
+
+    url: str | None = Field(None, max_length=2048)
+    slug: str | None = Field(None, max_length=200)  # "" / "home" for the front page
+    title: str | None = Field(None, max_length=300)
+    type: str | None = Field(None, max_length=40)  # home | product | post | page | archive | other
 
 
 class SendMessageRequest(BaseModel):
@@ -32,6 +49,16 @@ class SendMessageRequest(BaseModel):
     # Only meaningful for role=user: true -> an answer is generated and saved as `assistant`.
     # Missing / false -> the message is only saved. Ignored for admin/assistant messages.
     generate_ai_answer: bool = False
+
+    # The fields below are used ONLY when generate_ai_answer is true (they go into the prompt).
+    model: str | None = Field(None, max_length=64)  # key from AI_ALLOWED_MODELS; else the default
+    tone: Literal["formal", "friendly"] | None = None
+    site: ChatSite | None = None
+    page: ChatPage | None = None
+    # With generate_ai_answer=true AND a callback: the request returns at once
+    # (ai_answer.status="queued") and the answer is POSTed to the callback URL when it is ready
+    # (kind "chat_answer"). Without a callback the answer is generated inside the request.
+    callback: CallbackIn | None = None
 
     @field_validator("wp_user_id")
     @classmethod
@@ -83,6 +110,8 @@ class SendMessageRequest(BaseModel):
             self.admin_name = None
         if self.role != MessageRole.user:
             self.generate_ai_answer = False
+        if not self.generate_ai_answer:
+            self.callback = None
         return self
 
 
@@ -112,11 +141,15 @@ class MessageOut(BaseModel):
 class AiAnswerOut(BaseModel):
     # skipped = no answer requested | generated = `message` is the saved reply | failed = the
     # user message is saved but the answer could not be produced (reason in the server log)
-    status: Literal["skipped", "generated", "failed"]
+    # queued = (request had a callback) the answer is generated in the background and POSTed to
+    # the callback when ready; `job_id` names it
+    status: Literal["skipped", "generated", "failed", "queued"]
+    job_id: str | None = None
     message: MessageOut | None = None
     full_history_tokens: int | None = None  # summary + all unsummarized messages
     context_tokens: int | None = None  # what the AI would receive (summary + last pairs + question)
     summarization_scheduled: bool = False  # queued right after this response was sent
+    model: str | None = None  # the model that answered (after the allow-list was applied)
 
 
 class SendMessageResponse(BaseModel):

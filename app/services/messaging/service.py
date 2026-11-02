@@ -27,8 +27,11 @@ from app.services.conversation.answer import (
     FixedAnswerGenerator,
 )
 from app.services.conversation.history import HistoryBuilder
+from app.services.conversation.prompt import PromptContext
 from app.services.conversation.summary_service import SummaryService
+from app.services.ingestion.callback import validate_callback
 from app.services.messaging import storage
+from app.services.messaging.answers import AnswerQueue
 from app.services.messaging.errors import ConversationNotFoundError, MessageNotFoundError
 
 logger = logging.getLogger(__name__)
@@ -60,6 +63,7 @@ class MessagingService:
         self.answer_generator: AnswerGenerator = answer_generator or FixedAnswerGenerator()
         self._counter = token_counter
         self.summaries = SummaryService(settings=settings, repo=self.repo)  # enqueue only
+        self.answers = AnswerQueue(self)
         self._ready = False
         self._ready_lock = asyncio.Lock()
 
@@ -84,6 +88,13 @@ class MessagingService:
     # ------------------------------------------------------------------ send
     async def send(self, req: SendMessageRequest) -> SendResult:
         await self.ensure_ready()
+        wants_answer = req.generate_ai_answer and req.role.value == "user"
+        cb = None
+        if wants_answer and req.callback is not None:
+            # Validated BEFORE anything is saved: a bad callback must not leave a message behind.
+            cb = validate_callback(
+                self.settings, req.callback, locked_site=await self.answers.ingest.locked_site()
+            )
         if req.conversation_id is not None:
             conv = await self.repo.get_conversation(req.conversation_id)
             if conv is None:
@@ -118,8 +129,15 @@ class MessagingService:
             )
 
         ai = AiAnswerResult()
-        if req.generate_ai_answer and req.role.value == "user":
-            ai = await self._generate_answer(conv.id, msg)
+        if wants_answer:
+            ctx = PromptContext.from_request(req, self.settings)
+            if cb is not None:  # async: queued now, POSTed to the callback when ready
+                job_id = await self.answers.enqueue(
+                    conversation_id=conv.id, question_id=msg.id, cb=cb, ctx=ctx
+                )
+                ai = AiAnswerResult(status="queued", job_id=job_id, model=ctx.model)
+            else:
+                ai = await self._generate_answer(conv.id, msg, ctx)
         return SendResult(conv.id, created, status, msg, ai)
 
     # ------------------------------------------------------------------ AI answer
@@ -133,7 +151,9 @@ class MessagingService:
         """Background task: runs after the response was sent to the client."""
         return await self.summaries.enqueue(conversation_id, upto_message_id)
 
-    async def _generate_answer(self, conversation_id: int, question: Message) -> AiAnswerResult:
+    async def _generate_answer(
+        self, conversation_id: int, question: Message, ctx: PromptContext
+    ) -> AiAnswerResult:
         """History -> (fixed for now) answer -> saved as `assistant`. Never raises: the user
         message is already stored, so a failure here only marks the answer as failed."""
         try:
@@ -147,7 +167,7 @@ class MessagingService:
                 trigger_tokens=self.settings.SUMMARY_TRIGGER_TOKENS,
             )
             history = await builder.build(conv, question)
-            text = await self.answer_generator.generate(history)
+            text = await self.answer_generator.generate(history, ctx)
             reply = await self.repo.add_message(
                 conversation_id,
                 visitor_uid=conv.visitor_uid,
@@ -176,6 +196,7 @@ class MessagingService:
             summarization_scheduled=history.needs_summary,
             # The summary also covers this answer; the request is queued after the response.
             summarize_upto_message_id=reply.id if history.needs_summary else None,
+            model=ctx.model,
         )
 
     async def _fetch_attachment(

@@ -66,6 +66,7 @@ class JobStatusItem(BaseModel):
     job_id: str | None = None
     rev: str | None = None
     error: str | None = None
+    operation: Literal["delete"] | None = None  # set on a failed delete (record stays trained)
 
 
 class JobStatusResponse(BaseModel):

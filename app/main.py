@@ -96,7 +96,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         processor = IngestProcessor(settings=settings, repo=queue.repo, knowledge=service)
         ingest_task = asyncio.create_task(processor.run_loop(ingest_stop), name="ingest-loop")
         logger.info("Ingestion loop runs inside the API process (INGEST_RUN_IN_API)")
+    # AI answers (generate_ai_answer + callback) are produced by a loop in this process: it only
+    # waits on the AI provider, so a high concurrency is cheap (ANSWER_WORKER_CONCURRENCY).
+    answer_stop = asyncio.Event()
+    answer_task: asyncio.Task | None = None
+    if messaging is not None:
+        answer_task = asyncio.create_task(
+            messaging.answers.run_loop(answer_stop), name="answer-loop"
+        )
     yield
+    if answer_task is not None:
+        answer_stop.set()
+        messaging.answers.notify()
+        try:
+            await asyncio.wait_for(answer_task, timeout=30)
+        except Exception:  # noqa: BLE001
+            answer_task.cancel()
     if ingest_task is not None:
         ingest_stop.set()
         try:

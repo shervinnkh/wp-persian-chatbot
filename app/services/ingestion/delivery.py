@@ -303,11 +303,19 @@ class DeliveryService:
     def _payload(self, rows: list[CallbackDelivery], delivery_id: str) -> bytes:
         results = []
         for r in rows:
+            if r.kind == "answer" and r.payload:  # a finished chat answer: ready-made item
+                try:
+                    results.append(json.loads(r.payload))
+                    continue
+                except ValueError:
+                    pass
             item: dict = {"id": r.record_id, "status": r.result_status, "job_id": r.job_id}
             if r.rev and r.result_status == "trained":
                 item["rev"] = r.rev
             if r.error and r.result_status == "failed":
                 item["error"] = r.error
+            if r.result_status == "failed" and r.action == "delete":
+                item["operation"] = "delete"  # the record is still trained: plugin restores 2
             results.append(item)
         payload = {
             # one contract-level job_id per request; each result also names its own job
@@ -424,7 +432,10 @@ class DeliveryService:
         # transient (timeout, 408, 429, 5xx, WAF page) or a stale timestamp that did not fix itself
         failures = site.consecutive_failures + 1
         retrying, dead = await self.repo.fail_deliveries(
-            ids, error=error, max_attempts=s.CALLBACK_MAX_ATTEMPTS
+            ids,
+            error=error,
+            max_attempts=s.CALLBACK_MAX_ATTEMPTS,
+            answer_max_attempts=s.ANSWER_CALLBACK_MAX_ATTEMPTS,
         )
         delay = (
             verdict.retry_after

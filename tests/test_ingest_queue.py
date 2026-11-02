@@ -315,6 +315,7 @@ def test_auth_still_required(q):
 def test_status_unknown_for_never_sent_records(q):
     assert status_of(q, "product:1")["product:1"] == {
         "id": "product:1", "status": "unknown", "job_id": None, "rev": None, "error": None,
+            "operation": None,
     }  # fmt: skip
 
 

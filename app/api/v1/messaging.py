@@ -15,6 +15,7 @@ from app.schemas.messaging import (
     SendMessageRequest,
     SendMessageResponse,
 )
+from app.services.conversation.answer import AiAnswerResult
 from app.services.messaging import MessagingService
 
 router = APIRouter(tags=["messaging"])
@@ -38,11 +39,24 @@ def get_messaging_service(request: Request) -> MessagingService:
 Service = Annotated[MessagingService, Depends(get_messaging_service)]
 
 
+def _ai_out(ai: AiAnswerResult) -> AiAnswerOut:
+    return AiAnswerOut(
+        status=ai.status,
+        message=MessageOut.model_validate(ai.message) if ai.message else None,
+        full_history_tokens=ai.full_history_tokens,
+        context_tokens=ai.context_tokens,
+        summarization_scheduled=ai.summarization_scheduled,
+        model=ai.model,
+        job_id=ai.job_id,
+    )
+
+
 @router.post(
     "/chat/messages",
     response_model=SendMessageResponse,
     responses=_RESPONSES,
-    summary="Save a message; generate_ai_answer=true on a user message also returns an AI reply",
+    summary="Save a message; generate_ai_answer=true on a user message also produces an AI reply "
+    "(with a callback: queued, the answer is POSTed to the callback when ready)",
 )
 async def send_message(
     body: SendMessageRequest, service: Service, background: BackgroundTasks
@@ -59,13 +73,7 @@ async def send_message(
         created_conversation=result.created_conversation,
         attachment_status=result.attachment_status,
         message=MessageOut.model_validate(result.message),
-        ai_answer=AiAnswerOut(
-            status=ai.status,
-            message=MessageOut.model_validate(ai.message) if ai.message else None,
-            full_history_tokens=ai.full_history_tokens,
-            context_tokens=ai.context_tokens,
-            summarization_scheduled=ai.summarization_scheduled,
-        ),
+        ai_answer=_ai_out(ai),
     )
 
 

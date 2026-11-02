@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.orm import defer
 
 from app.db.base import Database
@@ -55,6 +55,7 @@ class DeliverySpec:
     result_status: str  # trained | untrained | failed
     rev: str | None = None
     error: str | None = None
+    action: str | None = None  # the job's action; see CallbackDelivery.action
 
 
 def new_job_id() -> str:
@@ -120,6 +121,29 @@ class IngestRepository:
             s.add_all(rows)
             await s.commit()
             return rows, int(superseded.rowcount or 0)
+
+    async def ensure_site(self, site: SiteUpsert, *, initial_batch_size: int) -> None:
+        """Register or refresh a callback site (same rules as `enqueue`)."""
+        async with self.db.session() as s:
+            row = await s.get(CallbackSite, site.host)
+            if row is None:
+                s.add(
+                    CallbackSite(
+                        host=site.host,
+                        callback_url=site.callback_url,
+                        ping_url=site.ping_url,
+                        site_url=site.site_url,
+                        max_results=site.max_results,
+                        batch_limit=min(initial_batch_size, site.max_results),
+                    )
+                )
+            else:
+                row.callback_url = site.callback_url
+                row.ping_url = site.ping_url
+                row.site_url = site.site_url
+                row.max_results = site.max_results
+                row.batch_limit = min(row.batch_limit, site.max_results)
+            await s.commit()
 
     async def locked_site(self) -> str | None:
         """The first site that ever registered a callback (the key is locked to it)."""
@@ -238,6 +262,7 @@ class IngestRepository:
                         job_id=job_id,
                         record_id=record_id,
                         result_status=delivery.result_status,
+                        action=delivery.action,
                         rev=delivery.rev,
                         error=delivery.error,
                         available_at=now + timedelta(seconds=batch_window_seconds),
@@ -423,7 +448,12 @@ class IngestRepository:
             await s.commit()
 
     async def fail_deliveries(
-        self, ids: list[int], *, error: str, max_attempts: int
+        self,
+        ids: list[int],
+        *,
+        error: str,
+        max_attempts: int,
+        answer_max_attempts: int | None = None,
     ) -> tuple[int, int]:
         """One failed send: attempts + 1; rows that reached `max_attempts` become dead.
         -> (rows still pending, rows now dead)"""
@@ -434,9 +464,15 @@ class IngestRepository:
                 .where(CallbackDelivery.id.in_(ids))
                 .values(attempts=CallbackDelivery.attempts + 1, last_error=error, updated_at=now)
             )
+            is_answer = CallbackDelivery.kind == "answer"
+            limit = (
+                case((is_answer, answer_max_attempts), else_=max_attempts)
+                if answer_max_attempts is not None
+                else max_attempts
+            )
             dead = await s.execute(
                 update(CallbackDelivery)
-                .where(CallbackDelivery.id.in_(ids), CallbackDelivery.attempts >= max_attempts)
+                .where(CallbackDelivery.id.in_(ids), CallbackDelivery.attempts >= limit)
                 .values(state="dead", finished_at=now)
             )
             await s.commit()

@@ -5,7 +5,7 @@
 
 | مورد | مقدار |
 |---|---|
-| نسخهٔ فعلی | `0.3.6` (صف ingestion + worker جدا + callback تکمیل پردازش به افزونه؛ روی 0.3.5: پیام‌رسانی، تاریخچه، خلاصه‌سازی) |
+| نسخهٔ فعلی | `0.3.8` (پاسخ غیرهمزمان با صف + وب‌هوک؛ مدل/لحن/اطلاعات سایت و صفحه، endpoint لاگ، `operation` در callback شکست حذف؛ روی 0.3.6: صف ingestion + callback) |
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -235,6 +235,16 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `CALLBACK_BREAKER_FAILURES` / `CALLBACK_PING_INTERVAL_SECONDS` | `5` / `300` | بعد از N شکست پیاپی فقط ping دوره‌ای تا سایت برگردد |
 | `CALLBACK_WORKER_POLL_SECONDS` | `2` | فاصلهٔ حلقهٔ worker تحویل |
 
+**جدید در 0.3.7:**
+
+| کلید | پیش‌فرض | توضیح |
+|---|---|---|
+| `ANSWER_WORKER_CONCURRENCY` | `50` | پاسخ‌هایی که هم‌زمان ساخته می‌شود (حلقهٔ داخل API) |
+| `ANSWER_MAX_ATTEMPTS` / `ANSWER_RETRY_DELAY_SECONDS` | `3` / `5` | تلاش برای ساخت پاسخ؛ تأخیر × شمارهٔ تلاش |
+| `ANSWER_WORKER_POLL_SECONDS` / `ANSWER_STALE_SECONDS` | `1` / `300` | فاصلهٔ بررسی صف / بازیابی jobِ گیرکرده |
+| `ANSWER_CALLBACK_MAX_ATTEMPTS` / `ANSWER_CALLBACK_TTL_SECONDS` | `4` / `600` | سقف ارسال ناموفق وب‌هوک پاسخ / حداکثر عمر آن (ثانیه)، بعد رها می‌شود |
+| `AI_ALLOWED_MODELS` | `gpt-5-4` | فهرست نام مدل‌های مجاز با کاما (همان کلیدهای «سرویس هوش مصنوعی» افزونه). **اولی پیش‌فرض است**: اگر افزونه `model` نفرستد یا خارج از فهرست باشد اولی استفاده می‌شود |
+
 مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`.
 
 ## ۶. فرمت یکنواخت خطا
@@ -253,14 +263,15 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `POST /v1/knowledge/records` | امضادار | ✅ 0.3.6 | **فقط صف**: اعتبارسنجی + ثبت job ← **200 فوری**؛ worker بعداً چانک ← امبدینگ ← Qdrant + دیتابیس و بعد callback. دو شکل بدنه (دسته‌ای / تک‌رکوردی افزونه) |
 | `DELETE /v1/knowledge/records` | امضادار | ✅ 0.3.6 | بدنه `{ids:[...], callback?}` ← صف؛ worker حذف کامل از دیتابیس متنی و Qdrant (callback: `untrained`) |
 | `PUT /v1/knowledge/records` | امضادار | ✅ 0.3.6 | همان بدنهٔ POST؛ صف؛ worker برای هر رکورد: ابتدا حذف کامل و سپس افزودن. اگر حذف شکست بخورد افزودن انجام نمی‌شود |
-| `POST /v1/jobs/status` | امضادار | ✅ 0.3.6 | بدنه `{ids:[...]}` ← آخرین وضعیت هر رکورد: `trained`/`untrained`/`failed`/`processing`/`unknown` (+`rev`, `job_id`, `error`)؛ تور ایمنی وقتی callback گم شود (README افزونه §6) |
+| `POST /v1/get_log` | امضادار | ✅ 0.3.7 | بدنه `{after:[id,...], limit?}` ← `{entries:[{id,time,level,request_id,logger,message}], count, reset}`؛ یک خواندن محدود (حداکثر ۵۱۲KB) از انتهای `app.log`؛ فقط خطوط بعد از آخرین idِ شناخته‌شده؛ بدون `after` ← آخرین `limit` خط (پیش‌فرض ۲۰۰، حداکثر ۵۰۰)؛ `reset=true` یعنی idها پیدا نشد (چرخش فایل) و تازه‌ترین خطوط آمده |
+| `POST /v1/jobs/status` | امضادار | ✅ 0.3.6 | بدنه `{ids:[...]}` ← آخرین وضعیت هر رکورد: `trained`/`untrained`/`failed`/`processing`/`unknown` (+`rev`, `job_id`, `error`, و `operation:"delete"` برای حذفِ شکست‌خورده)؛ تور ایمنی وقتی callback گم شود (README افزونه §6) |
 | `GET /v1/knowledge/records?limit&offset&kind` | امضادار | ✅ 0.3.2 | فهرست رکوردهای ذخیره‌شده (دیباگ) |
 | `GET /v1/knowledge/records/{id}` | امضادار | ✅ 0.3.2 | رکورد + داده خام + چانک‌ها + payloadهای Qdrant + `in_sync` (دیباگ) |
 | `PUT /v1/knowledge/texts/{id}` · `DELETE …` | امضادار | ⏳ 0.3.0 | متن‌های دستی (چانک‌ها از افزونه می‌آیند) |
 | `PUT /v1/knowledge/files/{id}` · `DELETE …` | امضادار | ⏳ 0.4.0 | `{url,title}` ← دانلود ← متن ← چانک؛ سقف ۲۰۰MB |
 | `GET /v1/storage` | امضادار | ⏳ 0.4.0 | مصرف uploads نسبت به سقف |
 | `POST /v1/chat/reply` | امضادار | ⏳ 0.5.0 | پیام(ها)+پیوست+tools ← پاسخ/پیشنهادها/ویس/پیوست |
-| `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. با `generate_ai_answer=true` روی پیام کاربر، پاسخ (فعلاً ثابت) هم تولید و ذخیره و برگردانده می‌شود؛ بخش «پیام‌رسانی» و «تاریخچه، تولید پاسخ و خلاصه‌سازی» |
+| `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. با `generate_ai_answer=true` روی پیام کاربر، پاسخ (فعلاً ثابت) هم تولید و ذخیره و برگردانده می‌شود. فقط وقتی `generate_ai_answer=true`: فیلدهای `model`، `tone` (`formal|friendly`)، `site{title,description}`، `page{url,slug,title,type}` و `callback`؛ با `callback` پاسخ **غیرهمزمان** است (`ai_answer.status="queued"` + `job_id`) و بعداً با وب‌هوک `kind:"chat_answer"` می‌آید (بخش «پاسخ غیرهمزمان»)؛ بدون `callback` پاسخ داخل همان درخواست ساخته می‌شود؛ بخش «پیام‌رسانی» و «تاریخچه، تولید پاسخ و خلاصه‌سازی» |
 | `DELETE /v1/conversations/{conversation_id}/messages/{message_id}` | امضادار | ✅ 0.3.4 | حذف یک پیام (+ فایل پیوست) |
 | `DELETE /v1/conversations/{conversation_id}/messages` | امضادار | ✅ 0.3.4 | حذف همهٔ پیام‌های گفتگو (+ فایل‌ها)؛ خود گفتگو می‌ماند |
 | `GET /v1/conversations/{id}/messages` | امضادار | ⏳ | تاریخچه (تابع `list_messages` در repository آماده است) |
@@ -273,7 +284,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصه‌سازی: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ✅ آماده‌سازی تاریخچه، کلید `generate_ai_answer`، پاسخ ثابت، خلاصه‌سازی بر پایهٔ توکن با worker (0.3.5)؛ ⏳ Alembic، endpoint تاریخچه
 - [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ⏳ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
 - [~] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه: ✅ زیرساخت worker/صف/callback (0.3.6؛ برای هر `id` با هر پیشوند کار می‌کند)؛ ⏳ endpointهای `text:*` و `file:*`، دانلود و استخراج متن
-- [ ] **0.5.0** — تولید پاسخ: RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
+- [ ] **0.5.0** — تولید پاسخ (سازوکار `model`/`tone`/`site`/`page`/پاسخ غیرهمزمان و `PromptContext` از 0.3.7 آماده است؛ فقط LLM واقعی مانده): RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
 - [ ] **0.6.0** — ابزارها (tools) و callback امضادار به افزونه برای داده‌های زنده
 - [ ] **0.7.0** — ویس: STT برای ورودی، TTS برای پاسخ
 - [ ] **0.8.0** — تصویر: تحلیل عکس ورودی و ارسال عکس به‌عنوان پیوست پاسخ
@@ -342,7 +353,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 **تاریخچه (`app/services/conversation/history.py` ← `HistoryBuilder.build`):** اگر خلاصه‌ای نیست ← **کل گفتگو** کامل + پیام آخر. اگر خلاصه هست ← خلاصه + **همهٔ پیام‌های بعد از مرز خلاصه** کامل + پیام آخر؛ و اگر بعد از مرز کمتر از ۳ زوج باشد، ۳ زوج آخر هم کامل می‌آید (با خلاصه کمی هم‌پوشانی دارد، عمدی). «زوج» = یک پیام کاربر + همهٔ پاسخ‌های بعدش (assistant و/یا admin) تا پیام بعدی کاربر؛ زوج‌ها با شمارش پیام‌های *user* از آخر پیدا می‌شوند. خروجی `PreparedHistory`: `summary`، `recent`، `question`، `full_history_tokens`، `context_tokens`، `needs_summary` و `llm_messages()` (فهرست `{role, content}`؛ `admin` برای مدل `assistant` است با برچسب «[Message from a human support agent]»). **هیچ اتصال به AI و system prompt هنوز نیست**؛ مرحلهٔ 0.5.0 فقط `PreparedHistory` را می‌گیرد. پیام بدون متن: ویس/عکس با `[voice message]` / `[image]` نشان داده می‌شود.
 
-**پاسخ ثابت:** `FixedAnswerGenerator` (`answer.py`) همیشه `FIXED_ANSWER` را برمی‌گرداند؛ رابط `AnswerGenerator.generate(history)` همان است که LLM واقعی جایش می‌آید (تزریق از `MessagingService(answer_generator=...)`).
+**پاسخ ثابت:** `FixedAnswerGenerator` (`answer.py`) همیشه `FIXED_ANSWER` را برمی‌گرداند؛ رابط `AnswerGenerator.generate(history, ctx)` همان است که LLM واقعی جایش می‌آید (تزریق از `MessagingService(answer_generator=...)`).
 
 **شمارش توکن و آستانه:** `full_history_tokens` = توکن (tiktoken) «خلاصهٔ ذخیره‌شده + همهٔ پیام‌هایی که هنوز در خلاصه نیامده‌اند (شامل پیام آخر)». اگر از `SUMMARY_TRIGGER_TOKENS` بیشتر باشد، `needs_summary=true` و بعد از ارسال پاسخ درخواست ثبت می‌شود (`upto_message_id` = شناسهٔ همان پاسخ). اگر برای آن گفتگو درخواست pending/processing باشد، درخواست تازه ثبت نمی‌شود.
 
@@ -563,6 +574,13 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - **`run.bat` بازنویسی شد:** worker جدید `worker_summarizer` (پنجرهٔ جدا، `python -m app.workers.summarizer`) هم‌زمان با FastAPI بالا می‌آید. وابستگی جدیدی لازم نیست.
 - تست: `tests/test_conversation_summary.py` (کلید generate، نقش‌ها، شکل تاریخچه با admin، آستانه و صف، worker، تلاش مجدد، پاک‌کردن گفتگو، پرامپت، افزودن ستون به دیتابیس قدیمی). `pytest` و `ruff check .` سبز. اجرا نشده: فراخوانی واقعی OpenAI برای خلاصه‌سازی (کلید/شبکه نبود؛ در تست با summarizer جعلی) و `run.bat` روی ویندوز.
 - محدودیت‌های شناخته‌شده: تا وقتی worker خلاصه را نساخته، پیام‌های خلاصه‌نشده همه در تاریخچه می‌آیند (اگر worker خاموش باشد تاریخچه رشد می‌کند)؛ حذف یک پیام خلاصهٔ موجود را بازنویسی نمی‌کند؛ دو پیام همزمان از یک گفتگو ممکن است دو پاسخ بسازد (قفل گفتگو نیست).
+
+### 0.3.7
+- **مدل/لحن/سایت/صفحه:** `SendMessageRequest` فقط با `generate_ai_answer=true` این‌ها را می‌پذیرد و در `PromptContext` (`app/services/conversation/prompt.py`) می‌گذارد: `model` (با `AI_ALLOWED_MODELS`؛ اولی پیش‌فرض و جایگزین مقدار نامعتبر/خالی؛ مدل نهایی در `ai_answer.model`)، `tone`، `site{title,description}`، `page{url,slug,title,type}`. `PromptContext.system_prompt()` متن system prompt را می‌سازد (LLM واقعی همین را می‌گیرد).
+- **پاسخ غیرهمزمان (جایگزین stream):** چون stream هر درخواست را به یک worker پی‌اچ‌پی وصل نگه می‌داشت، حذف شد. `generate_ai_answer=true` + `callback` ← پاسخ فوری `ai_answer.status="queued"`؛ ردیف در `answer_jobs` (`app/db/answer_models.py`)؛ `AnswerQueue` (`app/services/messaging/answers.py`) داخل پردازش API (lifespan) تا `ANSWER_WORKER_CONCURRENCY` پاسخ را هم‌زمان می‌سازد (فقط انتظار شبکه؛ CPU ناچیز)، شکست موقت تا `ANSWER_MAX_ATTEMPTS` با تأخیر `ANSWER_RETRY_DELAY_SECONDS × تلاش` تکرار می‌شود، jobِ گیرکرده بعد از `ANSWER_STALE_SECONDS` دوباره pending می‌شود. نتیجه در **همان تراکنش** به‌صورت ردیف outbox در `callback_deliveries` (`kind="answer"`، `payload` = آیتم JSON) ثبت و با worker تحویل معمول (`python -m app.workers.delivery`) امضا و به `callback.url` فرستاده می‌شود (بدون پنجرهٔ batch). آیتم: `{kind:"chat_answer", id:"answer:<job>", status:"answered"|"failed", job_id, conversation_id, visitor_uid, wp_user_id, question_message_id, model, message:{id,content,suggestions,created_at} | error}`. تلاش مجدد تحویل **محدود** است: `ANSWER_CALLBACK_MAX_ATTEMPTS` (۴) ارسال ناموفق یا `ANSWER_CALLBACK_TTL_SECONDS` (۶۰۰) ثانیه، بعد `dead` (با backoff و breaker معمول سایت). شکست نهایی تولید پاسخ هم با `status:"failed"` به سایت گزارش می‌شود. فرض: یک پردازش API (claim برای چند پردازش هم‌زمان ایمن نیست).
+- **`POST /v1/get_log`:** `app/services/logs.py` + `app/api/v1/logs.py`.
+- **callback شکست حذف:** ستون nullable `callback_deliveries.action`؛ برای نتیجهٔ `failed` با job از نوع `delete`، هر آیتم callback و `/v1/jobs/status` فیلد `operation:"delete"` دارد تا افزونه رکورد را به «پردازش‌شده» (۲) برگرداند. اگر callback نرسد رکورد در loading می‌ماند (فعلاً).
+- `.env.example`: `AI_ALLOWED_MODELS`، `ANSWER_*`. نسخه ← `0.3.8` (stream حذف شد: `AnswerGenerator` فقط `generate`). تست: همهٔ تست‌های pytest سبز (۱۶۹ تست؛ جدید `tests/test_chat_context_stream_logs.py`: لیست مدل، پراپمت، `get_log`، `operation`؛ `tests/test_async_answers.py`: صف ← پاسخ ← وب‌هوک، تلاش مجدد تولید، سقف تلاش تحویل)؛ `ruff check .` تمیز. **اجرا نشده:** اتصال واقعی افزونه (دریافت وب‌هوک پاسخ روی سایت واقعی).
 
 ### 0.3.6
 - **صف ingestion + worker جدا:** `POST/PUT/DELETE /v1/knowledge/records` دیگر چانک/امبدینگ/Qdrant را داخل درخواست انجام نمی‌دهند؛ فقط اعتبارسنجی + ثبت در `ingest_jobs` (یک تراکنش) و **پاسخ 200 فوری** با `job_id`. ثبت به OpenAI/Qdrant وابسته نیست. پذیرش هر دو شکل بدنه (دسته‌ای و تک‌رکوردی افزونه `{event,id,rev,data,callback}`)؛ `rev` ذخیره و در callback برگردانده می‌شود.

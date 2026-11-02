@@ -66,7 +66,7 @@ def test_missing_or_false_only_saves(env, flag):
     body = _ask(env, generate=flag).json()
     assert body["ai_answer"] == {
         "status": "skipped", "message": None, "full_history_tokens": None,
-        "context_tokens": None, "summarization_scheduled": False,
+        "context_tokens": None, "summarization_scheduled": False, "model": None, "job_id": None,
     }  # fmt: skip
     assert _roles(env) == ["user"]
 
