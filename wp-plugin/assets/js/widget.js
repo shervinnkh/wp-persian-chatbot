@@ -1,0 +1,737 @@
+/**
+ * ویجت چت سمت سایت — دستیار هوش مصنوعی وردپرس فارسی
+ * متن‌ها از window.PAIA_CHAT.i18n (PHP) می‌آیند.
+ */
+(function () {
+	'use strict';
+
+	function start() {
+	var cfg = window.PAIA_CHAT;
+	var root = document.getElementById('paia-chat-root');
+	if (!cfg) { return; }
+	if (!root) {
+		root = document.createElement('div');
+		root.id = 'paia-chat-root';
+		root.className = 'paia-chat';
+		root.setAttribute('data-position', 'right');
+		root.setAttribute('dir', document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl');
+		document.body.appendChild(root);
+	}
+	var t = cfg.i18n;
+
+	/* ---------- تم دارک هوشمند ----------
+	 * فقط وقتی در تنظیمات فعال است (cfg.dark). «تیره بودن» از ظاهر واقعی صفحه تشخیص داده می‌شود نه فقط از
+	 * تنظیم دستگاه: رنگ پس‌زمینه پشت آیکن چت، سپس نشانه‌های قالب (class/data-theme)، سپس prefers-color-scheme.
+	 * با تغییر تم سایت (کلید روشن/تاریکِ خود سایت) یا تغییر تنظیم دستگاه، لحظه‌ای دوباره بررسی می‌شود. */
+	function initTheme() {
+		if (!cfg.dark) { root.removeAttribute('data-theme'); return; }
+		var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+		function parseColor(str) {
+			if (!str) { return null; }
+			var m = /^rgba?\(([^)]+)\)$/.exec(str);
+			if (m) {
+				var p = m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
+				if (p.length < 3 || p.some(isNaN)) { return null; }
+				return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+			}
+			m = /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\)$/.exec(str);
+			if (m) {
+				var a = m[4] === undefined ? 1 : (/%$/.test(m[4]) ? parseFloat(m[4]) / 100 : parseFloat(m[4]));
+				return { r: parseFloat(m[1]) * 255, g: parseFloat(m[2]) * 255, b: parseFloat(m[3]) * 255, a: a };
+			}
+			return null;
+		}
+		function luminance(c) { return (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255; }
+
+		function solidBg(node) {
+			for (var e = node; e && e.nodeType === 1; e = e.parentElement) {
+				var c = parseColor(window.getComputedStyle(e).backgroundColor);
+				if (c && c.a >= 0.6) { return c; }
+			}
+			return null;
+		}
+		function pageBg() {
+			var found = null;
+			try {
+				var r = root.getBoundingClientRect();
+				var x = Math.max(0, Math.min(window.innerWidth - 1, r.left + r.width / 2));
+				var y = Math.max(0, Math.min(window.innerHeight - 1, r.top + r.height / 2));
+				var list = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [];
+				for (var i = 0; i < list.length && !found; i++) {
+					if (root.contains(list[i])) { continue; }
+					found = solidBg(list[i]);
+				}
+			} catch (e) { /* noop */ }
+			return found || solidBg(document.body) || solidBg(document.documentElement);
+		}
+		function markerSaysDark() {
+			var nodes = [document.documentElement, document.body];
+			var re = /(^|[\s_-])(dark|night)([\s_-]|$)/i;
+			var light = /(^|[\s_-])(light|day)([\s_-]|$)/i;
+			for (var i = 0; i < nodes.length; i++) {
+				var n = nodes[i];
+				if (!n) { continue; }
+				var vals = [n.className && n.className.baseVal === undefined ? String(n.className) : '',
+					n.getAttribute('data-theme'), n.getAttribute('data-bs-theme'), n.getAttribute('data-color-mode'),
+					n.getAttribute('data-mode'), n.getAttribute('data-color-scheme')];
+				for (var j = 0; j < vals.length; j++) {
+					if (!vals[j]) { continue; }
+					if (light.test(vals[j]) && !re.test(vals[j])) { return false; }
+					if (re.test(vals[j])) { return true; }
+				}
+			}
+			return null;
+		}
+		function isDark() {
+			var bg = pageBg();
+			if (bg) { return luminance(bg) < 0.5; }
+			var mark = markerSaysDark();
+			if (mark !== null) { return mark; }
+			return !!(mq && mq.matches);
+		}
+		function apply() {
+			if (isDark()) { root.setAttribute('data-theme', 'dark'); }
+			else { root.removeAttribute('data-theme'); }
+		}
+
+		var timer = 0;
+		function later() { window.clearTimeout(timer); timer = window.setTimeout(apply, 150); }
+
+		apply();
+		window.addEventListener('load', later);
+		if (mq) {
+			if (mq.addEventListener) { mq.addEventListener('change', later); }
+			else if (mq.addListener) { mq.addListener(later); }
+		}
+		if (window.MutationObserver) {
+			var mo = new window.MutationObserver(later);
+			var opts = { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-bs-theme', 'data-color-mode', 'data-mode', 'data-color-scheme'] };
+			mo.observe(document.documentElement, opts);
+			if (document.body) { mo.observe(document.body, opts); }
+		}
+		// کلیدهای تم سایت گاهی بدون تغییر attribute رنگ را عوض می‌کنند؛ هنگام باز/بسته‌شدن چت هم بررسی می‌کنیم.
+		root.addEventListener('click', later);
+	}
+	initTheme();
+
+	var K_UID = 'paia_chat_visitor_v1';
+	var K_SEEN = 'paia_chat_seen_v1';
+	var K_TEASER = 'paia_chat_teaser_closed';
+
+	var state = {
+		open: false, loaded: false, loading: false, uid: '',
+		busy: false, pending: null, rec: null, lastSugg: [], typingEl: null,
+		ids: {}, sig: '', pollT: 0, polling: false, adminTypingEl: null, muted: false,
+		unread: 0, typingSent: 0, pendingBot: false, lastInput: 0
+	};
+
+	/* ---------- ابزارها ---------- */
+	function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }
+	function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* noop */ } }
+	function ssGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } }
+	function ssSet(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) { /* noop */ } }
+
+	function el(tag, attrs, kids) {
+		var n = document.createElement(tag);
+		if (attrs) {
+			Object.keys(attrs).forEach(function (k) {
+				if (k === 'class') { n.className = attrs[k]; }
+				else if (k === 'html') { n.innerHTML = attrs[k]; }
+				else if (k === 'text') { n.textContent = attrs[k]; }
+				else { n.setAttribute(k, attrs[k]); }
+			});
+		}
+		(kids || []).forEach(function (c) { if (c) { n.appendChild(c); } });
+		return n;
+	}
+
+	var ICONS = {
+		chat: '<path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4c-1.1 0-2.2-.2-3.2-.6L3.5 21l1.8-4.6A8.3 8.3 0 0 1 3.6 11.5 8.5 8.5 0 0 1 12.1 3a8.4 8.4 0 0 1 8.9 8.5Z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/>',
+		close: '<path d="M6 6l12 12M18 6 6 18"/>',
+		send: '<path d="M21.5 3.5 10.3 14.7"/><path d="M21.5 3.5 14.6 20.5l-4.3-5.8-5.8-4.3 17-6.9Z"/>',
+		clip: '<path d="m20.2 11.5-8.1 8.1a5.2 5.2 0 0 1-7.4-7.4l8.4-8.4a3.5 3.5 0 0 1 4.9 4.9l-8.4 8.4a1.7 1.7 0 0 1-2.5-2.5l7.7-7.7"/>',
+		mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>',
+		trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.2a1.8 1.8 0 0 0 1.8 1.6h6.4a1.8 1.8 0 0 0 1.8-1.6L18 7M9 7V4.5h6V7"/>',
+		spark: '<path d="M12 3.5l1.9 5.1a2 2 0 0 0 1.2 1.2l5.1 1.9-5.1 1.9a2 2 0 0 0-1.2 1.2L12 20l-1.9-5.2a2 2 0 0 0-1.2-1.2l-5.1-1.9 5.1-1.9a2 2 0 0 0 1.2-1.2L12 3.5Z"/>',
+		retry: '<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/>'
+	};
+	function icon(name, cls) {
+		return '<svg class="pc-svg ' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICONS[name] + '</svg>';
+	}
+
+	function fmtTime(iso) {
+		var d = iso ? new Date(iso) : new Date();
+		try { return d.toLocaleTimeString(cfg.locale || 'fa-IR', { hour: '2-digit', minute: '2-digit' }); }
+		catch (e) { return d.toLocaleTimeString(); }
+	}
+
+	function linkify(parent, text) {
+		var re = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"»،؛])/g, last = 0, m;
+		while ((m = re.exec(text))) {
+			if (m.index > last) { parent.appendChild(document.createTextNode(text.slice(last, m.index))); }
+			var a = el('a', { href: m[0], target: '_blank', rel: 'noopener noreferrer nofollow' });
+			a.textContent = m[0];
+			parent.appendChild(a);
+			last = re.lastIndex;
+		}
+		if (last < text.length) { parent.appendChild(document.createTextNode(text.slice(last))); }
+	}
+
+	/* ---------- API ---------- */
+	function api(path, opts, noNonce) {
+		opts = opts || {};
+		var headers = {};
+		if (!noNonce && cfg.nonce) { headers['X-WP-Nonce'] = cfg.nonce; }
+		if (state.uid) { headers['X-PAIA-Visitor'] = state.uid; }
+		var init = { method: opts.method || 'GET', headers: headers, credentials: 'same-origin' };
+		if (opts.body) {
+			if (typeof FormData !== 'undefined' && opts.body instanceof FormData) { init.body = opts.body; }
+			else { headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
+		}
+		var url = cfg.restUrl + path;
+		if (cfg.restUrl.indexOf('?') !== -1) { url = cfg.restUrl + path.replace('?', '&'); } // پیوند یکتای ساده: rest_route
+		return fetch(url, init).then(function (r) {
+			return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; });
+		}).then(function (x) {
+			if (x.r.status === 403 && !noNonce && x.j && x.j.code === 'rest_cookie_invalid_nonce') {
+				return api(path, opts, true); // nonce قدیمی (کش صفحه): به‌عنوان مهمان ادامه بده
+			}
+			if (!x.r.ok) {
+				var e = new Error((x.j && x.j.message) || t.loadError);
+				e.status = x.r.status;
+				throw e;
+			}
+			return x.j;
+		});
+	}
+
+	/* ---------- ساخت DOM ---------- */
+	var teaserTitle = el('strong', { text: cfg.teaser.title });
+	var teaserText = el('span', { text: cfg.teaser.text });
+	var teaser = el('div', { class: 'pc-teaser', role: 'status' }, [
+		el('button', { class: 'pc-teaser-x', type: 'button', 'aria-label': t.close, html: icon('close') }),
+		teaserTitle,
+		teaserText
+	]);
+
+	var launcher = el('button', { class: 'pc-launcher', type: 'button', 'aria-label': t.open, 'aria-expanded': 'false' }, [
+		el('span', { class: 'pc-glow', 'aria-hidden': 'true' }),
+		el('span', { class: 'pc-ring', 'aria-hidden': 'true' }),
+		el('span', { class: 'pc-face' }, [
+			el('span', { class: 'pc-ic pc-ic-chat', html: icon('chat') }),
+			el('span', { class: 'pc-ic pc-ic-close', html: icon('close') })
+		]),
+		el('span', { class: 'pc-badge', text: '1', 'aria-hidden': 'true' })
+	]);
+
+	var closeBtn = el('button', { class: 'pc-x', type: 'button', 'aria-label': t.close, html: icon('close') });
+
+	var header = el('header', { class: 'pc-head' }, [
+		el('div', { class: 'pc-avatar', html: icon('spark') + '<i class="pc-online"></i>' }),
+		el('div', { class: 'pc-title' }, [el('strong', { text: cfg.botName }), el('span', { text: cfg.online ? cfg.onlineText : cfg.offlineText })]),
+		closeBtn
+	]);
+
+	var onlineDot = header.querySelector('.pc-online');
+	var subtitleEl = header.querySelector('.pc-title span');
+	function applyOnline(on) {
+		on = !!on;
+		if (onlineDot) { onlineDot.classList.toggle('is-off', !on); }
+		if (subtitleEl) { subtitleEl.textContent = on ? cfg.onlineText : cfg.offlineText; }
+	}
+	applyOnline(cfg.online);
+
+	var screenLoading = el('div', { class: 'pc-screen pc-loading', 'aria-live': 'polite' }, [
+		el('div', { class: 'pc-skel pc-skel-a' }), el('div', { class: 'pc-skel pc-skel-b' }), el('div', { class: 'pc-skel pc-skel-c' })
+	]);
+
+	var screenError = el('div', { class: 'pc-screen pc-error' }, [
+		el('p', { text: t.loadError }),
+		el('button', { class: 'pc-btn pc-btn-primary', type: 'button', 'data-act': 'retry-init', html: icon('retry') + '<span>' + t.retry + '</span>' })
+	]);
+
+	/* فرم نام/تماس */
+	var inName = el('input', { type: 'text', class: 'pc-input', placeholder: t.nameLabel, autocomplete: 'name', maxlength: '100', 'aria-label': t.nameLabel });
+	var inContact = el('input', { type: 'text', class: 'pc-input', placeholder: t.contactLabel, autocomplete: 'email', inputmode: 'email', dir: 'auto', maxlength: '190', 'aria-label': t.contactLabel });
+	var profErr = el('p', { class: 'pc-form-err', role: 'alert' });
+	var btnStart = el('button', { class: 'pc-btn pc-btn-primary', type: 'submit', text: t.start });
+	var btnGuest = el('button', { class: 'pc-btn pc-btn-ghost', type: 'button', text: t.guest });
+	var profForm = el('form', { class: 'pc-form', novalidate: 'novalidate' }, [inName, inContact, profErr, btnStart, btnGuest]);
+	var screenProfile = el('div', { class: 'pc-screen pc-profile' }, [
+		el('div', { class: 'pc-intro' }, [el('span', { class: 'pc-intro-ic', html: icon('spark') }), el('p', { text: cfg.intro })]),
+		profForm
+	]);
+
+	/* صفحهٔ چت */
+	var msgs = el('div', { class: 'pc-msgs', role: 'log', 'aria-live': 'polite' });
+	var sugg = el('div', { class: 'pc-sugg is-empty', role: 'group', 'aria-label': t.suggestions });
+	var pendingBox = el('div', { class: 'pc-pending' });
+	var toast = el('div', { class: 'pc-toast', role: 'alert' });
+
+	var ta = el('textarea', { class: 'pc-ta', rows: '1', maxlength: '2000', placeholder: t.placeholder, 'aria-label': t.placeholder });
+	var fileIn = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', class: 'pc-file', tabindex: '-1', 'aria-hidden': 'true' });
+	var btnAttach = el('button', { class: 'pc-icon-btn pc-attach', type: 'button', 'aria-label': t.attach, html: icon('clip') });
+	var btnSend = el('button', { class: 'pc-act pc-send', type: 'submit', 'aria-label': t.send, html: icon('send') });
+	var micOK = !!(cfg.voice && window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+	var btnMic = el('button', { class: 'pc-act pc-mic', type: 'button', 'aria-label': t.record, html: icon('mic') });
+
+	var bars = el('div', { class: 'pc-wave', 'aria-hidden': 'true' });
+	for (var i = 0; i < 18; i++) { var b = el('i'); b.style.setProperty('--d', ((i * 97) % 700) + 'ms'); b.style.setProperty('--h', (30 + ((i * 53) % 70)) + '%'); bars.appendChild(b); }
+	var recTimer = el('span', { class: 'pc-rec-time', text: '0:00' });
+	var recCancel = el('button', { class: 'pc-icon-btn pc-rec-cancel', type: 'button', 'aria-label': t.cancel, html: icon('trash') });
+	var recSend = el('button', { class: 'pc-act pc-rec-send is-on', type: 'button', 'aria-label': t.send, html: icon('send') });
+	var recBar = el('div', { class: 'pc-rec' }, [recCancel, el('span', { class: 'pc-rec-dot' }), recTimer, bars, recSend]);
+
+	var field = el('div', { class: 'pc-field' }, [
+		cfg.images ? btnAttach : null,
+		ta,
+		el('span', { class: 'pc-slot' }, [micOK ? btnMic : null, btnSend])
+	]);
+	var composer = el('form', { class: 'pc-composer', novalidate: 'novalidate' }, [field, recBar, fileIn]);
+	if (!micOK) { composer.classList.add('no-mic'); }
+
+	var screenChat = el('div', { class: 'pc-screen pc-chat' }, [msgs, toast, sugg, pendingBox, composer]);
+	var body = el('div', { class: 'pc-body' }, [screenLoading, screenError, screenProfile, screenChat]);
+	var win = el('section', { class: 'pc-window', role: 'dialog', 'aria-label': cfg.botName }, [el('div', { class: 'pc-aurora', 'aria-hidden': 'true' }), header, body]);
+
+	root.appendChild(teaser);
+	root.appendChild(win);
+	root.appendChild(launcher);
+
+	if (lsGet(K_SEEN)) { root.classList.add('is-seen'); }
+
+	/* ---------- صفحه‌ها ---------- */
+	function showScreen(name) {
+		[['loading', screenLoading], ['error', screenError], ['profile', screenProfile], ['chat', screenChat]].forEach(function (p) {
+			p[1].classList.toggle('is-active', p[0] === name);
+		});
+		root.setAttribute('data-screen', name);
+	}
+
+	function scrollDown(smooth) {
+		var go = function () { msgs.scrollTo ? msgs.scrollTo({ top: msgs.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }) : (msgs.scrollTop = msgs.scrollHeight); };
+		go();
+		window.requestAnimationFrame(go);
+	}
+
+	function showToast(text) {
+		toast.textContent = text;
+		toast.classList.add('is-on');
+		window.clearTimeout(showToast._t);
+		showToast._t = window.setTimeout(function () { toast.classList.remove('is-on'); }, 3600);
+	}
+
+	/* ---------- پیام‌ها ---------- */
+	function addMsg(m, animate) {
+		var isUser = m.role === 'user';
+		var isAdmin = m.role === 'admin';
+		var bubble = el('div', { class: 'pc-bubble' });
+
+		if (m.attachment && m.attachment.type === 'image') {
+			var img = el('img', { src: m.attachment.url, alt: t.image, loading: 'lazy' });
+			var link = el('a', { class: 'pc-img', href: m.attachment.url, target: '_blank', rel: 'noopener noreferrer' }, [img]);
+			img.addEventListener('load', function () { scrollDown(false); });
+			bubble.appendChild(link);
+		} else if (m.attachment && m.attachment.type === 'audio') {
+			bubble.appendChild(el('audio', { class: 'pc-audio', controls: 'controls', preload: 'metadata', src: m.attachment.url }));
+		}
+		if (m.text) {
+			var p = el('p', { class: 'pc-text' });
+			linkify(p, m.text);
+			bubble.appendChild(p);
+		}
+		bubble.appendChild(el('time', { class: 'pc-time', text: fmtTime(m.time) }));
+
+		var row = el('div', { class: 'pc-row ' + (isUser ? 'pc-user' : 'pc-bot') + (isAdmin ? ' pc-admin' : '') + (animate === false ? ' no-anim' : '') }, [bubble]);
+		if (isAdmin && m.admin_name) { row.appendChild(el('span', { class: 'pc-by', text: t.supportBy + ' ' + m.admin_name })); }
+		if (m.id) { row.setAttribute('data-id', String(m.id)); state.ids[m.id] = true; }
+		var anchor = typingAnchor();
+		if (anchor) { msgs.insertBefore(row, anchor); } else { msgs.appendChild(row); }
+		scrollDown(animate !== false);
+		return row;
+	}
+
+	/* اولین نشانگر تایپ در صفحه (پیام‌های جدید باید بالای آن بیایند) */
+	function typingAnchor() {
+		var a = state.typingEl && state.typingEl.parentNode ? state.typingEl : null;
+		var b = state.adminTypingEl && state.adminTypingEl.parentNode ? state.adminTypingEl : null;
+		if (a && b) { return (a.compareDocumentPosition(b) & 4) ? a : b; }
+		return a || b;
+	}
+
+	/* تایپ پشتیبان (از روی وضعیت سرور) */
+	function setAdminTyping(name) {
+		if (name) {
+			if (!state.adminTypingEl || !state.adminTypingEl.parentNode) {
+				state.adminTypingEl = el('div', { class: 'pc-row pc-bot pc-typing pc-admin-typing', 'aria-hidden': 'true' }, [el('div', { class: 'pc-bubble' }, [el('i'), el('i'), el('i')])]);
+				msgs.appendChild(state.adminTypingEl);
+				scrollDown(true);
+			}
+			state.adminTypingEl.setAttribute('title', name);
+		} else if (state.adminTypingEl) {
+			if (state.adminTypingEl.parentNode) { state.adminTypingEl.parentNode.removeChild(state.adminTypingEl); }
+			state.adminTypingEl = null;
+		}
+	}
+
+	function showTyping() {
+		if (state.typingEl || state.muted) { return; }
+		state.typingEl = el('div', { class: 'pc-row pc-bot pc-typing', 'aria-hidden': 'true' }, [el('div', { class: 'pc-bubble' }, [el('i'), el('i'), el('i')])]);
+		msgs.appendChild(state.typingEl);
+		scrollDown(true);
+	}
+	function hideTyping() {
+		if (state.typingEl && state.typingEl.parentNode) { state.typingEl.parentNode.removeChild(state.typingEl); }
+		state.typingEl = null;
+	}
+
+	/* ---------- پیشنهاد پیام ---------- */
+	function setSuggestions(list) {
+		state.lastSugg = list || [];
+		sugg.innerHTML = '';
+		sugg.classList.remove('is-disabled');
+		if (!state.lastSugg.length) { sugg.classList.add('is-empty'); return; }
+		sugg.classList.remove('is-empty');
+		state.lastSugg.forEach(function (txt, idx) {
+			var chip = el('button', { class: 'pc-chip', type: 'button', text: txt });
+			chip.style.setProperty('--i', idx);
+			chip.addEventListener('click', function () { send(txt); });
+			sugg.appendChild(chip);
+		});
+		sugg.scrollLeft = 0;
+	}
+	function lockSuggestions(on) {
+		sugg.classList.toggle('is-disabled', on);
+		Array.prototype.forEach.call(sugg.querySelectorAll('.pc-chip'), function (c) { c.disabled = on; });
+	}
+
+	/* ---------- بارگذاری اولیه ---------- */
+	function applyInit(d) {
+		if (d.uid && d.uid !== state.uid) { state.uid = d.uid; lsSet(K_UID, d.uid); }
+		if (d.needs_profile) { showScreen('profile'); window.setTimeout(function () { inName.focus(); }, 380); return; }
+		msgs.innerHTML = '';
+		state.typingEl = null;
+		state.adminTypingEl = null;
+		state.ids = {};
+		state.sig = d.sig || '';
+		state.muted = !!d.ai_muted;
+		applyOnline(d.online);
+		(d.messages || []).forEach(function (m) { addMsg(m, false); });
+		if (d.welcome) { addMsg({ role: 'assistant', text: d.welcome, time: new Date().toISOString() }, false); }
+		setSuggestions(d.suggestions || []);
+		showScreen('chat');
+		state.loaded = true;
+		state.pendingBot = !!d.pending;
+		if (state.pendingBot) { showTyping(); }
+		scrollDown(false);
+		schedulePoll();
+		window.setTimeout(function () { ta.focus(); }, 380);
+	}
+
+	function init() {
+		if (state.loading) { return; }
+		state.loading = true;
+		showScreen('loading');
+		api('chat/init').then(applyInit).catch(function () { showScreen('error'); }).then(function () { state.loading = false; });
+	}
+
+	/* ---------- ارسال ---------- */
+	function clearPending() {
+		if (state.pending && state.pending.url) { try { URL.revokeObjectURL(state.pending.url); } catch (e) { /* noop */ } }
+		state.pending = null;
+		pendingBox.innerHTML = '';
+		pendingBox.classList.remove('is-on');
+		updateComposer();
+	}
+
+	function send(text, file, kind) {
+		if (state.busy) { return; }
+		text = (text || '').trim();
+		if (!file && state.pending) { file = state.pending.file; kind = 'image'; }
+		if (!text && !file) { return; }
+
+		state.busy = true;
+		lockSuggestions(true);
+		ta.value = '';
+		autoGrow();
+
+		var localUrl = file ? URL.createObjectURL(file) : '';
+		var row = addMsg({ role: 'user', text: text, time: new Date().toISOString(), attachment: file ? { type: kind, url: localUrl } : null });
+		row.classList.add('is-sending');
+		clearPending();
+		showTyping();
+
+		var fd = new FormData();
+		fd.append('text', text);
+		if (file) { fd.append('file', file, file.name); }
+		// صفحهٔ جاری (فقط آدرس و عنوان؛ سرور slug و نوع را خودش می‌سازد)
+		fd.append('page_url', location.href);
+		fd.append('page_title', document.title || '');
+
+		var minWait = new Promise(function (r) { window.setTimeout(r, 700); });
+		Promise.all([api('chat/message', { method: 'POST', body: fd }), minWait]).then(function (res) {
+			var d = res[0];
+			row.classList.remove('is-sending');
+			// تأخیر هوش مصنوعی: پیام فقط ذخیره شده و پاسخ بعد از چند ثانیه سکوتِ تایپ می‌آید؛ نقطه‌های تایپ می‌مانند.
+			state.pendingBot = !!d.pending;
+			if (!d.pending) { hideTyping(); }
+			if (d.user && d.user.id) { row.setAttribute('data-id', String(d.user.id)); state.ids[d.user.id] = true; }
+			(d.replies || (d.reply ? [d.reply] : [])).forEach(function (m) { addMsg(m); });
+			setSuggestions(d.suggestions || []);
+			if (d.pending) { schedulePoll(); }
+		}).catch(function (e) {
+			hideTyping();
+			row.classList.remove('is-sending');
+			row.classList.add('is-failed');
+			var retry = el('button', { class: 'pc-retry', type: 'button', html: icon('retry') + '<span>' + t.sendFailed + ' — ' + t.retry + '</span>' });
+			retry.addEventListener('click', function () {
+				if (row.parentNode) { row.parentNode.removeChild(row); }
+				state.busy = false;
+				send(text, file, kind);
+			});
+			row.appendChild(retry);
+			lockSuggestions(false);
+			if (e && e.status && e.status !== 0 && e.message) { showToast(e.message); }
+		}).then(function () { state.busy = false; });
+	}
+
+	/* ---------- به‌روزرسانی دوره‌ای (polling) ---------- */
+	function notifyTyping() {
+		if (!state.loaded || !ta.value.trim()) { return; }
+		var now = Date.now();
+		if (now - state.typingSent < (cfg.poll.typing || 3000)) { return; }
+		state.typingSent = now;
+		api('chat/typing', { method: 'POST', body: {} }).catch(function () { /* noop */ });
+	}
+
+	function bumpUnread(n) {
+		state.unread += n;
+		var badge = launcher.querySelector('.pc-badge');
+		if (badge) { badge.textContent = state.unread > 9 ? '9+' : String(state.unread); }
+		root.classList.add('has-unread');
+	}
+
+	/* پیام جدید پشتیبان/بات وقتی چت بسته است: علاوه بر شمارندهٔ نخوانده، متن پیام بالای آیکن نمایش داده می‌شود */
+	function showIncoming(m) {
+		if (!m) { return; }
+		var body = m.text || (m.attachment && m.attachment.type === 'audio' ? '🎤' : t.image);
+		if (body.length > 110) { body = body.slice(0, 110) + '…'; }
+		teaserTitle.textContent = t.newMessage + (m.role === 'admin' && m.admin_name ? ' · ' + m.admin_name : '');
+		teaserText.textContent = body;
+		root.classList.add('show-teaser');
+		window.clearTimeout(showIncoming._t);
+		showIncoming._t = window.setTimeout(function () { root.classList.remove('show-teaser'); }, 15000);
+	}
+
+	function syncMessages(list) {
+		var seen = {}, minId = 0, added = 0, hadRows = Object.keys(state.ids).length > 0;
+		list.forEach(function (m) { seen[m.id] = true; if (!minId || m.id < minId) { minId = m.id; } });
+
+		// پیام‌های حذف‌شده (توسط پشتیبان/مدیر)
+		Array.prototype.slice.call(msgs.querySelectorAll('.pc-row[data-id]')).forEach(function (row) {
+			var id = parseInt(row.getAttribute('data-id'), 10);
+			if (id >= minId && !seen[id]) { if (row.parentNode) { row.parentNode.removeChild(row); } delete state.ids[id]; }
+		});
+
+		// تاریخچه کاملاً پاک شده: دوباره از ابتدا (پیام خوش‌آمد)
+		if (!list.length && hadRows) {
+			api('chat/init').then(applyInit).catch(function () { /* noop */ });
+			return;
+		}
+
+		var lastNew = null;
+		list.forEach(function (m) {
+			if (state.ids[m.id]) { return; }
+			addMsg(m);
+			if (m.role !== 'user') { added++; lastNew = m; }
+		});
+
+		if (added) {
+			var last = list[list.length - 1];
+			setSuggestions(last && last.role === 'assistant' ? (last.suggestions || []) : []);
+			if (!state.open) { bumpUnread(added); showIncoming(lastNew); }
+		}
+	}
+
+	function applyPoll(d) {
+		applyOnline(d.online);
+		state.muted = !!d.ai_muted;
+		setAdminTyping(d.admin_typing);
+		if (d.changed && d.messages) { syncMessages(d.messages); }
+		if (d.sig) { state.sig = d.sig; }
+		// پیام‌های جمع‌شده منتظر پاسخ‌اند: تا وقتی کاربر دوباره تایپ نکرده نقطه‌های تایپ نشان داده می‌شود.
+		state.pendingBot = !!d.pending;
+		if (d.pending) { if (Date.now() - state.lastInput < 2500) { hideTyping(); } else { showTyping(); } }
+		else if (!state.busy) { hideTyping(); }
+	}
+
+	/* فاصلهٔ polling: چت باز و تب مرورگر فعال = fast (۱ ثانیه)؛ چت بسته یا کاربر در تب دیگر = slow (۴ ثانیه).
+	   در حالت «بهینه‌شده» سرور هر دو را ۴ برابر کرده و تب پس‌زمینه اصلاً polling نمی‌کند (cfg.poll.hidden = false). */
+	function schedulePoll() {
+		window.clearTimeout(state.pollT);
+		state.pollT = window.setTimeout(poll, (state.open && !document.hidden) ? cfg.poll.fast : cfg.poll.slow);
+	}
+
+	function poll() {
+		if (!state.loaded || (document.hidden && !cfg.poll.hidden) || state.busy || state.polling) { schedulePoll(); return; }
+		state.polling = true;
+		api('chat/poll?sig=' + encodeURIComponent(state.sig))
+			.then(applyPoll)
+			.catch(function () { /* noop: دور بعد دوباره تلاش می‌شود */ })
+			.then(function () { state.polling = false; schedulePoll(); });
+	}
+
+	document.addEventListener('visibilitychange', function () {
+		if (!document.hidden && state.loaded) { window.clearTimeout(state.pollT); poll(); }
+	});
+
+	/* ---------- composer ---------- */
+	function autoGrow() {
+		ta.style.height = 'auto';
+		ta.style.height = Math.min(ta.scrollHeight, 110) + 'px';
+		updateComposer();
+	}
+	function updateComposer() {
+		composer.classList.toggle('has-content', !!(ta.value.trim() || state.pending));
+	}
+
+	ta.addEventListener('input', function () { state.lastInput = Date.now(); if (state.pendingBot) { hideTyping(); } autoGrow(); notifyTyping(); });
+	ta.addEventListener('keydown', function (e) {
+		if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(ta.value); }
+	});
+	composer.addEventListener('submit', function (e) { e.preventDefault(); send(ta.value); });
+
+	btnAttach.addEventListener('click', function () { fileIn.click(); });
+	fileIn.addEventListener('change', function () {
+		var f = fileIn.files && fileIn.files[0];
+		fileIn.value = '';
+		if (!f) { return; }
+		if (!/^image\/(png|jpe?g|gif|webp)$/i.test(f.type)) { showToast(t.badFile); return; }
+		if (f.size > cfg.maxMb * 1048576) { showToast(t.tooBig); return; }
+		clearPending();
+		var url = URL.createObjectURL(f);
+		state.pending = { file: f, url: url };
+		var rm = el('button', { class: 'pc-pending-x', type: 'button', 'aria-label': t.remove, html: icon('close') });
+		rm.addEventListener('click', clearPending);
+		pendingBox.appendChild(el('div', { class: 'pc-thumb' }, [el('img', { src: url, alt: '' }), rm]));
+		pendingBox.classList.add('is-on');
+		updateComposer();
+		ta.focus();
+	});
+
+	/* ---------- ویس ---------- */
+	function pickMime() {
+		var c = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+		for (var i = 0; i < c.length; i++) {
+			try { if (window.MediaRecorder.isTypeSupported(c[i])) { return c[i]; } } catch (e) { /* noop */ }
+		}
+		return '';
+	}
+	function fmtDur(ms) {
+		var s = Math.floor(ms / 1000);
+		return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+	}
+	function stopStream(r) { if (r && r.stream) { r.stream.getTracks().forEach(function (tr) { tr.stop(); }); } }
+
+	function startRec() {
+		if (state.rec || state.busy) { return; }
+		if (!micOK) { showToast(t.micUnsupported); return; }
+		navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+			var mime = pickMime(), rec;
+			try { rec = mime ? new window.MediaRecorder(stream, { mimeType: mime }) : new window.MediaRecorder(stream); }
+			catch (e) { stream.getTracks().forEach(function (tr) { tr.stop(); }); showToast(t.micUnsupported); return; }
+			var r = { rec: rec, stream: stream, chunks: [], start: Date.now(), send: false, timer: 0 };
+			rec.ondataavailable = function (ev) { if (ev.data && ev.data.size) { r.chunks.push(ev.data); } };
+			rec.onstop = function () {
+				window.clearInterval(r.timer);
+				stopStream(r);
+				composer.classList.remove('is-recording');
+				state.rec = null;
+				var dur = Date.now() - r.start;
+				if (!r.send || dur < 900 || !r.chunks.length) { return; }
+				var type = rec.mimeType || mime || 'audio/webm';
+				var ext = /ogg/.test(type) ? 'ogg' : (/mp4/.test(type) ? 'm4a' : 'webm');
+				var blob = new Blob(r.chunks, { type: type });
+				if (blob.size > cfg.maxMb * 1048576) { showToast(t.tooBig); return; }
+				var f;
+				try { f = new File([blob], 'voice.' + ext, { type: type }); } catch (e) { f = blob; f.name = 'voice.' + ext; }
+				send('', f, 'audio');
+			};
+			state.rec = r;
+			recTimer.textContent = '0:00';
+			composer.classList.add('is-recording');
+			r.timer = window.setInterval(function () {
+				var d = Date.now() - r.start;
+				recTimer.textContent = fmtDur(d);
+				if (d >= 120000) { stopRec(true); }
+			}, 250);
+			rec.start();
+		}).catch(function () { showToast(t.micDenied); });
+	}
+	function stopRec(doSend) {
+		var r = state.rec;
+		if (!r) { return; }
+		r.send = !!doSend;
+		try { if (r.rec.state !== 'inactive') { r.rec.stop(); } } catch (e) { stopStream(r); composer.classList.remove('is-recording'); state.rec = null; }
+	}
+	btnMic.addEventListener('click', startRec);
+	recCancel.addEventListener('click', function () { stopRec(false); });
+	recSend.addEventListener('click', function () { stopRec(true); });
+
+	/* ---------- فرم پروفایل ---------- */
+	function submitProfile(guest) {
+		profErr.textContent = '';
+		var name = inName.value.trim(), contact = inContact.value.trim();
+		var body = guest ? { guest: true } : { name: name, contact: contact };
+		btnStart.disabled = btnGuest.disabled = true;
+		api('chat/profile', { method: 'POST', body: body }).then(applyInit).catch(function (e) {
+			profErr.textContent = e.message || t.loadError;
+			profForm.classList.remove('is-shake');
+			void profForm.offsetWidth;
+			profForm.classList.add('is-shake');
+		}).then(function () { btnStart.disabled = btnGuest.disabled = false; });
+	}
+	profForm.addEventListener('submit', function (e) { e.preventDefault(); submitProfile(false); });
+	btnGuest.addEventListener('click', function () { submitProfile(true); });
+	screenError.querySelector('[data-act="retry-init"]').addEventListener('click', init);
+
+	/* ---------- باز/بسته ---------- */
+	function setOpen(on) {
+		state.open = on;
+		root.classList.toggle('is-open', on);
+		launcher.setAttribute('aria-expanded', on ? 'true' : 'false');
+		launcher.setAttribute('aria-label', on ? t.close : t.open);
+		if (state.loaded) { schedulePoll(); }
+		if (on) {
+			root.classList.remove('show-teaser');
+			root.classList.add('is-seen');
+			state.unread = 0;
+			root.classList.remove('has-unread');
+			lsSet(K_SEEN, '1');
+			if (!state.loaded && !state.loading) { init(); }
+			else if (state.loaded) { scrollDown(false); window.setTimeout(function () { ta.focus(); }, 380); }
+		} else {
+			launcher.focus();
+		}
+	}
+	launcher.addEventListener('click', function () { setOpen(!state.open); });
+	closeBtn.addEventListener('click', function () { setOpen(false); });
+	teaser.addEventListener('click', function (e) {
+		if (e.target.closest('.pc-teaser-x')) { ssSet(K_TEASER, '1'); root.classList.remove('show-teaser'); return; }
+		setOpen(true);
+	});
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape' && state.open) { if (state.rec) { stopRec(false); } else { setOpen(false); } }
+	});
+
+	/* پیام شناور بالای آیکن: یک‌بار در هر نشست */
+	state.uid = lsGet(K_UID) || '';
+	if (!ssGet(K_TEASER)) {
+		window.setTimeout(function () { if (!state.open) { root.classList.add('show-teaser'); } }, 2600);
+		window.setTimeout(function () { root.classList.remove('show-teaser'); }, 22000);
+	}
+	}
+
+	if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', start); } else { start(); }
+})();

@@ -1,0 +1,58 @@
+<?php
+namespace PersianAIAssistant\Extraction;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * منابع قابل استخراج از سایت؛ هم برای نمایش فرم و هم اعتبارسنجی REST استفاده می‌شود.
+ * منبع جدید فقط با فیلتر paia_extraction_sources یا افزودن به همین لیست اضافه می‌شود.
+ */
+final class Sources {
+
+	/**
+	 * @return array<string, array{label:string, description:string, record:string, icon:string, default:bool}>
+	 */
+	public static function all(): array {
+		$sources = array(
+			'products' => array(
+				'label'       => __( 'محصولات', 'persian-ai-assistant' ),
+				'description' => __( 'نام، توضیحات، قیمت و ویژگی‌های محصولات', 'persian-ai-assistant' ),
+				'record'      => 'product',
+				'icon'        => 'shopping-bag',
+				'default'     => true,
+			),
+			'blog'     => array(
+				'label'       => __( 'وبلاگ', 'persian-ai-assistant' ),
+				'description' => __( 'نوشته‌ها و مقالات منتشرشده', 'persian-ai-assistant' ),
+				'record'      => 'blog',
+				'icon'        => 'newspaper',
+				'default'     => true,
+			),
+			'pages'    => array(
+				'label'       => __( 'برگه‌های عمومی', 'persian-ai-assistant' ),
+				'description' => __( 'برگه‌های ثابت مثل درباره ما و قوانین', 'persian-ai-assistant' ),
+				'record'      => 'page',
+				'icon'        => 'file-text',
+				'default'     => false,
+			),
+		);
+
+		return (array) apply_filters( 'paia_extraction_sources', $sources );
+	}
+
+	/**
+	 * پیشوند شناسهٔ رکوردهای ذخیره‌شده در جدول (مثلاً product برای product:23).
+	 */
+	public static function record_category( string $source ): string {
+		$all = self::all();
+
+		return isset( $all[ $source ]['record'] ) ? (string) $all[ $source ]['record'] : sanitize_key( $source );
+	}
+
+	/**
+	 * @return string[]
+	 */
+	public static function ids(): array {
+		return array_keys( self::all() );
+	}
+}

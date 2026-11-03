@@ -1,0 +1,140 @@
+# Copyright (C) 2026 شروین نخعی‌نیا
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Persian AI Assistant 0.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fa_IR\n"
+"X-Domain: persian-ai-assistant\n"
+
+#: persian-ai-assistant.php:40
+#, php-format
+msgid "افزونه دستیار هوش مصنوعی وردپرس فارسی به PHP نسخه %1$s و وردپرس نسخه %2$s یا بالاتر نیاز دارد."
+msgstr ""
+
+#: views/admin/home.php:5 includes/Admin/Pages/HomePage.php:17 includes/Admin/Pages/HomePage.php:21
+msgid "صفحه اصلی"
+msgstr ""
+
+#: views/admin/chatbot/tabs/extraction.php:15
+msgid "استخراج اولیه اطلاعات سایت"
+msgstr ""
+
+#: views/admin/chatbot/tabs/extraction.php:17
+msgid "انتخاب همه"
+msgstr ""
+
+#: views/admin/chatbot/tabs/extraction.php:18
+msgid "لغو انتخاب همه"
+msgstr ""
+
+#: views/admin/chatbot/tabs/extraction.php:46
+msgid "استخراج اطلاعات"
+msgstr ""
+
+#: views/admin/chatbot/tabs/general.php:5
+msgid "خوش آمدی"
+msgstr ""
+
+#: includes/Rest/AbstractController.php:26
+msgid "شما اجازهٔ انجام این کار را ندارید."
+msgstr ""
+
+#: includes/Rest/ExtractionController.php:49
+msgid "اتصال به سرویس هوش مصنوعی در مرحله‌های بعد فعال می‌شود."
+msgstr ""
+
+#: includes/Extraction/Sources.php:18
+msgid "محصولات"
+msgstr ""
+
+#: includes/Extraction/Sources.php:19
+msgid "نام، توضیحات، قیمت و ویژگی‌های محصولات"
+msgstr ""
+
+#: includes/Extraction/Sources.php:24
+msgid "وبلاگ"
+msgstr ""
+
+#: includes/Extraction/Sources.php:25
+msgid "نوشته‌ها و مقالات منتشرشده"
+msgstr ""
+
+#: includes/Extraction/Sources.php:30
+msgid "برگه‌های عمومی"
+msgstr ""
+
+#: includes/Extraction/Sources.php:31
+msgid "برگه‌های ثابت مثل درباره ما و قوانین"
+msgstr ""
+
+#: includes/Extraction/Sources.php:36
+msgid "سوالات متداول"
+msgstr ""
+
+#: includes/Extraction/Sources.php:37
+msgid "پرسش‌ها و پاسخ‌های پرتکرار کاربران"
+msgstr ""
+
+#: includes/Extraction/Sources.php:42
+msgid "تماس با ما"
+msgstr ""
+
+#: includes/Extraction/Sources.php:43
+msgid "اطلاعات تماس و راه‌های ارتباطی"
+msgstr ""
+
+#: includes/Admin/AdminModule.php:38 includes/Admin/Pages/ChatbotPage.php:37
+msgid "دستیار هوش مصنوعی وردپرس فارسی"
+msgstr ""
+
+#: includes/Admin/AdminModule.php:39
+msgid "دستیار هوش مصنوعی"
+msgstr ""
+
+#: includes/Admin/AdminModule.php:106
+msgid "باز کردن چت‌بات"
+msgstr ""
+
+#: includes/Admin/AdminModule.php:131
+#, php-format
+msgid "%d مورد انتخاب شده"
+msgstr ""
+
+#: includes/Admin/AdminModule.php:132
+msgid "هیچ موردی انتخاب نشده است"
+msgstr ""
+
+#: includes/Admin/AdminModule.php:133
+msgid "در حال استخراج…"
+msgstr ""
+
+#: includes/Admin/AdminModule.php:134
+msgid "ارتباط با سرور برقرار نشد. دوباره تلاش کنید."
+msgstr ""
+
+#: includes/Admin/AdminModule.php:135
+msgid "خطای ناشناخته رخ داد."
+msgstr ""
+
+#: includes/Admin/Chatbot/Tabs/DocumentsTab.php:13
+msgid "اسناد اضافه"
+msgstr ""
+
+#: includes/Admin/Chatbot/Tabs/ExtractionTab.php:15
+msgid "استخراج اطلاعات سایت"
+msgstr ""
+
+#: includes/Admin/Chatbot/Tabs/GeneralTab.php:13
+msgid "عمومی"
+msgstr ""
+
+#: includes/Admin/Chatbot/Tabs/SettingsTab.php:13
+msgid "تنظیمات"
+msgstr ""
+
+#: includes/Admin/Pages/ChatbotPage.php:22 includes/Admin/Pages/ChatbotPage.php:26
+msgid "چت‌بات هوشمند"
+msgstr ""

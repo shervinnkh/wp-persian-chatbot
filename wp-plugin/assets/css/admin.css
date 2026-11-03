@@ -1,0 +1,1718 @@
+/* ==========================================================================
+   دستیار هوش مصنوعی وردپرس فارسی — استایل بخش مدیریت
+   همهٔ قواعد زیر .paia-app محدود شده‌اند تا با سایر افزونه‌ها تداخل نکنند.
+   ========================================================================== */
+
+@font-face {
+	font-family: "Vazirmatn";
+	src: url("../fonts/Vazirmatn-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Vazirmatn";
+	src: url("../fonts/Vazirmatn-Medium.woff2") format("woff2");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Vazirmatn";
+	src: url("../fonts/Vazirmatn-Bold.woff2") format("woff2");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* ---------- پوستهٔ تیره: منوی وردپرس همیشه نمایش داده می‌شود ---------- */
+
+html:has(body.paia-app-shell),
+body.paia-app-shell,
+body.paia-app-shell #wpwrap,
+body.paia-app-shell #wpbody,
+body.paia-app-shell #wpbody-content {
+	background: #0f172a;
+	color: #e5e7eb;
+}
+/* خروجی خام خطا/هشدار PHP که قالب یا افزونه‌ها چاپ می‌کنند (بدون هیچ ظرفی) */
+body.paia-app-shell #wpbody-content > :not(.wrap):not(.paia-app):not(.notice):not(#screen-meta):not(#screen-meta-links):not(.clear) {
+	color: #e5e7eb;
+}
+body.paia-app-shell #wpbody-content > b,
+body.paia-app-shell #wpbody-content > strong {
+	color: #fbbf24;
+}
+body.paia-app-shell #wpcontent {
+	padding-inline-start: 0;
+	background: #0f172a;
+}
+body.paia-app-shell #wpbody-content {
+	padding-bottom: 0;
+}
+body.paia-app-shell #wpfooter {
+	display: none;
+}
+
+/* اعلان‌های وردپرس و افزونه‌های دیگر (هشدار، خطا، موفقیت) هم با پوستهٔ تیره هماهنگ شوند */
+body.paia-app-shell #wpbody-content > .notice,
+body.paia-app-shell #wpbody-content > div.updated,
+body.paia-app-shell #wpbody-content > div.error,
+body.paia-app-shell #wpbody-content > .update-nag,
+body.paia-app-shell #wpbody-content > .wrap > .notice,
+body.paia-app-shell #wpbody-content > .wrap > div.updated,
+body.paia-app-shell #wpbody-content > .wrap > div.error {
+	margin: 12px 20px 0;
+	border: 1px solid rgba(148, 163, 184, 0.18);
+	border-inline-start: 4px solid #06b6d4;
+	border-radius: 10px;
+	background: #1e293b;
+	color: #e5e7eb;
+	box-shadow: none;
+}
+body.paia-app-shell .notice p,
+body.paia-app-shell div.updated p,
+body.paia-app-shell div.error p {
+	color: inherit;
+}
+body.paia-app-shell .notice a,
+body.paia-app-shell div.updated a,
+body.paia-app-shell div.error a {
+	color: #67e8f9;
+}
+body.paia-app-shell .notice-warning,
+body.paia-app-shell .update-nag {
+	border-inline-start-color: #fbbf24;
+}
+body.paia-app-shell .notice-error,
+body.paia-app-shell div.error {
+	border-inline-start-color: #f87171;
+}
+body.paia-app-shell .notice-success,
+body.paia-app-shell div.updated {
+	border-inline-start-color: #34d399;
+}
+body.paia-app-shell .notice-dismiss::before {
+	color: #94a3b8;
+}
+
+/* ---------- متغیرهای طراحی ---------- */
+
+.paia-app {
+	--paia-bg: #0f172a;
+	--paia-surface: #1e293b;
+	--paia-primary: #6d28d9;
+	--paia-accent: #06b6d4;
+	--paia-secondary: #9333ea;
+	--paia-text: #e5e7eb;
+	--paia-muted: #94a3b8;
+
+	--paia-border: rgba(148, 163, 184, 0.18);
+	--paia-border-strong: rgba(148, 163, 184, 0.34);
+	--paia-gradient: linear-gradient(135deg, var(--paia-primary) 0%, var(--paia-secondary) 55%, var(--paia-accent) 130%);
+	--paia-radius-lg: 20px;
+	--paia-radius-md: 14px;
+	--paia-radius-sm: 10px;
+	--paia-adminbar: 32px;
+	--paia-font: "Vazirmatn", Tahoma, "Segoe UI", system-ui, sans-serif;
+}
+
+/* ---------- پوستهٔ اصلی ---------- */
+
+.paia-app {
+	display: flex;
+	flex-direction: column;
+	min-height: calc(100vh - var(--paia-adminbar, 32px));
+	box-sizing: border-box;
+	background: var(--paia-bg);
+	color: var(--paia-text);
+	font-family: var(--paia-font);
+	font-size: 14px;
+	line-height: 1.85;
+}
+.paia-app *,
+.paia-app *::before,
+.paia-app *::after {
+	box-sizing: border-box;
+}
+.paia-app h1,
+.paia-app h2 {
+	margin: 0;
+	padding: 0;
+	color: var(--paia-text);
+	font-family: var(--paia-font);
+	font-weight: 700;
+}
+.paia-app a {
+	color: inherit;
+	text-decoration: none;
+}
+.paia-app button {
+	font-family: var(--paia-font);
+}
+
+/* ---------- نوار بالا (سربرگ + تب‌ها) ---------- */
+
+.paia-topbar {
+	position: sticky;
+	top: var(--paia-adminbar);
+	z-index: 10;
+	background: rgba(15, 23, 42, 0.92);
+	-webkit-backdrop-filter: blur(10px);
+	backdrop-filter: blur(10px);
+	border-block-end: 1px solid var(--paia-border);
+}
+
+.paia-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 16px 32px 6px;
+}
+
+.paia-brand {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	min-width: 0;
+}
+
+.paia-logo {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 42px;
+	height: 42px;
+	border-radius: 13px;
+	background: var(--paia-gradient);
+	color: #fff;
+	box-shadow: 0 6px 18px rgba(109, 40, 217, 0.4);
+}
+
+.paia-app .paia-title {
+	font-size: 18px;
+	line-height: 1.5;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+
+/* ---------- تب‌ها ---------- */
+
+.paia-tabs {
+	display: flex;
+	gap: 4px;
+	padding: 0 24px;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.paia-tabs::-webkit-scrollbar {
+	display: none;
+}
+
+.paia-app .paia-tab {
+	position: relative;
+	flex: none;
+	padding: 12px 18px;
+	color: var(--paia-muted);
+	font-weight: 500;
+	white-space: nowrap;
+	transition: color 0.15s ease;
+}
+.paia-app .paia-tab:hover {
+	color: var(--paia-text);
+}
+.paia-app .paia-tab.is-active {
+	color: var(--paia-text);
+	font-weight: 700;
+}
+.paia-app .paia-tab.is-active::after {
+	content: "";
+	position: absolute;
+	inset-inline: 12px;
+	inset-block-end: -1px;
+	height: 3px;
+	border-radius: 3px 3px 0 0;
+	background: var(--paia-gradient);
+}
+.paia-app .paia-tab:focus-visible,
+.paia-app .paia-link:focus-visible,
+.paia-app .paia-btn:focus-visible {
+	outline: 2px solid var(--paia-accent);
+	outline-offset: 2px;
+	box-shadow: none;
+}
+
+/* ---------- محتوا ---------- */
+
+.paia-content {
+	flex: 1;
+	width: 100%;
+	max-width: 1080px;
+	margin-inline: auto;
+	padding: 32px;
+}
+.paia-panel[hidden] {
+	display: none;
+}
+
+/* ---------- تب عمومی (داشبورد آمار کلی: چهار کارت کنار هم) ---------- */
+
+.paia-app a.paia-btn {
+	text-decoration: none;
+}
+.paia-app .paia-dash__head {
+	margin: 0 0 18px;
+}
+.paia-app .paia-dash__title {
+	margin: 0;
+	font-size: 20px;
+	line-height: 1.6;
+}
+.paia-app .paia-dash__sub {
+	margin: 2px 0 0;
+	color: var(--paia-muted);
+	font-size: 13.5px;
+}
+.paia-app .paia-dash__grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 16px;
+}
+.paia-app .paia-dcard {
+	--dc: #a78bfa;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	min-width: 0;
+	padding: 22px 20px 18px;
+	overflow: hidden;
+	border: 1px solid var(--paia-border);
+	border-radius: var(--paia-radius-lg);
+	background:
+		radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--dc) 22%, transparent) 0%, transparent 60%),
+		var(--paia-surface);
+	color: var(--paia-text);
+	text-decoration: none;
+	transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.paia-app .paia-dcard:hover {
+	border-color: color-mix(in srgb, var(--dc) 70%, transparent);
+	transform: translateY(-2px);
+	box-shadow: 0 14px 30px rgba(2, 6, 23, 0.4);
+	color: var(--paia-text);
+}
+.paia-app .paia-dcard:focus-visible {
+	outline: 2px solid var(--paia-accent);
+	outline-offset: 2px;
+}
+.paia-app .paia-dcard.is-alert {
+	border-color: rgba(251, 191, 36, 0.55);
+}
+.paia-app .paia-dcard__top {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.paia-app .paia-dcard__icon {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 42px;
+	height: 42px;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--dc) 20%, transparent);
+	color: var(--dc);
+}
+.paia-app .paia-dcard__title {
+	margin: 0;
+	color: #fff;
+	font-size: 14.5px;
+	font-weight: 600;
+	line-height: 1.6;
+}
+.paia-app .paia-dcard__big {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.paia-app .paia-dcard__num {
+	font-size: 38px;
+	font-weight: 700;
+	line-height: 1.2;
+	color: var(--dc);
+}
+.paia-app .paia-dcard__cap {
+	color: var(--paia-muted);
+	font-size: 13px;
+}
+.paia-app .paia-dcard__rows {
+	display: grid;
+	gap: 0;
+	margin: 0;
+	padding-block-start: 12px;
+	border-block-start: 1px solid var(--paia-border);
+}
+.paia-app .paia-dcard__row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 6px 0;
+	font-size: 13px;
+}
+.paia-app .paia-dcard__row dt {
+	margin: 0;
+	color: var(--paia-muted);
+}
+.paia-app .paia-dcard__row dd {
+	margin: 0;
+	font-weight: 700;
+	text-align: end;
+}
+.paia-app .paia-dcard__row.is-bad dd {
+	color: #f87171;
+}
+.paia-app .paia-dcard__row.is-warn dd {
+	color: #fbbf24;
+}
+.paia-app .paia-dcard__row.is-text dd {
+	font-weight: 500;
+	font-size: 12px;
+	color: var(--paia-muted);
+}
+.paia-app .paia-dcard__foot {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-block-start: auto;
+	padding-block-start: 4px;
+	color: var(--dc);
+	font-size: 13px;
+	font-weight: 600;
+}
+@media (max-width: 1100px) {
+	.paia-app .paia-dash__grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+@media (max-width: 600px) {
+	.paia-app .paia-dash__grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* ---------- کارت ---------- */
+
+.paia-card {
+	padding: 28px;
+	border: 1px solid var(--paia-border);
+	border-radius: var(--paia-radius-lg);
+	background: var(--paia-surface);
+}
+.paia-card__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-block-end: 22px;
+}
+.paia-app .paia-card__title {
+	font-size: 17px;
+	line-height: 1.6;
+}
+.paia-card__tools {
+	display: flex;
+	gap: 16px;
+}
+.paia-app .paia-link {
+	padding: 2px 0;
+	border: 0;
+	background: none;
+	color: var(--paia-accent);
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+}
+.paia-app .paia-link:hover {
+	color: #67e8f9;
+}
+
+/* ---------- گزینه‌های استخراج ---------- */
+
+.paia-options {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 14px;
+}
+
+.paia-option {
+	position: relative;
+	display: block;
+	cursor: pointer;
+}
+/* چک‌باکس واقعی برای دسترس‌پذیری باقی می‌ماند اما نامرئی است */
+.paia-app .paia-option input[type="checkbox"] {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.paia-option__card {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	min-height: 84px;
+	padding: 16px;
+	border: 1px solid var(--paia-border);
+	border-radius: var(--paia-radius-md);
+	background: var(--paia-bg);
+	transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.paia-option:hover .paia-option__card {
+	border-color: var(--paia-border-strong);
+}
+
+.paia-option__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 46px;
+	height: 46px;
+	border-radius: 12px;
+	background: rgba(148, 163, 184, 0.12);
+	color: var(--paia-muted);
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.paia-option__text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.paia-option__text strong {
+	color: var(--paia-text);
+	font-size: 14.5px;
+	font-weight: 700;
+}
+.paia-option__text small {
+	color: var(--paia-muted);
+	font-size: 12.5px;
+	line-height: 1.7;
+}
+
+.paia-option__check {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 22px;
+	height: 22px;
+	margin-inline-start: auto;
+	border: 1.5px solid var(--paia-border-strong);
+	border-radius: 50%;
+	color: transparent;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+/* حالت انتخاب‌شده */
+.paia-option input:checked + .paia-option__card {
+	border-color: var(--paia-secondary);
+	background: rgba(109, 40, 217, 0.14);
+}
+.paia-option input:checked + .paia-option__card .paia-option__icon {
+	background: var(--paia-gradient);
+	color: #fff;
+}
+.paia-option input:checked + .paia-option__card .paia-option__check {
+	border-color: transparent;
+	background: var(--paia-secondary);
+	color: #fff;
+}
+.paia-option input:focus-visible + .paia-option__card {
+	outline: 2px solid var(--paia-accent);
+	outline-offset: 2px;
+}
+
+/* ---------- دکمه و اقدام ---------- */
+
+.paia-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 18px;
+	margin-block-start: 26px;
+	padding-block-start: 22px;
+	border-block-start: 1px solid var(--paia-border);
+}
+
+.paia-app .paia-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	min-height: 46px;
+	padding: 0 28px;
+	border: 0;
+	border-radius: 12px;
+	background: var(--paia-gradient);
+	color: #fff;
+	font-size: 14.5px;
+	font-weight: 700;
+	cursor: pointer;
+	box-shadow: 0 8px 22px rgba(109, 40, 217, 0.38);
+	transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.paia-app .paia-btn:hover:not(:disabled) {
+	filter: brightness(1.1);
+	transform: translateY(-1px);
+}
+.paia-app .paia-btn:disabled {
+	opacity: 0.45;
+	box-shadow: none;
+	cursor: not-allowed;
+}
+
+.paia-spinner {
+	display: none;
+	width: 16px;
+	height: 16px;
+	border: 2px solid rgba(255, 255, 255, 0.35);
+	border-top-color: #fff;
+	border-radius: 50%;
+	animation: paia-spin 0.7s linear infinite;
+}
+.paia-btn.is-loading .paia-spinner {
+	display: inline-block;
+}
+@keyframes paia-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.paia-count {
+	color: var(--paia-muted);
+	font-size: 13px;
+}
+
+/* ---------- پیام وضعیت ---------- */
+
+.paia-notice {
+	margin-block-start: 18px;
+	padding: 12px 16px;
+	border: 1px solid var(--paia-border-strong);
+	border-radius: var(--paia-radius-sm);
+	background: var(--paia-bg);
+	color: var(--paia-text);
+}
+.paia-notice[hidden] {
+	display: none;
+}
+.paia-notice--info {
+	border-color: rgba(6, 182, 212, 0.55);
+	background: rgba(6, 182, 212, 0.08);
+}
+.paia-notice--error {
+	border-color: rgba(248, 113, 113, 0.6);
+	background: rgba(248, 113, 113, 0.09);
+}
+.paia-notice--success {
+	border-color: rgba(52, 211, 153, 0.55);
+	background: rgba(52, 211, 153, 0.09);
+}
+
+/* ---------- پیشرفت استخراج ---------- */
+
+.paia-progress {
+	margin-block-start: 20px;
+}
+.paia-progress[hidden] {
+	display: none;
+}
+.paia-progress__bar {
+	height: 8px;
+	overflow: hidden;
+	border-radius: 8px;
+	background: var(--paia-bg);
+}
+.paia-progress__bar > span {
+	display: block;
+	width: 0;
+	height: 100%;
+	border-radius: 8px;
+	background: var(--paia-gradient);
+	transition: width 0.25s ease;
+}
+.paia-progress__text {
+	margin: 8px 0 0;
+	color: var(--paia-muted);
+	font-size: 13px;
+}
+
+/* ---------- نتایج ---------- */
+
+.paia-results {
+	display: grid;
+	gap: 24px;
+	margin-block-start: 24px;
+}
+.paia-results[hidden] {
+	display: none;
+}
+
+.paia-summary__site {
+	margin: 0 0 16px;
+	color: var(--paia-muted);
+}
+.paia-summary__site strong {
+	color: var(--paia-text);
+}
+.paia-summary {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 14px;
+}
+.paia-stat {
+	padding: 18px;
+	border: 1px solid var(--paia-border);
+	border-radius: var(--paia-radius-md);
+	background: var(--paia-bg);
+}
+.paia-stat.is-error {
+	border-color: rgba(248, 113, 113, 0.6);
+}
+.paia-app .paia-stat__name {
+	margin: 0;
+	color: var(--paia-muted);
+	font-size: 13.5px;
+	font-weight: 500;
+}
+.paia-stat__value {
+	font-size: 32px;
+	font-weight: 700;
+	line-height: 1.3;
+	background: var(--paia-gradient);
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: transparent;
+}
+.paia-stat__hint {
+	color: var(--paia-muted);
+	font-size: 12.5px;
+}
+.paia-stat__error {
+	margin: 10px 0 0;
+	color: #fca5a5;
+	font-size: 12.5px;
+}
+.paia-stat__time {
+	margin-block-start: 10px;
+	color: var(--paia-muted);
+	font-size: 12px;
+}
+
+.paia-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 12px 0 0;
+	padding: 0;
+	list-style: none;
+}
+.paia-kv .paia-chips {
+	margin: 0;
+}
+.paia-chip {
+	display: inline-block;
+	margin: 0;
+	padding: 1px 10px;
+	border: 1px solid var(--paia-border-strong);
+	border-radius: 999px;
+	background: rgba(148, 163, 184, 0.08);
+	color: var(--paia-text);
+	font-size: 12px;
+	line-height: 1.9;
+}
+.paia-chip--tax {
+	border-color: rgba(6, 182, 212, 0.5);
+	background: rgba(6, 182, 212, 0.08);
+}
+.paia-chip--warn {
+	border-color: rgba(251, 191, 36, 0.55);
+	background: rgba(251, 191, 36, 0.08);
+}
+
+/* دکمهٔ غیرفعال «آموزش هوش مصنوعی» */
+.paia-app .paia-btn:disabled {
+	filter: grayscale(0.5);
+}
+
+/* ---------- درخت اطلاعات استخراج‌شده (تیک‌دار) ---------- */
+
+.paia-tree {
+	display: grid;
+	gap: 10px;
+	margin-block-end: 20px;
+}
+.paia-node {
+	border: 1px solid var(--paia-border);
+	border-radius: var(--paia-radius-md);
+	background: var(--paia-bg);
+}
+.paia-node > summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 16px;
+	font-weight: 700;
+	cursor: pointer;
+}
+.paia-node__body {
+	display: grid;
+	gap: 10px;
+	margin: 0 16px 16px;
+}
+.paia-node .paia-item {
+	background: rgba(30, 41, 59, 0.55);
+}
+.paia-note {
+	margin: 0;
+	color: var(--paia-muted);
+	font-size: 13px;
+}
+
+/* چک‌باکس سفارشی (با حالت نیمه‌انتخاب برای سربرگ‌ها) */
+.paia-app input.paia-tick {
+	display: inline-grid;
+	flex: none;
+	place-content: center;
+	-webkit-appearance: none;
+	appearance: none;
+	width: 20px;
+	height: 20px;
+	min-width: 20px;
+	margin: 0;
+	padding: 0;
+	border: 1.5px solid var(--paia-border-strong);
+	border-radius: 6px;
+	background: var(--paia-bg);
+	box-shadow: none;
+	cursor: pointer;
+}
+.paia-app input.paia-tick::before {
+	content: '';
+	float: none;
+	width: 10px;
+	height: 10px;
+	margin: 0;
+	background: #fff;
+	clip-path: polygon(14% 44%, 0 59%, 40% 100%, 100% 17%, 85% 3%, 40% 70%);
+	transform: scale(0);
+	transition: transform 0.12s ease-in-out;
+}
+.paia-app input.paia-tick:checked,
+.paia-app input.paia-tick:indeterminate {
+	border-color: var(--paia-accent);
+	background: var(--paia-primary);
+}
+.paia-app input.paia-tick:checked::before {
+	transform: scale(1);
+}
+.paia-app input.paia-tick:indeterminate::before {
+	height: 2px;
+	clip-path: none;
+	transform: scale(1);
+}
+.paia-app input.paia-tick:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+.paia-app input.paia-tick:focus-visible {
+	outline: 2px solid var(--paia-accent);
+	outline-offset: 2px;
+}
+
+.paia-bullets {
+	margin: 0;
+	padding-inline-start: 20px;
+	color: var(--paia-muted);
+	font-size: 13px;
+}
+.paia-bullets--warn {
+	color: #fcd34d;
+}
+.paia-bullets--error {
+	color: #fca5a5;
+}
+
+.paia-items {
+	display: grid;
+	gap: 8px;
+}
+.paia-item {
+	border: 1px solid var(--paia-border);
+	border-radius: var(--paia-radius-sm);
+	background: var(--paia-surface);
+}
+.paia-item > summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	padding: 9px 14px;
+	cursor: pointer;
+}
+.paia-item__title {
+	font-weight: 500;
+}
+.paia-item__id {
+	color: var(--paia-muted);
+	font-size: 12px;
+}
+.paia-item > .paia-kv,
+.paia-item > .paia-sub {
+	margin: 0 14px 14px;
+}
+
+.paia-kv {
+	display: grid;
+	grid-template-columns: minmax(120px, 190px) minmax(0, 1fr);
+	gap: 8px 16px;
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.8;
+}
+.paia-app .paia-kv dt {
+	margin: 0;
+	color: var(--paia-accent);
+	font-weight: 500;
+}
+.paia-app .paia-kv dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.paia-kv__link {
+	color: #67e8f9;
+}
+.paia-sublist {
+	display: grid;
+	gap: 8px;
+}
+.paia-sub {
+	padding: 10px 12px;
+	border: 1px dashed var(--paia-border-strong);
+	border-radius: var(--paia-radius-sm);
+}
+.paia-sub > .paia-kv {
+	grid-template-columns: minmax(90px, 150px) minmax(0, 1fr);
+}
+
+.paia-long__body {
+	max-height: 240px;
+	padding: 10px 12px;
+	overflow: auto;
+	border-radius: 8px;
+	background: var(--paia-bg);
+	white-space: pre-wrap;
+}
+.paia-long__meta {
+	color: var(--paia-muted);
+}
+
+.paia-term {
+	padding-block: 6px;
+	border-block-end: 1px solid var(--paia-border);
+}
+.paia-term:last-child {
+	border-block-end: 0;
+}
+.paia-term strong {
+	margin-inline-end: 10px;
+}
+.paia-term small {
+	color: var(--paia-muted);
+}
+.paia-term p {
+	margin: 2px 0 0;
+	color: var(--paia-muted);
+	font-size: 12.5px;
+}
+
+
+@media (max-width: 782px) {
+	.paia-kv,
+	.paia-sub > .paia-kv {
+		grid-template-columns: 1fr;
+		gap: 0;
+	}
+	.paia-app .paia-kv dd {
+		margin-block-end: 8px;
+	}
+}
+
+/* ---------- واکنش‌گرا ---------- */
+
+@media (max-width: 782px) {
+	.paia-app {
+		--paia-adminbar: 46px;
+	}
+	.paia-header {
+		padding: 12px 16px 4px;
+	}
+	.paia-app .paia-title {
+		font-size: 15px;
+	}
+	.paia-tabs {
+		padding: 0 8px;
+	}
+	.paia-content {
+		padding: 16px;
+	}
+	.paia-card {
+		padding: 20px 16px;
+	}
+	.paia-options {
+		grid-template-columns: 1fr;
+	}
+	.paia-app .paia-btn {
+		width: 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.paia-app *,
+	.paia-app *::before,
+	.paia-app *::after {
+		transition: none !important;
+		animation-duration: 0.01ms !important;
+	}
+}
+
+/* ==========================================================================
+   خلاصهٔ اطلاعات ثبت‌شده، استخراج اطلاعات جدید، دیالوگ جزئیات، آیکن هوش مصنوعی
+   ========================================================================== */
+
+.paia-stack {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr); /* بدون این، متن‌های تک‌خطی بلند (مثل لاگ‌ها) ستون را از صفحه بیرون می‌برند */
+	gap: 24px;
+}
+.paia-stack > * {
+	min-width: 0;
+}
+.paia-extractor {
+	display: grid;
+	gap: 24px;
+}
+.paia-extractor[hidden] {
+	display: none;
+}
+.paia-app .paia-note--lead {
+	margin: -8px 0 18px;
+}
+
+/* خلاصهٔ اطلاعات ثبت‌شده */
+.paia-overview__total {
+	margin-block-start: 14px;
+}
+.paia-overview__last {
+	margin: 18px 0 0;
+	color: var(--paia-muted);
+	font-size: 13.5px;
+}
+.paia-check {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-block-start: 18px;
+	cursor: pointer;
+}
+.paia-check__status {
+	color: var(--paia-muted);
+	font-size: 12px;
+}
+.paia-overview .paia-actions {
+	margin-block-start: 22px;
+	padding-block-start: 20px;
+	border-block-start: 1px solid var(--paia-border);
+}
+
+/* دکمهٔ ثانویه */
+.paia-app .paia-btn--ghost {
+	border: 1px solid var(--paia-border-strong);
+	background: transparent;
+	box-shadow: none;
+	color: var(--paia-text);
+}
+.paia-app .paia-btn--ghost:hover:not(:disabled) {
+	background: rgba(148, 163, 184, 0.1);
+	filter: none;
+}
+
+/* برچسب‌ها */
+.paia-chip--new {
+	border-color: rgba(34, 197, 94, 0.55);
+	background: rgba(34, 197, 94, 0.12);
+	color: #86efac;
+}
+.paia-chip--ai {
+	border-color: rgba(147, 51, 234, 0.6);
+	background: rgba(147, 51, 234, 0.16);
+	color: #d8b4fe;
+}
+
+/* آیکن هوش مصنوعی به‌جای تیک (رکوردهای ai_status = 2) */
+.paia-ai {
+	position: relative;
+	display: inline-grid;
+	flex: none;
+	place-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 6px;
+	background: var(--paia-gradient);
+	color: #fff;
+	cursor: help;
+}
+.paia-ai svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* در حال پردازش سمت سرور (ai_status = 1): آیکن loading به‌جای آیکن هوش مصنوعی؛ با اعلام نتیجه (۲) آیکن هوش مصنوعی می‌آید */
+.paia-ai--loading {
+	background: rgba(147, 51, 234, 0.16);
+	box-shadow: inset 0 0 0 1px rgba(147, 51, 234, 0.6);
+	cursor: progress;
+}
+.paia-ai__spin {
+	width: 12px;
+	height: 12px;
+	border: 2px solid rgba(216, 180, 254, 0.3);
+	border-top-color: #d8b4fe;
+	border-radius: 50%;
+	animation: paia-spin 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.paia-ai__spin {
+		animation-duration: 2s;
+	}
+}
+.paia-ai::after {
+	content: attr(data-tip);
+	position: absolute;
+	inset-block-end: calc(100% + 9px);
+	inset-inline-start: 50%;
+	z-index: 20;
+	padding: 4px 10px;
+	border: 1px solid var(--paia-border-strong);
+	border-radius: 8px;
+	background: #0b1220;
+	color: var(--paia-text);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.7;
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transform: translate(-50%, 4px);
+	transition: opacity 0.15s ease, transform 0.15s ease;
+}
+html[dir="rtl"] .paia-ai::after {
+	transform: translate(50%, 4px);
+}
+.paia-ai:hover::after,
+.paia-ai:focus-visible::after {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+html[dir="rtl"] .paia-ai:hover::after,
+html[dir="rtl"] .paia-ai:focus-visible::after {
+	transform: translate(50%, 0);
+}
+.paia-ai:focus-visible {
+	outline: 2px solid var(--paia-accent);
+	outline-offset: 2px;
+}
+
+/* دیالوگ «نمایش جزئیات» */
+.paia-app dialog.paia-dialog {
+	width: min(1040px, calc(100vw - 32px));
+	max-height: calc(100vh - 48px);
+	margin: auto;
+	padding: 0;
+	border: 1px solid var(--paia-border-strong);
+	border-radius: var(--paia-radius-lg);
+	background: var(--paia-bg);
+	color: var(--paia-text);
+	box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+	overflow: hidden;
+}
+.paia-app dialog.paia-dialog[open] {
+	display: flex;
+	flex-direction: column;
+}
+.paia-dialog::backdrop {
+	background: rgba(2, 6, 23, 0.72);
+	backdrop-filter: blur(2px);
+}
+.paia-dialog__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 16px 24px;
+	border-block-end: 1px solid var(--paia-border);
+	background: var(--paia-surface);
+}
+.paia-app .paia-dialog__title {
+	margin: 0;
+	font-size: 17px;
+	line-height: 1.6;
+}
+.paia-app .paia-dialog__close {
+	display: inline-grid;
+	flex: none;
+	place-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border: 1px solid var(--paia-border-strong);
+	border-radius: 10px;
+	background: transparent;
+	color: var(--paia-text);
+	cursor: pointer;
+}
+.paia-app .paia-dialog__close:hover {
+	background: rgba(148, 163, 184, 0.14);
+}
+.paia-app .paia-dialog__close:focus-visible {
+	outline: 2px solid var(--paia-accent);
+	outline-offset: 2px;
+}
+.paia-dialog__body {
+	display: grid;
+	gap: 20px;
+	align-content: start;
+	padding: 24px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+.paia-dialog__body .paia-results {
+	margin-block-start: 0;
+}
+
+@media (max-width: 782px) {
+	.paia-app dialog.paia-dialog {
+		width: calc(100vw - 16px);
+		max-height: calc(100vh - 24px);
+	}
+	.paia-dialog__body {
+		padding: 14px;
+	}
+	.paia-app .paia-btn--ghost {
+		width: 100%;
+	}
+}
+
+/* ---------- تب تنظیمات: چت سایت ---------- */
+.paia-app .paia-chatset__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.paia-app .paia-chatset__wide{grid-column:1/-1}
+.paia-app .paia-chatset__f{display:flex;flex-direction:column;gap:6px}
+.paia-app .paia-chatset__f>span{color:var(--paia-muted);font-size:13px}
+/* رنگ کادر همهٔ تکست‌باکس‌های تنظیمات: دیگر سفید نیست؛ آبیِ تیرهٔ هماهنگ با پالت، با هاور و فوکوس بنفش/فیروزه‌ای */
+.paia-app .paia-chatset{--paia-field-bg:#0b1222;--paia-field-border:#34456b;--paia-field-border-hover:#4f6595}
+.paia-app .paia-chatset input[type="text"],.paia-app .paia-chatset input[type="url"],.paia-app .paia-chatset input[type="number"],.paia-app .paia-chatset input[type="time"],.paia-app .paia-chatset input[type="email"],.paia-app .paia-chatset input[type="password"],.paia-app .paia-chatset input[type="search"],.paia-app .paia-chatset select,.paia-app .paia-chatset textarea{width:100%;color-scheme:dark;background:var(--paia-field-bg);color:var(--paia-text);border:1px solid var(--paia-field-border);border-radius:10px;padding:9px 12px;min-height:42px;outline:0;box-shadow:none;transition:border-color .15s,box-shadow .15s,background-color .15s}
+.paia-app .paia-chatset input[type="text"]:hover,.paia-app .paia-chatset input[type="url"]:hover,.paia-app .paia-chatset input[type="number"]:hover,.paia-app .paia-chatset input[type="time"]:hover,.paia-app .paia-chatset select:hover,.paia-app .paia-chatset textarea:hover{border-color:var(--paia-field-border-hover)}
+.paia-app .paia-chatset input[type="text"]:focus,.paia-app .paia-chatset input[type="url"]:focus,.paia-app .paia-chatset input[type="number"]:focus,.paia-app .paia-chatset input[type="time"]:focus,.paia-app .paia-chatset input[type="email"]:focus,.paia-app .paia-chatset input[type="password"]:focus,.paia-app .paia-chatset select:focus,.paia-app .paia-chatset textarea:focus{border-color:var(--paia-accent);outline:0;box-shadow:0 0 0 3px rgba(6,182,212,.2)}
+.paia-app .paia-chatset input::placeholder,.paia-app .paia-chatset textarea::placeholder{color:#64748b;opacity:1}
+/* پرکردن خودکار مرورگر پس‌زمینهٔ روشن/کادر سفید نیاورد */
+.paia-app .paia-chatset input:-webkit-autofill,.paia-app .paia-chatset input:-webkit-autofill:focus{-webkit-text-fill-color:var(--paia-text);caret-color:var(--paia-text);-webkit-box-shadow:0 0 0 1000px var(--paia-field-bg) inset;border:1px solid var(--paia-field-border)}
+.paia-app .paia-chatset select{appearance:auto}
+.paia-app .paia-chatset__colors{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.paia-app .paia-chatset__color{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:var(--paia-field-bg);border:1px solid var(--paia-field-border);transition:border-color .15s}
+.paia-app .paia-chatset__color:hover{border-color:var(--paia-field-border-hover)}
+.paia-app .paia-chatset input[type="color"]{width:42px;height:42px;min-height:0;padding:0;border:0;border-radius:10px;background:none;cursor:pointer;box-shadow:none}
+.paia-app .paia-chatset input[type="color"]::-webkit-color-swatch-wrapper{padding:0}
+.paia-app .paia-chatset input[type="color"]::-webkit-color-swatch{border:1px solid var(--paia-field-border);border-radius:10px}
+.paia-app .paia-chatset input[type="color"]::-moz-color-swatch{border:1px solid var(--paia-field-border);border-radius:10px}
+.paia-app .paia-chatset__ok{margin:0;padding:10px 14px;border-radius:10px;background:rgba(34,197,94,.12);color:#86EFAC}
+@media (max-width:782px){.paia-app .paia-chatset__grid,.paia-app .paia-chatset__colors{grid-template-columns:1fr 1fr}}
+
+
+/* ==========================================================================
+   تب «مدیریت چت» — فهرست گفتگوها + پنجرهٔ چت (ظاهر چت از widget.css)
+   ========================================================================== */
+.paia-app .paia-chatset__hint{color:var(--paia-muted);font-size:12.5px;line-height:1.8}
+.paia-app .paia-tab__badge{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-inline-start:8px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:1}
+
+.paia-app .paia-cm [hidden]{display:none!important}
+/* ظرف: همان کلاس .paia-chat اما داخل صفحه (نه شناور) */
+.paia-app .paia-chat.paia-cm{position:relative;inset:auto;bottom:auto;width:auto;height:auto;z-index:auto;font-size:14px}
+.paia-app .pcm-layout{display:grid;grid-template-columns:minmax(290px,360px) minmax(0,1fr);gap:16px;align-items:stretch;height:min(720px,calc(100vh - 230px));min-height:520px}
+
+/* پنل فهرست (سمت راست در RTL) */
+.paia-app .pcm-side{display:flex;flex-direction:column;min-height:0;border-radius:26px;background:var(--pc-surface);color:var(--pc-text);box-shadow:var(--pc-shadow),0 0 0 1px var(--pc-line);overflow:hidden}
+.paia-app .pcm-side__head{padding:16px 18px 6px}
+.paia-app .pcm-side__head h3{margin:0;font-size:15.5px;font-weight:700;color:var(--pc-text)}
+.paia-app .pcm-tags{display:flex;flex-wrap:wrap;gap:8px;padding:8px 16px 4px}
+.paia-app .pcm-tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--pc-field);color:var(--pc-text);font-size:12.5px;font-weight:500;border:0;cursor:pointer;box-shadow:0 0 0 1px var(--pc-line);transition:background .2s,color .2s,box-shadow .2s}
+.paia-app .pcm-tag b{min-width:20px;padding:0 6px;border-radius:10px;background:color-mix(in srgb,var(--pc-text) 12%,transparent);font-size:11px;line-height:20px;text-align:center}
+.paia-app .pcm-tag:hover{box-shadow:0 0 0 1.5px var(--pc-primary)}
+.paia-app .pcm-tag.is-on{background:var(--pc-grad);color:#fff;box-shadow:none}
+.paia-app .pcm-tag.is-on b{background:rgba(255,255,255,.28)}
+.paia-app .pcm-searchbox{padding:8px 16px 8px}
+.paia-app .pcm-search{width:100%;height:40px;padding:0 14px;border-radius:14px;border:0;background:var(--pc-field);color:var(--pc-text);box-shadow:0 0 0 1px var(--pc-line);font:inherit;outline:0}
+.paia-app .pcm-search:focus{box-shadow:0 0 0 1.5px var(--pc-primary)}
+.paia-app .pcm-search::placeholder{color:var(--pc-muted)}
+.paia-app .pcm-list{flex:1;min-height:0;overflow-y:auto;margin:0;padding:4px 10px 12px;list-style:none;scrollbar-width:thin}
+.paia-app .pcm-list>li{margin:0}
+.paia-app .pcm-list-empty{margin:0;padding:24px 18px;color:var(--pc-muted);text-align:center}
+.paia-app .pcm-item{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:0;border-radius:16px;background:transparent;color:inherit;font:inherit;text-align:start;cursor:pointer;transition:background .2s}
+.paia-app .pcm-item:hover{background:color-mix(in srgb,var(--pc-primary) 8%,transparent)}
+.paia-app .pcm-item.is-active{background:color-mix(in srgb,var(--pc-primary) 14%,transparent)}
+.paia-app .pcm-av{flex:none;width:42px;height:42px;border-radius:14px;background:var(--pc-grad);color:#fff;display:grid;place-items:center;font-weight:700}
+.paia-app .pcm-ibody{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.paia-app .pcm-irow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.paia-app .pcm-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paia-app .pcm-item.is-unread .pcm-name{font-weight:700}
+.paia-app .pcm-irow time{flex:none;font-size:11.5px;color:var(--pc-muted)}
+.paia-app .pcm-prev{flex:1;min-width:0;font-size:12.5px;color:var(--pc-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paia-app .pcm-item.is-unread .pcm-prev{color:var(--pc-text)}
+.paia-app .pcm-badges{flex:none;display:flex;align-items:center;gap:4px}
+.paia-app .pcm-mini{display:grid;place-items:center;width:18px;height:18px;color:var(--pc-muted)}
+.paia-app .pcm-mini .pc-svg{width:14px;height:14px}
+.paia-app .pcm-mini--star{color:#f59e0b}
+.paia-app .pcm-mini--star .pc-svg{fill:currentColor}
+.paia-app .pcm-unread{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:20px;text-align:center}
+
+/* ستون چت (سمت چپ در RTL) */
+.paia-app .pcm-chat{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column}
+.paia-app .pcm-empty{flex:1;display:grid;place-items:center;border-radius:26px;background:var(--pc-surface);color:var(--pc-muted);box-shadow:var(--pc-shadow),0 0 0 1px var(--pc-line);text-align:center;padding:24px}
+.paia-app .pcm-empty p{margin:0}
+.paia-app .pcm-window.pc-window{position:relative;inset:auto;bottom:auto;width:100%;height:100%;flex:1;min-height:0;opacity:1;visibility:visible;transform:none;border-radius:26px;transition:none;color:var(--pc-text)}
+.paia-app .pcm-head{padding-block:14px 8px}
+.paia-app .pcm-avatar{font-weight:700;font-size:18px}
+.paia-app .pcm-back{display:none;width:38px;height:38px;border-radius:50%;place-items:center;border:0;background:color-mix(in srgb,#fff 70%,transparent);box-shadow:0 0 0 1px var(--pc-line);color:var(--pc-text);cursor:pointer}
+.paia-app .pcm-back .pc-svg{transform:scaleX(var(--pcm-flip,1))}
+.paia-app .paia-cm[dir="ltr"] .pcm-back .pc-svg{--pcm-flip:-1}
+.paia-app .pcm-tools{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 10px}
+.paia-app .pcm-tool{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:0;border-radius:999px;background:var(--pc-field);color:var(--pc-text);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:0 0 0 1px var(--pc-line);transition:background .2s,color .2s,box-shadow .2s}
+.paia-app .pcm-tool .pc-svg{width:15px;height:15px}
+.paia-app .pcm-tool:hover{box-shadow:0 0 0 1.5px var(--pc-primary)}
+.paia-app .pcm-tool.is-on{background:color-mix(in srgb,var(--pc-primary) 14%,var(--pc-field));color:var(--pc-primary)}
+.paia-app .pcm-tool.is-off{background:color-mix(in srgb,#ef4444 12%,var(--pc-field));color:#b91c1c}
+.paia-app .pcm-tool--danger:hover{box-shadow:0 0 0 1.5px #ef4444;color:#b91c1c}
+.paia-app .pcm-nomsg{margin:auto;padding:24px;color:var(--pc-muted);text-align:center}
+.paia-app .pcm-ainote{margin:0 16px 4px;padding:6px 12px;border-radius:12px;background:color-mix(in srgb,#ef4444 10%,transparent);color:#b91c1c;font-size:12.5px;text-align:center}
+.paia-app .pcm-screen .pc-msgs{min-height:0}
+.paia-app .pcm-screen .pcm-nomsg{display:block}
+.paia-app .pcm-screen .pc-msgs:not(:empty)+.pcm-nomsg{display:none}
+.paia-app .pcm-meta{display:flex;align-items:center;gap:4px}
+.paia-app .pcm-meta .pc-by{display:inline;margin-top:0}
+.paia-app .pcm-del{width:24px;height:24px;border:0;border-radius:50%;display:grid;place-items:center;background:transparent;color:var(--pc-muted);cursor:pointer;opacity:.6;transition:opacity .2s,color .2s,background .2s}
+.paia-app .pcm-del:hover,.paia-app .pcm-del:focus-visible{opacity:1;color:#dc2626;background:var(--pc-field)}
+.paia-app .pcm-del .pc-svg{width:14px;height:14px}
+
+/* پنل اطلاعات کاربر روی چت */
+.paia-app .pcm-info{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;background:var(--pc-surface);color:var(--pc-text);animation:pc-screen .35s var(--pc-ease) both}
+.paia-app .pcm-info__head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--pc-line)}
+.paia-app .pcm-info__body{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.paia-app .pcm-dl{display:flex;flex-direction:column;gap:10px;margin:0}
+.paia-app .pcm-dl>div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:14px;background:var(--pc-field)}
+.paia-app .pcm-dl>.pcm-dl__tag{background:none;padding:0}
+.paia-app .pcm-dl dt{font-size:12px;color:var(--pc-muted)}
+.paia-app .pcm-dl dd{margin:0;font-weight:500;word-break:break-word}
+.paia-app .pcm-chipstat{align-self:flex-start;padding:4px 12px;border-radius:999px;background:color-mix(in srgb,#f59e0b 18%,transparent);color:#92400e;font-size:12.5px;font-weight:500}
+.paia-app .pcm-chipstat.is-reg{background:color-mix(in srgb,#22c55e 18%,transparent);color:#166534}
+.paia-app .pcm-btnlink{align-self:flex-start;padding:9px 16px;border-radius:12px;background:var(--pc-grad);color:#fff;text-decoration:none;font-weight:500}
+.paia-app .pcm-btnlink:hover{color:#fff;opacity:.92}
+.paia-app .pcm-note{margin:0;color:var(--pc-muted)}
+
+/* موبایل/تبلت: یا فهرست یا چت */
+@media (max-width:1100px){
+	.paia-app .pcm-layout{grid-template-columns:1fr;height:auto;min-height:0}
+	.paia-app .pcm-side,.paia-app .pcm-chat{height:calc(100vh - 250px);min-height:480px}
+	.paia-app .pcm-layout[data-view="list"] .pcm-chat{display:none}
+	.paia-app .pcm-layout[data-view="chat"] .pcm-side{display:none}
+	.paia-app .pcm-back{display:grid}
+}
+
+/* ---------- نشانگرهای loading (اعمال آنی + تأیید بعد از ذخیره) ---------- */
+@keyframes paia-cm-spin{to{transform:rotate(360deg)}}
+.paia-app .pcm-spin{display:inline-block;width:13px;height:13px;border-radius:50%;border:2px solid color-mix(in srgb,var(--pc-muted) 45%,transparent);border-top-color:var(--pc-primary);animation:paia-cm-spin .7s linear infinite}
+.paia-app .pcm-sending{display:inline-grid;place-items:center;padding:2px 6px}
+.paia-app .pc-row.is-sending .pc-bubble{opacity:.72}
+.paia-app .pc-row.is-failed .pc-bubble{box-shadow:0 0 0 1.5px #dc2626}
+.paia-app .pcm-retry{border:0;background:none;color:#dc2626;font:inherit;font-size:12px;cursor:pointer;padding:2px 6px}
+.paia-app .pcm-tool.is-loading{position:relative;pointer-events:none}
+.paia-app .pcm-tool.is-loading::after{content:"";width:12px;height:12px;border-radius:50%;border:2px solid color-mix(in srgb,var(--pc-muted) 45%,transparent);border-top-color:var(--pc-primary);animation:paia-cm-spin .7s linear infinite}
+@media (prefers-reduced-motion:reduce){.paia-app .pcm-spin,.paia-app .pcm-tool.is-loading::after{animation-duration:2s}}
+
+/* لودینگ باز کردن گفتگو (فقط وقتی گفتگو هنوز در کش نیست) */
+.paia-app .pcm-screen{position:relative}
+.paia-app .pcm-loading{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;gap:12px;padding:18px 16px;background:var(--pc-surface);animation:pc-screen .25s var(--pc-ease) both}
+
+/* ==========================================================================
+   تب تنظیمات: دو ستون (منوی دسته‌بندی سمت راست + فرم‌ها)
+   ========================================================================== */
+.paia-app .paia-chatset{display:block}
+.paia-app .paia-setlayout{display:grid;grid-template-columns:minmax(210px,260px) minmax(0,1fr);gap:16px;align-items:start}
+.paia-app .paia-setnav{position:sticky;top:calc(var(--paia-adminbar) + 120px);display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--paia-border);border-radius:var(--paia-radius-lg);background:var(--paia-surface)}
+.paia-app .paia-setnav__item{display:flex;align-items:center;width:100%;padding:11px 16px;border:0;border-radius:12px;background:transparent;color:var(--paia-muted);font:inherit;font-weight:500;text-align:start;cursor:pointer;transition:background .15s,color .15s}
+.paia-app .paia-setnav__item:hover{background:rgba(148,163,184,.1);color:var(--paia-text)}
+.paia-app .paia-setnav__item.is-active{background:var(--paia-gradient);color:#fff;font-weight:700}
+.paia-app .paia-setnav__item:focus-visible{outline:2px solid var(--paia-accent);outline-offset:2px}
+.paia-app .paia-setbody{display:flex;flex-direction:column;gap:16px;min-width:0}
+.paia-app .paia-setpane[hidden]{display:none}
+.paia-app .paia-chatset__ok{margin-block-end:16px}
+@media (max-width:900px){
+	.paia-app .paia-setlayout{grid-template-columns:1fr}
+	.paia-app .paia-setnav{position:static;flex-direction:row;overflow-x:auto}
+	.paia-app .paia-setnav__item{width:auto;white-space:nowrap}
+}
+
+/* گزینه‌های «بهینه‌سازی چت‌بات» */
+.paia-app .paia-chatset__opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.paia-app .paia-opt{position:relative;display:block;cursor:pointer}
+.paia-app .paia-opt input[type="radio"]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none}
+.paia-app .paia-opt__card{display:flex;align-items:center;gap:14px;min-height:84px;padding:16px;border:1px solid var(--paia-field-border);border-radius:var(--paia-radius-md);background:var(--paia-field-bg,#0b1222);transition:border-color .15s,background-color .15s}
+.paia-app .paia-opt:hover .paia-opt__card{border-color:var(--paia-field-border-hover)}
+.paia-app .paia-opt__radio{flex:none;width:22px;height:22px;border:1.5px solid var(--paia-field-border-hover);border-radius:50%;display:grid;place-items:center;transition:border-color .15s,background .15s}
+.paia-app .paia-opt__radio::after{content:"";width:10px;height:10px;border-radius:50%;background:#fff;transform:scale(0);transition:transform .15s}
+.paia-app .paia-opt__text{display:flex;flex-direction:column;min-width:0}
+.paia-app .paia-opt__text strong{color:var(--paia-text);font-size:14.5px;font-weight:700}
+.paia-app .paia-opt__text small{color:var(--paia-muted);font-size:12.5px;line-height:1.7}
+.paia-app .paia-opt input:checked + .paia-opt__card{border-color:var(--paia-secondary);background:rgba(109,40,217,.14)}
+.paia-app .paia-opt input:checked + .paia-opt__card .paia-opt__radio{border-color:transparent;background:var(--paia-secondary)}
+.paia-app .paia-opt input:checked + .paia-opt__card .paia-opt__radio::after{transform:scale(1)}
+.paia-app .paia-opt input:focus-visible + .paia-opt__card{outline:2px solid var(--paia-accent);outline-offset:2px}
+.paia-app .paia-chatset__hint--block{display:block;margin:14px 0 0}
+
+/* دکمهٔ حذف آیتم‌های آموزش‌دیده (انتهای ردیف؛ در RTL سمت چپ) */
+.paia-app .paia-ai-del{display:inline-grid;place-content:center;flex:none;width:30px;height:30px;margin-inline-start:auto;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--paia-muted);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.paia-app .paia-ai-del:hover,.paia-app .paia-ai-del:focus-visible{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.5);color:#fca5a5;outline:0}
+.paia-app .paia-removed{padding:10px 14px;border:1px dashed rgba(248,113,113,.5);border-radius:var(--paia-radius-sm);color:#fca5a5}
+
+
+/* ==========================================================================
+   تنظیمات › استخراج خودکار اطلاعات سایت + فرم «اطلاعات جدید ثبت شده به صورت خودکار»
+   ========================================================================== */
+.paia-app .paia-autosync__row{margin:18px 0 0;padding:4px 18px 16px;border:1px solid var(--paia-border);border-radius:var(--paia-radius-md);background:rgba(15,23,42,.35);min-width:0}
+.paia-app .paia-autosync__name{padding:0 8px;color:var(--paia-text);font-size:15px;font-weight:700}
+.paia-app .paia-autosync__hint{display:block;margin-block-start:10px;color:var(--paia-muted);font-size:12px}
+.paia-app .paia-autosync__row input.paia-tick:disabled + span{opacity:.55}
+
+.paia-app .paia-autonew[hidden]{display:none}
+.paia-app .paia-autonew .paia-note{margin-block-end:14px}
+.paia-app .paia-autonew__all{margin-block:0 12px}
+.paia-app .paia-autonew__list{display:grid;gap:8px;max-height:460px;margin:0;padding:0;overflow-y:auto}
+.paia-app .paia-autonew__list .paia-item{background:rgba(15,23,42,.35)}
+.paia-app .paia-autonew__list .paia-item > summary{min-width:0}
+.paia-app .paia-autonew__list .paia-item__title{min-width:0;flex:1 1 200px;overflow-wrap:anywhere}
+.paia-app .paia-autonew__view{margin-inline-start:auto;color:var(--paia-accent);font-size:12.5px;text-decoration:none;white-space:nowrap}
+.paia-app .paia-autonew__view:hover,.paia-app .paia-autonew__view:focus-visible{text-decoration:underline}
+.paia-app .paia-autonew__more{margin:0;padding:6px 4px;color:var(--paia-muted);font-size:13px}
+.paia-app .paia-autonew__wait{padding:2px 0}
+.paia-app .paia-autonew .paia-notice{margin-block-end:12px}
+.paia-app .paia-autonew .paia-actions{margin-block-start:20px}
+
+/* ==========================================================================
+   تب «اسناد اضافه»: مطالب اضافه شده + فرم «اضافه کردن متن جدید»
+   ========================================================================== */
+.paia-app .paia-docsum__actions{margin-block-start:22px}
+.paia-app .paia-docsum__status{margin-block-start:18px}
+.paia-app .paia-docform[hidden]{display:none}
+.paia-app .paia-docform__help{margin-block-end:16px;line-height:2}
+.paia-app .paia-docform .paia-notice{margin-block-end:14px}
+.paia-app .paia-docform__count{margin:10px 2px 0}
+
+/* ادیتور متن: ظاهر یک باکس؛ هر چانک یک textarea و بین چانک‌ها یک خط */
+.paia-app .paia-rtb{display:flex;flex-direction:column;min-height:240px;padding:8px 16px;border:1px solid var(--paia-border-strong);border-radius:var(--paia-radius-md);background:var(--paia-bg);cursor:text;transition:border-color .15s,box-shadow .15s}
+.paia-app .paia-rtb:focus-within{border-color:var(--paia-accent);box-shadow:0 0 0 3px rgba(6,182,212,.16)}
+.paia-app .paia-rtb textarea.paia-rtb__chunk{display:block;width:100%;min-height:56px;margin:0;padding:10px 2px;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--paia-text);font:inherit;font-size:14.5px;line-height:1.95;resize:none;overflow:hidden;outline:0}
+.paia-app .paia-rtb textarea.paia-rtb__chunk:focus{border:0;box-shadow:none;outline:0}
+.paia-app .paia-rtb textarea.paia-rtb__chunk::placeholder{color:var(--paia-muted);opacity:.8}
+.paia-app .paia-rtb .paia-rtb__line{flex:none;width:100%;height:0;margin:6px 0;border:0;border-block-start:1px solid var(--paia-accent);opacity:.55;cursor:default}
+
+/* ==========================================================================
+   دکمه‌های کوچک / خطرناک (لیست مطالب)
+   ========================================================================== */
+.paia-app .paia-btn__icon{display:inline-grid;place-content:center;flex:none;line-height:0}
+.paia-app .paia-btn--sm{min-height:36px;padding:0 14px;gap:8px;border-radius:10px;font-size:13px;box-shadow:none}
+.paia-app .paia-btn--danger{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.5);color:#fca5a5;box-shadow:none}
+.paia-app .paia-btn--danger:hover:not(:disabled){background:rgba(248,113,113,.22);filter:none}
+
+/* ==========================================================================
+   تب «اسناد اضافه» › لیست مطالب (تب متن‌ها / فایل‌ها)
+   ========================================================================== */
+.paia-app .paia-subtabs{display:inline-flex;gap:6px;margin:0 0 18px;padding:5px;border:1px solid var(--paia-border);border-radius:12px;background:var(--paia-bg)}
+.paia-app .paia-subtab{min-height:38px;padding:0 20px;border:0;border-radius:9px;background:transparent;color:var(--paia-muted);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+.paia-app .paia-subtab:hover{color:var(--paia-text)}
+.paia-app .paia-subtab.is-active{background:var(--paia-gradient);color:#fff}
+.paia-app .paia-subtab:focus-visible{outline:2px solid var(--paia-accent);outline-offset:2px}
+.paia-app .paia-doclist__pane[hidden]{display:none}
+.paia-app .paia-doclist__items{display:grid;gap:8px;max-height:560px;overflow-y:auto}
+.paia-app .paia-doclist .paia-item{background:rgba(15,23,42,.35)}
+.paia-app .paia-doclist .paia-item[hidden]{display:none}
+.paia-app .paia-doclist .paia-item > summary{min-width:0}
+.paia-app .paia-doc .paia-item__title{min-width:0;flex:1 1 200px;overflow-wrap:anywhere}
+.paia-app .paia-doc__time{margin-inline-start:auto;color:var(--paia-muted);font-size:12px;white-space:nowrap}
+.paia-app .paia-doc__body{display:grid;gap:14px}
+.paia-app .paia-doc__chunks{display:grid;gap:0;padding:12px 16px;border:1px solid var(--paia-border);border-radius:var(--paia-radius-sm);background:var(--paia-bg);max-height:360px;overflow-y:auto}
+.paia-app .paia-doc__chunk{font-size:14px;line-height:1.95;white-space:pre-wrap;overflow-wrap:anywhere}
+.paia-app .paia-doc__sep{width:100%;height:0;margin:10px 0;border:0;border-block-start:1px solid var(--paia-accent);opacity:.55}
+.paia-app .paia-doc__actions{display:flex;flex-wrap:wrap;gap:10px}
+.paia-app .paia-doc__msg{margin:0;color:var(--paia-muted)}
+.paia-app .paia-doc__msg[hidden]{display:none}
+.paia-app .paia-doc__msg.is-error,.paia-app .paia-note.is-error{color:#fca5a5}
+
+/* ==========================================================================
+   دیالوگ آپلود فایل
+   ========================================================================== */
+.paia-app dialog.paia-dialog--upload{width:min(660px,calc(100vw - 32px))}
+.paia-app .paia-dialog--upload .paia-dialog__body{display:grid;gap:16px;padding:22px 24px;overflow-y:auto}
+.paia-app .paia-dialog--upload .paia-note--lead{margin:0}
+.paia-app .paia-rules{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.paia-app .paia-rules li{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.9}
+.paia-app .paia-rules li > svg{flex:none;margin-block-start:6px;color:#4ade80}
+.paia-app .paia-rules li:first-child{padding:12px 14px;border:1px solid rgba(6,182,212,.45);border-radius:var(--paia-radius-sm);background:rgba(6,182,212,.08)}
+.paia-app .paia-rules li:first-child > svg{margin-block-start:7px;color:var(--paia-accent)}
+.paia-app .paia-upload__server{margin:0;padding:10px 14px;border:1px solid rgba(251,191,36,.5);border-radius:var(--paia-radius-sm);background:rgba(251,191,36,.08);color:#fcd34d}
+.paia-app .paia-upload__server[hidden]{display:none}
+.paia-app .paia-drop{position:relative;display:grid;justify-items:center;gap:6px;padding:22px 16px;border:2px dashed var(--paia-border-strong);border-radius:var(--paia-radius-md);background:var(--paia-bg);text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.paia-app .paia-drop:hover,.paia-app .paia-drop.is-over,.paia-app .paia-drop:focus-within{border-color:var(--paia-accent);background:rgba(6,182,212,.07)}
+.paia-app .paia-drop__input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.paia-app .paia-drop__icon{color:var(--paia-accent);line-height:0}
+.paia-app .paia-drop__title{font-weight:700}
+.paia-app .paia-drop__name{color:var(--paia-muted);font-size:13px;overflow-wrap:anywhere}
+.paia-app .paia-field{display:grid;gap:6px}
+.paia-app .paia-field label{color:var(--paia-muted);font-size:13px}
+.paia-app .paia-input{width:100%;min-height:42px;padding:0 14px;border:1px solid var(--paia-border-strong);border-radius:10px;background:var(--paia-bg);color:var(--paia-text);font:inherit;font-size:14px;box-shadow:none}
+.paia-app .paia-input:focus{border-color:var(--paia-accent);box-shadow:0 0 0 3px rgba(6,182,212,.16);outline:0}
+.paia-app .paia-input::placeholder{color:var(--paia-muted);opacity:.8}
+.paia-app .paia-upload__confirm{align-items:flex-start;line-height:1.9}
+.paia-app .paia-dialog--upload .paia-notice{margin:0}
+.paia-app .paia-dialog--upload .paia-progress[hidden]{display:none}
+
+/* ==========================================================================
+   تب «لاگ سرور»
+   ========================================================================== */
+.paia-app .paia-stat--ok{border-color:rgba(34,197,94,.5)}
+.paia-app .paia-stat--bad{border-color:rgba(248,113,113,.55)}
+.paia-app .paia-stat--ok .paia-stat__value{background:none;-webkit-text-fill-color:#4ade80;color:#4ade80}
+.paia-app .paia-stat--bad .paia-stat__value{background:none;-webkit-text-fill-color:#f87171;color:#f87171}
+.paia-app .paia-slog .paia-notice{margin-block-end:14px}
+.paia-app .paia-slog__list{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+.paia-app .paia-slog,.paia-app .paia-panel,.paia-app .paia-content{min-width:0;max-width:100%}
+.paia-app .paia-log{min-width:0;max-width:100%;overflow:hidden}
+.paia-app .paia-slog .paia-actions{margin-block-start:18px}
+.paia-app .paia-slog .paia-actions[hidden],.paia-app .paia-slog [data-role="slog-more"][hidden]{display:none}
+
+.paia-app .paia-log{background:rgba(15,23,42,.35)}
+.paia-app .paia-log > summary{flex-wrap:nowrap;min-width:0}
+.paia-app .paia-log__dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--paia-muted)}
+.paia-app .paia-log__text{flex:1 1 0;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.paia-app .paia-log__chip{flex:none;transform:none}
+.paia-app .paia-log__time{flex:none;color:var(--paia-muted);font-size:12px;white-space:nowrap}
+.paia-app .paia-log__sub{margin:16px 0 8px;color:var(--paia-muted);font-size:13px;font-weight:600}
+.paia-app .paia-log__full{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.95}
+.paia-app .paia-log__body{display:grid;gap:4px}
+
+.paia-app .paia-log--success{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}
+.paia-app .paia-log--success .paia-log__dot{background:#22c55e}
+.paia-app .paia-log--success .paia-log__text{color:#86efac}
+.paia-app .paia-log--success .paia-log__chip{border-color:rgba(34,197,94,.55);background:rgba(34,197,94,.14);color:#86efac}
+.paia-app .paia-log--error{border-color:rgba(248,113,113,.55);background:rgba(248,113,113,.08)}
+.paia-app .paia-log--error .paia-log__dot{background:#ef4444}
+.paia-app .paia-log--error .paia-log__text{color:#fca5a5}
+.paia-app .paia-log--error .paia-log__chip{border-color:rgba(248,113,113,.6);background:rgba(248,113,113,.14);color:#fca5a5}
+
+@media (max-width:782px){
+	.paia-app .paia-log__time{display:none}
+	.paia-app .paia-subtabs{display:flex}
+	.paia-app .paia-subtab{flex:1}
+}
+
+/* ==========================================================================
+   تب «اطلاعات به‌روز» (فعلاً فقط طراحی)
+   ========================================================================== */
+.paia-app .paia-live__intro .paia-card__title{display:flex;align-items:center;gap:10px}
+.paia-app .paia-live__text{margin:0 0 12px;color:var(--paia-text);line-height:2}
+.paia-app .paia-live__text:last-child{margin-block-end:0}
+.paia-app .paia-live__form .paia-actions{margin-block-start:24px}
+.paia-app .paia-live__form .paia-chatset__f>span{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.paia-app .paia-live__badge{padding:1px 10px;border:1px solid rgba(251,191,36,.55);border-radius:999px;background:rgba(251,191,36,.12);color:#fcd34d;font-size:11.5px;font-style:normal;font-weight:700}
+.paia-app .paia-live__form textarea{resize:vertical;line-height:1.9}
+
+/* لیست اطلاعات به‌روز + کلید فعال/غیرفعال */
+.paia-app .paia-live__rows{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+.paia-app .paia-live__listmsg{margin:0 0 14px}
+.paia-app .paia-live__msg{margin:16px 0 0}
+.paia-app .paia-live__empty{margin:4px 0 0}
+.paia-app .paia-live__row{display:flex;align-items:center;gap:12px;min-width:0;padding:4px 14px 4px 10px;border:1px solid var(--paia-border);border-radius:var(--paia-radius-sm);background:rgba(15,23,42,.35);transition:border-color .15s,background-color .15s,opacity .15s}
+.paia-app .paia-live__row:hover{border-color:var(--paia-border-strong)}
+.paia-app .paia-live__row.is-active{border-color:var(--paia-accent);background:rgba(6,182,212,.08)}
+.paia-app .paia-live__row.is-off .paia-live__name{color:var(--paia-muted)}
+.paia-app .paia-live__row.is-saving{opacity:.6}
+.paia-app .paia-live__main{display:flex;flex:1 1 0;align-items:center;flex-wrap:wrap;gap:10px;min-width:0;min-height:44px;padding:6px 4px;border:0;background:transparent;color:var(--paia-text);font:inherit;text-align:start;cursor:pointer}
+.paia-app .paia-live__main:focus-visible{outline:2px solid var(--paia-accent);outline-offset:2px;border-radius:8px}
+.paia-app .paia-live__name{min-width:0;overflow-wrap:anywhere;font-weight:500}
+.paia-app .paia-live__time{margin-inline-start:auto;color:var(--paia-muted);font-size:12px;white-space:nowrap}
+/* اولین مورد (تمام محصولات): رنگ متفاوت */
+.paia-app .paia-live__row--products{border-color:rgba(147,51,234,.6);background:linear-gradient(135deg,rgba(109,40,217,.28),rgba(6,182,212,.14))}
+.paia-app .paia-live__row--products:hover{border-color:rgba(167,139,250,.9)}
+.paia-app .paia-live__row--products.is-active{border-color:var(--paia-accent);background:linear-gradient(135deg,rgba(109,40,217,.38),rgba(6,182,212,.22))}
+.paia-app .paia-live__row--products .paia-live__name{font-weight:700}
+.paia-app .paia-live__row--products.is-off{opacity:.85}
+/* کلید (toggle) */
+.paia-app .paia-switch{position:relative;flex:none;display:inline-flex;width:44px;height:24px;cursor:pointer}
+.paia-app .paia-switch__input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.paia-app .paia-switch__track{width:100%;height:100%;border:1px solid var(--paia-border-strong);border-radius:999px;background:#334155;transition:background-color .15s,border-color .15s;pointer-events:none}
+.paia-app .paia-switch__track::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:16px;height:16px;border-radius:50%;background:#e2e8f0;transition:inset-inline-start .15s,background-color .15s}
+.paia-app .paia-switch__input:checked + .paia-switch__track{background:var(--paia-gradient);border-color:transparent}
+.paia-app .paia-switch__input:checked + .paia-switch__track::after{inset-inline-start:23px;background:#fff}
+.paia-app .paia-switch__input:focus-visible + .paia-switch__track{outline:2px solid var(--paia-accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.paia-app .paia-switch__track,.paia-app .paia-switch__track::after{transition:none}}
+.paia-app .paia-live__list .paia-card__head{margin-block-end:16px}
+.paia-app .paia-live [hidden]{display:none !important}
+
+
+/* ================= 0.5.12 ================= */
+
+/* ---------- وضعیت چت‌بات (تب «عمومی») ---------- */
+.paia-app .paia-status{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;margin-block-end:18px;padding:16px 20px;border:1px solid var(--paia-border);border-radius:var(--paia-radius-lg);background:var(--paia-surface);transition:border-color .2s,background-color .2s}
+.paia-app .paia-status:not(.is-off){border-color:rgba(34,197,94,.35);background:linear-gradient(0deg,rgba(34,197,94,.06),rgba(34,197,94,.06)),var(--paia-surface)}
+.paia-app .paia-status.is-off{border-color:rgba(239,68,68,.4);background:linear-gradient(0deg,rgba(239,68,68,.07),rgba(239,68,68,.07)),var(--paia-surface)}
+.paia-app .paia-status.is-busy{opacity:.75}
+.paia-app .paia-power{position:relative;display:inline-flex;align-items:center;gap:14px;cursor:pointer;user-select:none}
+.paia-app .paia-power__input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
+.paia-app .paia-power__input:disabled{cursor:progress}
+.paia-app .paia-power__track{position:relative;flex:none;width:58px;height:32px;border-radius:999px;background:#334155;border:1px solid var(--paia-border-strong);transition:background-color .2s,border-color .2s,box-shadow .2s}
+.paia-app .paia-power__thumb{position:absolute;top:3px;inset-inline-start:3px;width:24px;height:24px;border-radius:50%;background:#e2e8f0;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:inset-inline-start .2s cubic-bezier(.22,1,.36,1),background-color .2s}
+.paia-app .paia-power__input:checked ~ .paia-power__track,.paia-app .paia-power__input:checked + .paia-power__track{background:linear-gradient(135deg,#16a34a,#22c55e);border-color:transparent;box-shadow:0 0 0 4px rgba(34,197,94,.15)}
+.paia-app .paia-power__input:checked + .paia-power__track .paia-power__thumb{inset-inline-start:29px;background:#fff}
+.paia-app .paia-power__input:focus-visible + .paia-power__track{outline:2px solid var(--paia-accent);outline-offset:3px}
+.paia-app .paia-power__text{display:flex;flex-direction:column;gap:1px;line-height:1.5}
+.paia-app .paia-power__text strong{font-size:15px;font-weight:700;color:var(--paia-text)}
+.paia-app .paia-power__state{font-size:12.5px;font-weight:700;color:#4ade80}
+.paia-app .paia-status.is-off .paia-power__state{color:#f87171}
+.paia-app .paia-status__hint{flex:1 1 280px;margin:0;color:var(--paia-muted);font-size:13px;line-height:1.9}
+.paia-app .paia-status__msg{flex-basis:100%;margin:0;padding:9px 14px;border-radius:10px;background:rgba(6,182,212,.12);color:#67e8f9;font-size:13px}
+.paia-app .paia-status__msg.is-bad{background:rgba(239,68,68,.12);color:#fca5a5}
+.paia-app .paia-status__msg[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.paia-app .paia-power__track,.paia-app .paia-power__thumb,.paia-app .paia-status{transition:none}}
+
+/* ---------- تب‌های قفل‌شده (چت‌بات خاموش) ---------- */
+.paia-app .paia-tab.is-locked,.paia-app .paia-tab[aria-disabled="true"]{opacity:.45;cursor:not-allowed;display:inline-flex;align-items:center;gap:6px}
+.paia-app .paia-tab.is-locked:hover,.paia-app .paia-tab[aria-disabled="true"]:hover{background:transparent;color:inherit}
+.paia-app .paia-tab.is-locked svg{flex:none}
+.paia-app .paia-locknote{padding:18px 20px;border:1px dashed var(--paia-border-strong);border-radius:var(--paia-radius-md);color:var(--paia-muted)}
+
+/* ---------- کمبوباکس‌ها (select) در تنظیمات: عرض کامل، فلش سفارشی، بدون بریدگی ---------- */
+.paia-app .paia-chatset__grid>*,.paia-app .paia-chatset__f{min-width:0}
+.paia-app .paia-chatset select{
+	appearance:none;-webkit-appearance:none;-moz-appearance:none;
+	display:block;width:100%;min-width:0;max-width:100%;
+	min-height:44px;padding-block:9px;padding-inline:14px 40px;
+	line-height:1.6;font:inherit;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;cursor:pointer;
+	background-color:var(--paia-field-bg);
+	background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+	background-repeat:no-repeat;background-size:16px 16px;
+}
+.paia-app .paia-chatset select:dir(rtl),[dir="rtl"] .paia-app .paia-chatset select,.rtl .paia-app .paia-chatset select{background-position:left 14px center}
+.paia-app .paia-chatset select:dir(ltr){background-position:right 14px center}
+.paia-app .paia-chatset select option{background:#0b1222;color:var(--paia-text)}
+.paia-app .paia-chatset select:disabled{opacity:.55;cursor:not-allowed}
+/* ردیف‌های کنار هم که فقط یک کمبوباکس دارند */
+.paia-app .paia-chatset__grid--select{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:600px){.paia-app .paia-chatset__grid,.paia-app .paia-chatset__grid--select{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- تب تنظیمات ← عمومی: اطلاعات سایت / سرویس هوش مصنوعی ---------- */
+.paia-app .paia-chatset__hint--under{display:block;margin-block-start:2px}
+.paia-app .paia-chatset__f .paia-chatset__counter{align-self:flex-end;color:var(--paia-muted);font-size:12px}
+.paia-app .paia-chatset textarea.paia-chatset__notes{min-height:150px;resize:vertical;line-height:1.9}
+.paia-app .paia-chatset__lock{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:rgba(148,163,184,.08);border:1px solid var(--paia-border);color:var(--paia-text);min-height:44px}
+
+/* ---------- رنگ‌بندی: تم روشن / تم دارک ---------- */
+.paia-app .paia-colorgroup{display:flex;flex-direction:column;gap:12px}
+.paia-app .paia-colorgroup + .paia-colorgroup{margin-block-start:22px;padding-block-start:22px;border-top:1px solid var(--paia-border)}
+.paia-app .paia-colorgroup__head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.paia-app .paia-colorgroup__title{margin:0;font-size:14.5px;font-weight:700;color:var(--paia-text)}
+.paia-app .paia-colorgroup__desc{margin:0;color:var(--paia-muted);font-size:12.5px;line-height:1.9}
+.paia-app .paia-colorgroup.is-disabled .paia-chatset__colors{opacity:.45;pointer-events:none}
+.paia-app .paia-colorgroup.is-disabled .paia-chatset__color{filter:grayscale(.4)}
+
+/* ---------- 0.5.12: ارتفاع و اندازهٔ فونت کمبوباکس‌ها (قاعدهٔ قالب mega_main را بازنویسی می‌کند) ---------- */
+[class*="mega_main"] #wpbody select,
+#wpbody .paia-app select,
+.paia-app .paia-chatset select{height:49px !important;font-size:14px !important}
+
+/* ---- نسخهٔ ۰.۵.۱۳: لیست «موارد حذف‌شده از سایت» ---- */
+.paia-app .paia-removed[hidden]{display:none}
+.paia-app .paia-removed .paia-note{margin-block-end:14px}
+.paia-app .paia-removed .paia-notice{margin-block-end:12px}
+.paia-app .paia-removed__list{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;max-height:460px;margin:0;padding:0;overflow-y:auto}
+.paia-app .paia-removed__row{display:flex;align-items:center;gap:12px;min-width:0;padding:8px 14px;border:1px solid var(--paia-border);border-radius:var(--paia-radius-sm);background:rgba(15,23,42,.35)}
+.paia-app .paia-removed__row[hidden]{display:none}
+.paia-app .paia-removed__title{min-width:0;flex:1 1 200px;overflow-wrap:anywhere}
+.paia-app .paia-removed__more{margin:0;padding:6px 4px;color:var(--paia-muted);font-size:13px}
+
+/* 0.5.14: فرم «اطلاعات جدید خودکار» وقتی لیستش خالی است فقط پیام نتیجه را نشان بدهد */
+.paia-app .paia-autonew--empty .paia-note--lead,
+.paia-app .paia-autonew--empty .paia-autonew__all,
+.paia-app .paia-autonew--empty .paia-autonew__list,
+.paia-app .paia-autonew--empty .paia-actions { display: none; }
+
+/* 0.5.14: حداکثر سه فرم هم‌زمان در تب استخراج؛ فرم جمع‌شده یک نوار باریک دارد */
+.paia-app .paia-folded { display: none !important; }
+.paia-app .paia-fold-bar {
+	display: flex; align-items: center; width: 100%; padding: 10px 16px; border: 1px dashed var(--paia-border, rgba(148,163,184,.35));
+	border-radius: 12px; background: transparent; color: var(--paia-muted); font: inherit; font-size: 13px; cursor: pointer; text-align: start;
+}
+.paia-app .paia-fold-bar:hover, .paia-app .paia-fold-bar:focus-visible { color: var(--paia-text); border-color: var(--paia-accent); }
+.paia-app .paia-fold-bar[hidden] { display: none; }
+
+/* 0.5.14: کارت «وضعیت اشتراک» زیر آمار تب عمومی */
+.paia-app .paia-plan { margin-top: 20px; padding: 20px; border-radius: 16px; background: var(--paia-surface); border: 1px solid rgba(148,163,184,.18); }
+.paia-app .paia-plan__head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.paia-app .paia-plan__title { margin: 0; color: #fff; font-size: 16px; }
+.paia-app .paia-plan__sync { margin-inline-start: auto; }
+.paia-app .paia-plan__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.paia-app .paia-plan__item { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px; border-radius: 12px; background: rgba(15,23,42,.55); }
+.paia-app .paia-plan__label { color: var(--paia-muted); font-size: 12px; }
+.paia-app .paia-plan__value { color: var(--paia-text); font-size: 18px; overflow-wrap: anywhere; }
+.paia-app .paia-plan__value small { color: var(--paia-muted); font-size: 12px; font-weight: 400; }
+.paia-app .paia-plan__hint { color: var(--paia-muted); font-size: 12px; }
+.paia-app .paia-plan__bar { display: block; height: 8px; border-radius: 999px; background: rgba(148,163,184,.2); overflow: hidden; }
+.paia-app .paia-plan__bar > span { display: block; height: 100%; border-radius: inherit; background: var(--paia-accent); transition: width .4s ease; }
+.paia-app .paia-plan__bar--tokens > span { background: var(--paia-secondary); }
+.paia-app .paia-plan.is-expired .paia-plan__bar:not(.paia-plan__bar--tokens) > span { background: #f87171; }
+.paia-app .paia-plan.is-expired [data-sub="remaining"] { color: #f87171; }
+.paia-app .paia-plan__foot { margin: 14px 0 0; color: var(--paia-muted); font-size: 13px; }
+@media (max-width: 1100px) { .paia-app .paia-plan__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .paia-app .paia-plan__grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* دکمهٔ «حذف آموزش» وقتی درخواست حذف در راه است (loading) و ردیف «در حال حذف» در لیست موارد حذف‌شده */
+.paia-app .paia-ai-del.is-loading{pointer-events:none;position:relative;color:transparent}
+.paia-app .paia-ai-del.is-loading::after{content:"";position:absolute;inset:0;margin:auto;width:14px;height:14px;border-radius:50%;border:2px solid rgba(148,163,184,.4);border-top-color:var(--paia-muted);animation:paia-spin .7s linear infinite}
+.paia-app .paia-removed__row.is-deleting{opacity:.75}

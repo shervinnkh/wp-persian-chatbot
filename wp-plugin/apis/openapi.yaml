@@ -1,0 +1,131 @@
+openapi: 3.0.3
+info:
+  title: Persian AI Assistant — inbound APIs (AI server -> WordPress plugin)
+  version: "1"
+  description: |
+    Called by the AI server on each WordPress site. Authenticate with HMAC-SHA256 over "{timestamp}.{raw body}"
+    using the site's api_key. See README.md (Persian) for design notes, retries and SSRF guidance.
+
+    Record life cycle in the plugin (column ai_status): 0 = not sent; 1 = plugin sent the record and the server answered
+    200/202 ("processing on the server", spinner in the UI); 2 = the server called POST /ai/results with status "trained".
+servers:
+  - url: https://{site}/wp-json/paia/v1
+    variables:
+      site: { default: shop.example.com }
+components:
+  securitySchemes:
+    paiaHmac:
+      type: apiKey
+      in: header
+      name: X-PAIA-Signature
+      description: |
+        Also required: X-PAIA-Timestamp (unix seconds, +-300s) and, recommended, X-PAIA-Delivery (unique id, reused on retries).
+        X-PAIA-Signature = "sha256=" + hex(HMAC_SHA256(api_key, timestamp + "." + rawBody)). Empty body for GET.
+  schemas:
+    Result:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, maxLength: 191, example: "product:23", description: "product:N, blog:N, page:N, *_taxonomies:all, site:N, text:ms, file:ms" }
+        status:
+          type: string
+          enum: [trained, untrained, failed]
+          description: |
+            trained   -> plugin sets ai_status = 2 (processed; the AI icon is shown in the admin UI).
+            untrained -> ai_status = 0.
+            failed    -> a record that was "processing" (ai_status = 1) goes back to 0 (spinner removed) and the error is logged.
+        rev: { type: string, description: "Echo of the rev the plugin sent with the record. Mismatch on 'trained' => ignored as stale." }
+        error: { type: string, maxLength: 300 }
+    ResultsRequest:
+      type: object
+      required: [results]
+      properties:
+        job_id: { type: string }
+        delivery_id: { type: string, maxLength: 64 }
+        results:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { $ref: "#/components/schemas/Result" }
+    Error:
+      type: object
+      properties:
+        code: { type: string, example: paia_bad_signature }
+        message: { type: string }
+        data: { type: object, properties: { status: { type: integer } } }
+paths:
+  /ai/ping:
+    get:
+      summary: Health check / handshake (empty body)
+      security: [{ paiaHmac: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  api_version: { type: integer }
+                  plugin_version: { type: string }
+                  wp_version: { type: string }
+                  site_url: { type: string }
+                  callback_url: { type: string }
+                  max_results: { type: integer }
+                  time: { type: integer }
+        "401": { description: Bad signature or stale timestamp, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: Chatbot disabled on the site or plugin inactive }
+        "503": { description: api_key not configured in the plugin }
+  /ai/file:
+    get:
+      summary: دانلود فایلِ «اسناد اضافه» با لینک امضادار و کوتاه‌عمر (سرور هوش مصنوعی ← سایت)
+      description: >
+        لینک را خود افزونه می‌سازد و داخل رکورد `file:*` زیر `data.download.url` به سرور می‌دهد.
+        احراز هویت = امضای خود لینک: `sig = hex(HMAC_SHA256(api_key, "paia-file\n{id}\n{exp}"))`؛
+        بعد از `exp` (ثانیهٔ یونیکس) کار نمی‌کند. فقط همان یک فایل؛ فقط GET؛ بدون redirect.
+        پاسخ `application/octet-stream` + `Content-Disposition: attachment`.
+      security: []
+      parameters:
+        - {name: id, in: query, required: true, schema: {type: string, pattern: '^file:\d{1,20}$'}}
+        - {name: exp, in: query, required: true, schema: {type: integer}}
+        - {name: sig, in: query, required: true, schema: {type: string, pattern: '^[0-9a-f]{64}$'}}
+      responses:
+        '200': {description: محتوای فایل}
+        '403': {description: امضا نامعتبر (paia_bad_link) یا لینک منقضی (paia_link_expired)}
+        '404': {description: فایل روی سایت نیست (paia_file_missing)}
+        '503': {description: api_key در افزونه تنظیم نشده}
+  /ai/results:
+    post:
+      summary: Report processing results for a batch of records (idempotent)
+      security: [{ paiaHmac: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResultsRequest" }
+      responses:
+        "200":
+          description: Accepted (also returned with duplicate=true for a repeated X-PAIA-Delivery)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  duplicate: { type: boolean }
+                  delivery_id: { type: string }
+                  applied: { type: array, items: { type: string } }
+                  ignored:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        reason: { type: string, enum: [not_found, stale, invalid_id, invalid_status] }
+        "400": { description: "paia_bad_json / paia_no_results / paia_too_many — do not retry" }
+        "401": { description: "paia_bad_signature / paia_stale_timestamp" }
+        "404": { description: Chatbot disabled on the site — pause deliveries }
+        "413": { description: Body larger than 1 MB }
+        "500": { description: Internal plugin error — retry with backoff }
+        "503": { description: api_key not configured }
