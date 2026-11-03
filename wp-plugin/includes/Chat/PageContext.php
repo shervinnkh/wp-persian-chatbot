@@ -43,7 +43,7 @@ final class PageContext {
 	}
 
 	/**
-	 * @return array{url:string,slug:string,title:string,type:string}|array{}
+	 * @return array{url:string,slug:string,title:string,type:string,id?:int}|array{}
 	 */
 	public static function get( string $uid ): array {
 		$saved = get_transient( self::key( $uid ) );
@@ -58,7 +58,8 @@ final class PageContext {
 			$path = trim( substr( $path, strlen( $home ) ), '/' );
 		}
 
-		$type = 'other';
+		$type    = 'other';
+		$post_id = 0;
 		if ( '' === $path ) {
 			$type = 'home';
 		} else {
@@ -75,11 +76,17 @@ final class PageContext {
 
 		$parts = explode( '/', $path );
 
-		return array(
+		$page = array(
 			'url'   => $url,
 			'slug'  => '' === $path ? 'home' : (string) end( $parts ),
 			'title' => (string) ( $saved['title'] ?? '' ),
 			'type'  => $type,
 		);
+		// شناسهٔ نوشته (در صفحهٔ محصول = شناسهٔ محصول): AI با «این محصول» ابزار قیمت/موجودی را با همین id صدا می‌زند.
+		if ( $post_id > 0 ) {
+			$page['id'] = $post_id;
+		}
+
+		return $page;
 	}
 }

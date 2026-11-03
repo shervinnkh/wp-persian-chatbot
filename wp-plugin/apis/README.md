@@ -267,3 +267,20 @@ apis/
 ## یادداشت: جهت مقابل (افزونه ← سرور) از ۰.۵.۱۸
 
 این README قرارداد **ورودی** (سرور ← افزونه، وب‌هوک) را می‌گوید. جهت خروجی (افزونه ← سرور، `POST /v1/knowledge/records` و …) با امضای **متفاوت** (`X-Timestamp`/`X-Signature`، `hex(HMAC(secret, ts + "\n" + body))`) در `apis/Client.php` پیاده شده و مرجعش «راهنمای ارتباط افزونهٔ وردپرس با سرور هوش مصنوعی» است. بازبینی وضعیت وقتی وب‌هوک نرسد: `apis/Reconciler.php` (`POST /v1/jobs/status`). جزئیات: `ARCHITECTURE.md` بخش ۳۰.
+
+---
+
+## ابزارهای هوش مصنوعی (Tool Calling): `/live/products` و `/live/tool` (از ۰.۵.۲۴)
+
+سرور هنگام تولید پاسخ، اگر AI ابزار بخواهد این دو مسیر را **با همان امضای وب‌هوک** (`X-PAIA-Timestamp` / `X-PAIA-Signature`، بدنهٔ خام) صدا می‌زند. قرارداد کامل: `LIVE_TOOLS_API.md` (ریپوی سرور، `docs/`).
+
+| مسیر | بدنه | پاسخ |
+|---|---|---|
+| `POST /paia/v1/live/products` | `{request_id, fields:["price","stock"], products:[{id}\|{name}] ≤5}` | `{ok:true, message:"<بلاک‌های کلید: مقدار>"}` |
+| `POST /paia/v1/live/tool` | `{request_id, tool_id}` | `{ok:true, text}` یا `{ok:false, error}` |
+
+- **HTTP 200** برای هر نتیجهٔ کاری (حتی «پیدا نشد»)؛ فقط امضای نامعتبر ۴۰۱. بدون کش (`no-store`).
+- **محصولات:** فقط فیلدهایی که هم سرور خواسته و هم مدیر در «اطلاعات به‌روز ← تمام محصولات» روشن گذاشته (`price` = قیمت/قیمت اصلی/حراج، `stock` = وضعیت/تعداد/پیش‌سفارش، هر کدام با تیک خودش)؛ فقط محصول `publish` بدون رمز؛ id اولویت دارد، `name` با نرمال‌سازی ی/ک/ارقام؛ نتیجهٔ غیرقطعی = «چند نتیجه» (حداکثر ۳). ووکامرس (ساده/متغیر/گروهی/خارجی) + مسیر ساده برای EDD و مشابه.
+- **ابزار داینامیک:** `tool_id` = شناسهٔ ردیف «اطلاعات تعریف‌شده» (فقط ردیف فعال)؛ متن هر بار زنده از دیتابیس؛ ارقام فارسی → لاتین.
+- **سمت ارسال پیام** (`ReplyEngine::push`، فقط با `generate_ai_answer=true`): `live_product_datas` (از تیک‌های تب اطلاعات به‌روز)، `tools` (`[{id,title,description}]` ≤۳۰)، `page.id` و `notes`.
+- کد: `apis/Endpoints/Live*Endpoint.php`، `apis/Live/{LiveProducts,Text}.php`، `Database\LiveStore::ai_product_fields()/ai_tools()`.

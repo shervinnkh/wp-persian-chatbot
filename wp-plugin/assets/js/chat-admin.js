@@ -30,6 +30,10 @@
 	}
 
 	var ICONS = {
+		bag: '<path d="M6 7h12l1.2 12.2a1.8 1.8 0 0 1-1.8 2H6.6a1.8 1.8 0 0 1-1.8-2L6 7Z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>',
+		doc: '<path d="M14 3H7.5A1.5 1.5 0 0 0 6 4.5v15A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5V7l-4-4Z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+		news: '<path d="M5 5h11a1 1 0 0 1 1 1v13H6a1 1 0 0 1-1-1V5Z"/><path d="M17 9h2v9a1 1 0 0 1-1 1M8 9h6M8 13h6"/>',
+		chev: '<path d="m15 6-6 6 6 6"/>',
 		star: '<path d="m12 3.2 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.4 2.8 1-6L3.3 9.6l6-.9L12 3.2Z"/>',
 		spark: '<path d="M12 3.5l1.9 5.1a2 2 0 0 0 1.2 1.2l5.1 1.9-5.1 1.9a2 2 0 0 0-1.2 1.2L12 20l-1.9-5.2a2 2 0 0 0-1.2-1.2l-5.1-1.9 5.1-1.9a2 2 0 0 0 1.2-1.2L12 3.5Z"/>',
 		user: '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
@@ -195,7 +199,7 @@
 	/* ---------- کش (localStorage) ----------
 	   گفتگوهای دیده‌شده و فهرست گفتگوها بلافاصله از کش نمایش داده می‌شوند و فقط با «امضا» (sig) از سرور اعتبارسنجی می‌شوند؛
 	   اگر تغییری نباشد سرور چیزی نمی‌فرستد و خواندن از اول انجام نمی‌شود. کش بین بازدیدها و تب‌ها می‌ماند (قبلاً sessionStorage بود). */
-	var CK = 'paia_cm_cache_v2_' + cfg.me.id;
+	var CK = 'paia_cm_cache_v3_' + cfg.me.id;
 	var CACHE_TTL = 30 * 24 * 3600 * 1000; // گفتگوهای قدیمی‌تر از ۳۰ روز از کش پاک می‌شوند
 	var CACHE_MAX = 15;
 	function loadCache() {
@@ -419,6 +423,30 @@
 
 	var SPIN = '<span class="pcm-spin" role="status"></span>';
 
+	/* کارت‌های لینک (محصول/مقاله/صفحه) زیر پیام هوش مصنوعی؛ همان ظاهر ویجت (استایل در widget.css) */
+	var KIND_ICON = { product: 'bag', blog: 'news', page: 'doc' };
+	function cardNode(c) {
+		var href = /^https?:\/\//i.test(c.url || '') ? c.url : '#';
+		var kind = KIND_ICON[c.kind] ? c.kind : 'page';
+		var media = el('span', { class: 'pc-lc-media' + (c.image ? '' : ' is-empty'), html: c.image ? '' : icon(KIND_ICON[kind]) });
+		if (c.image) {
+			var img = el('img', { src: c.image, alt: '', loading: 'lazy', decoding: 'async' });
+			img.addEventListener('error', function () { media.classList.add('is-empty'); media.innerHTML = icon(KIND_ICON[kind]); });
+			media.appendChild(img);
+		}
+		var sub = c.meta ? (c.label ? c.label + ' · ' + c.meta : c.meta) : (c.label || '');
+		return el('a', { class: 'pc-lcard pc-lc-' + kind, href: href, target: '_blank', rel: 'noopener noreferrer', title: c.title }, [
+			media,
+			el('span', { class: 'pc-lc-text' }, [el('strong', { class: 'pc-lc-title', dir: 'auto', text: c.title }), sub ? el('small', { class: 'pc-lc-sub', dir: 'auto', text: sub }) : null]),
+			el('span', { class: 'pc-lc-go', html: icon('chev') })
+		]);
+	}
+	function linksNode(list) {
+		var box = el('div', { class: 'pc-links' });
+		list.forEach(function (c) { box.appendChild(cardNode(c)); });
+		return box;
+	}
+
 	function addMsg(m, animate, replaceRow) {
 		// از دید پشتیبان: کاربر = pc-user (همان ظاهر ویجت)، هوش مصنوعی و پشتیبان = pc-bot
 		var isUser = m.role === 'user';
@@ -437,9 +465,16 @@
 			linkify(p, m.text);
 			bubble.appendChild(p);
 		}
-		bubble.appendChild(el('time', { class: 'pc-time', text: fmtTime(m.time) }));
+		var hasLinks = !!(m.links && m.links.length);
+		var hasBubble = !!(m.text || m.attachment || !hasLinks);
+		if (hasBubble) { bubble.appendChild(el('time', { class: 'pc-time', text: fmtTime(m.time) })); }
 
-		var row = el('div', { class: 'pc-row ' + (isUser ? 'pc-user' : 'pc-bot') + (isAdmin ? ' pc-admin' : '') + (m.pending ? ' is-sending' : '') + (animate === false ? ' no-anim' : ''), 'data-id': String(m.id) }, [bubble]);
+		var row = el('div', { class: 'pc-row ' + (isUser ? 'pc-user' : 'pc-bot') + (isAdmin ? ' pc-admin' : '') + (m.pending ? ' is-sending' : '') + (animate === false ? ' no-anim' : ''), 'data-id': String(m.id) }, [hasBubble ? bubble : null]);
+		if (hasLinks) {
+			var lbox = linksNode(m.links);
+			if (!hasBubble) { lbox.appendChild(el('time', { class: 'pc-time pc-time-solo', text: fmtTime(m.time) })); }
+			row.appendChild(lbox);
+		}
 		if (isAdmin && m.pending) {
 			// هنوز ذخیره نشده: پیام همان لحظه روی چت می‌آید، با آیکن کوچک «در حال ارسال» زیرش
 			row.appendChild(el('div', { class: 'pcm-meta' }, [el('span', { class: 'pcm-sending', title: t.sending, 'aria-label': t.sending, html: SPIN })]));

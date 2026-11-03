@@ -23,6 +23,12 @@ final class LiveStore {
 		'pages'    => array( 'modified' ),
 	);
 
+	/**
+	 * منبع‌هایی که فعلاً در افزونه نمایش داده نمی‌شوند و همیشه «غیرفعال» حساب می‌شوند (از ۰.۵.۲۴): اطلاعات به‌روز وبلاگ‌ها و برگه‌ها.
+	 * کد و جدول‌هایشان عمداً نگه داشته شده؛ برای فعال‌کردن دوباره کافی است اینجا را خالی کنید.
+	 */
+	public const HIDDEN_SOURCES = array( 'blog', 'pages' );
+
 	public const NAME_MAX    = 120;
 	public const DESC_MAX    = 500;
 	public const CONTENT_MAX = 20000;
@@ -36,14 +42,19 @@ final class LiveStore {
 	 * @return string[]
 	 */
 	public static function sources(): array {
-		return array_keys( self::FIELDS );
+		return array_values( array_diff( array_keys( self::FIELDS ), self::HIDDEN_SOURCES ) );
+	}
+
+	public static function is_hidden( string $source ): bool {
+		return in_array( $source, self::HIDDEN_SOURCES, true );
 	}
 
 	/**
 	 * @return array{enabled:bool, fields:array<string,bool>}
 	 */
 	public static function source( string $source ): array {
-		if ( ! isset( self::FIELDS[ $source ] ) ) {
+		if ( ! isset( self::FIELDS[ $source ] ) || self::is_hidden( $source ) ) {
+			// منبع ناشناخته یا پنهان (وبلاگ/برگه): همیشه غیرفعال؛ فیلدهایش جزو اطلاعات استخراج‌شده می‌مانند.
 			return array( 'enabled' => false, 'fields' => array() );
 		}
 		if ( isset( self::$cache[ $source ] ) ) {
@@ -98,7 +109,7 @@ final class LiveStore {
 	 * @param array<string, mixed> $fields کلید فیلد => bool (کلیدهای ناشناخته نادیده گرفته می‌شوند؛ نبودن کلید = false)
 	 */
 	public static function save_source( string $source, array $fields ): bool {
-		if ( ! isset( self::FIELDS[ $source ] ) ) {
+		if ( ! isset( self::FIELDS[ $source ] ) || self::is_hidden( $source ) ) {
 			return false;
 		}
 
@@ -113,7 +124,7 @@ final class LiveStore {
 	}
 
 	public static function set_source_enabled( string $source, bool $enabled ): bool {
-		if ( ! isset( self::FIELDS[ $source ] ) ) {
+		if ( ! isset( self::FIELDS[ $source ] ) || self::is_hidden( $source ) ) {
 			return false;
 		}
 
@@ -232,6 +243,84 @@ final class LiveStore {
 		global $wpdb;
 
 		return false !== $wpdb->update( Schema::live_table(), array( 'enabled' => $enabled ? 1 : 0, 'updated_at' => time() ), array( 'id' => $id ), array( '%d', '%d' ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+
+	/* ------------------- اتصال به ابزارهای هوش مصنوعی (Tool Calling) ------------------- */
+
+	/** حداکثر ابزار داینامیکی که با هر پیام به سرور می‌رود (TOOLS_MAX_DYNAMIC سرور = ۳۰). */
+	public const AI_TOOLS_MAX = 30;
+
+	/** گروه‌های قابل‌اعلام به سرور (live_product_datas) ← فیلدهای تب «اطلاعات به‌روز» که هر گروه را می‌سازند. */
+	public const AI_PRODUCT_GROUPS = array(
+		'price' => array( 'price', 'regular_price', 'on_sale' ),
+		'stock' => array( 'stock_status', 'stock_qty', 'backorder' ),
+	);
+
+	/**
+	 * فیلدهای زندهٔ محصول که همین الان مجازند (مدیر در تب «اطلاعات به‌روز» روشن گذاشته): کلید فیلد => true.
+	 *
+	 * @return array<string, bool>
+	 */
+	public static function ai_product_keys(): array {
+		$out = array();
+		foreach ( self::live_keys( 'products' ) as $key ) {
+			$out[ $key ] = true;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * مقدار «live_product_datas» پیام: زیرمجموعهٔ [price, stock]. خالی = سایت داده لایو محصول ندارد (سرور ابزار محصول را به AI نمی‌دهد).
+	 *
+	 * @return string[]
+	 */
+	public static function ai_product_fields(): array {
+		$live = self::ai_product_keys();
+		$out  = array();
+		foreach ( self::AI_PRODUCT_GROUPS as $group => $keys ) {
+			foreach ( $keys as $key ) {
+				if ( isset( $live[ $key ] ) ) {
+					$out[] = $group;
+					break;
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * ابزارهای داینامیک (ردیف‌های فعال «اطلاعات تعریف‌شده») به شکل tools[] پیام: [{id, title, description}].
+	 * id = شناسهٔ ردیف (عدد)؛ API شمارهٔ ۲ (/live/tool) با همین id متن زنده را از دیتابیس می‌خواند.
+	 *
+	 * @return array<int, array{id:int, title:string, description:string}>
+	 */
+	public static function ai_tools(): array {
+		global $wpdb;
+
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+			$wpdb->prepare(
+				'SELECT `id`, `name`, `description` FROM `' . Schema::live_table() . "` WHERE `enabled` = 1 AND `content` <> '' ORDER BY `id` ASC LIMIT %d",
+				self::AI_TOOLS_MAX
+			),
+			ARRAY_A
+		);
+
+		$out = array();
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			$title = trim( (string) $row['name'] );
+			if ( '' === $title ) {
+				continue;
+			}
+			$out[] = array(
+				'id'          => (int) $row['id'],
+				'title'       => $title,
+				'description' => trim( (string) $row['description'] ),
+			);
+		}
+
+		return $out;
 	}
 
 	/**

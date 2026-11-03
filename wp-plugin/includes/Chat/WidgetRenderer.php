@@ -64,6 +64,8 @@ final class WidgetRenderer {
 			'dark'     => (bool) ChatSettings::get( 'dark_enabled' ), // تم دارک هوشمند (تشخیص در widget.js)
 			'onlineText'  => (string) ChatSettings::get( 'online_text' ),
 			'offlineText' => (string) ChatSettings::get( 'offline_text' ),
+			'aiDelay'  => ChatSettings::ai_delay(), // ثانیه؛ ۰ = هوش مصنوعی بلافاصله جواب می‌دهد (نقطه‌های تایپ فوراً)
+			'loggedIn' => is_user_logged_in(), // کاربر واردشده نیازی به فرم نام ندارد؛ ویجت صفحهٔ چت را فوراً باز می‌کند
 			'poll'     => ChatSettings::widget_poll(), // fast: چت باز و تب فعال (۱ثانیه)، slow: چت بسته/تب دیگر (۴ثانیه)
 			'teaser'   => array(
 				'title' => (string) ChatSettings::get( 'teaser_title' ),
@@ -96,6 +98,10 @@ final class WidgetRenderer {
 				'badFile'      => __( 'فقط فایل تصویر قابل ارسال است.', 'persian-ai-assistant' ),
 				'recording'    => __( 'در حال ضبط...', 'persian-ai-assistant' ),
 				'image'        => __( 'تصویر', 'persian-ai-assistant' ),
+				'starting'     => __( 'در حال شروع...', 'persian-ai-assistant' ),
+				'loadingMsgs'  => __( 'در حال بارگذاری پیام‌ها', 'persian-ai-assistant' ),
+				'loadingOlder' => __( 'در حال بارگذاری پیام‌های قبلی', 'persian-ai-assistant' ),
+				'openLink'     => __( 'مشاهده', 'persian-ai-assistant' ),
 			),
 		);
 		wp_add_inline_script( 'paia-chat-widget', 'window.PAIA_CHAT = ' . wp_json_encode( $cfg, JSON_UNESCAPED_UNICODE ) . ';', 'before' );

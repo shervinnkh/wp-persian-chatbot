@@ -123,7 +123,8 @@
 		open: false, loaded: false, loading: false, uid: '',
 		busy: false, pending: null, rec: null, lastSugg: [], typingEl: null,
 		ids: {}, sig: '', pollT: 0, polling: false, adminTypingEl: null, muted: false,
-		unread: 0, typingSent: 0, pendingBot: false, lastInput: 0
+		unread: 0, typingSent: 0, pendingBot: false, lastInput: 0,
+		hasMore: false, loadingMore: false, locked: true, stick: true, typeT: 0, initP: null
 	};
 
 	/* ---------- ابزارها ---------- */
@@ -154,7 +155,11 @@
 		mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>',
 		trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.2a1.8 1.8 0 0 0 1.8 1.6h6.4a1.8 1.8 0 0 0 1.8-1.6L18 7M9 7V4.5h6V7"/>',
 		spark: '<path d="M12 3.5l1.9 5.1a2 2 0 0 0 1.2 1.2l5.1 1.9-5.1 1.9a2 2 0 0 0-1.2 1.2L12 20l-1.9-5.2a2 2 0 0 0-1.2-1.2l-5.1-1.9 5.1-1.9a2 2 0 0 0 1.2-1.2L12 3.5Z"/>',
-		retry: '<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/>'
+		retry: '<path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/>',
+		bag: '<path d="M6 7h12l1.2 12.2a1.8 1.8 0 0 1-1.8 2H6.6a1.8 1.8 0 0 1-1.8-2L6 7Z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>',
+		doc: '<path d="M14 3H7.5A1.5 1.5 0 0 0 6 4.5v15A1.5 1.5 0 0 0 7.5 21h9a1.5 1.5 0 0 0 1.5-1.5V7l-4-4Z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+		news: '<path d="M5 5h11a1 1 0 0 1 1 1v13H6a1 1 0 0 1-1-1V5Z"/><path d="M17 9h2v9a1 1 0 0 1-1 1M8 9h6M8 13h6"/>',
+		chev: '<path d="m15 6-6 6 6 6"/>'
 	};
 	function icon(name, cls) {
 		return '<svg class="pc-svg ' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + ICONS[name] + '</svg>';
@@ -176,6 +181,31 @@
 			last = re.lastIndex;
 		}
 		if (last < text.length) { parent.appendChild(document.createTextNode(text.slice(last))); }
+	}
+
+	/* کارت‌های کوچک لینک (محصول/مقاله/صفحه) زیر پیام هوش مصنوعی: فقط عکس + عنوان + یک خط اطلاعات؛ با کلیک لینک باز می‌شود.
+	   سرور نشانگرهای [product-link:…] را از متن برداشته و اطلاعات کارت را از دیتابیس خوانده است (Chat\\MessageLinks). */
+	var KIND_ICON = { product: 'bag', blog: 'news', page: 'doc' };
+	function cardNode(c) {
+		var href = /^https?:\/\//i.test(c.url || '') ? c.url : '#';
+		var kind = KIND_ICON[c.kind] ? c.kind : 'page';
+		var media = el('span', { class: 'pc-lc-media' + (c.image ? '' : ' is-empty'), html: c.image ? '' : icon(KIND_ICON[kind]) });
+		if (c.image) {
+			var img = el('img', { src: c.image, alt: '', loading: 'lazy', decoding: 'async' });
+			img.addEventListener('error', function () { media.classList.add('is-empty'); media.innerHTML = icon(KIND_ICON[kind]); });
+			media.appendChild(img);
+		}
+		var sub = c.meta ? (c.label ? c.label + ' · ' + c.meta : c.meta) : (c.label || '');
+		return el('a', { class: 'pc-lcard pc-lc-' + kind, href: href, target: '_blank', rel: 'noopener noreferrer', title: c.title }, [
+			media,
+			el('span', { class: 'pc-lc-text' }, [el('strong', { class: 'pc-lc-title', dir: 'auto', text: c.title }), sub ? el('small', { class: 'pc-lc-sub', dir: 'auto', text: sub }) : null]),
+			el('span', { class: 'pc-lc-go', html: icon('chev') })
+		]);
+	}
+	function linksNode(list) {
+		var box = el('div', { class: 'pc-links' });
+		list.forEach(function (c, i) { var n = cardNode(c); n.style.animationDelay = (i * 70) + 'ms'; box.appendChild(n); });
+		return box;
 	}
 
 	/* ---------- API ---------- */
@@ -242,10 +272,6 @@
 	}
 	applyOnline(cfg.online);
 
-	var screenLoading = el('div', { class: 'pc-screen pc-loading', 'aria-live': 'polite' }, [
-		el('div', { class: 'pc-skel pc-skel-a' }), el('div', { class: 'pc-skel pc-skel-b' }), el('div', { class: 'pc-skel pc-skel-c' })
-	]);
-
 	var screenError = el('div', { class: 'pc-screen pc-error' }, [
 		el('p', { text: t.loadError }),
 		el('button', { class: 'pc-btn pc-btn-primary', type: 'button', 'data-act': 'retry-init', html: icon('retry') + '<span>' + t.retry + '</span>' })
@@ -255,8 +281,10 @@
 	var inName = el('input', { type: 'text', class: 'pc-input', placeholder: t.nameLabel, autocomplete: 'name', maxlength: '100', 'aria-label': t.nameLabel });
 	var inContact = el('input', { type: 'text', class: 'pc-input', placeholder: t.contactLabel, autocomplete: 'email', inputmode: 'email', dir: 'auto', maxlength: '190', 'aria-label': t.contactLabel });
 	var profErr = el('p', { class: 'pc-form-err', role: 'alert' });
-	var btnStart = el('button', { class: 'pc-btn pc-btn-primary', type: 'submit', text: t.start });
-	var btnGuest = el('button', { class: 'pc-btn pc-btn-ghost', type: 'button', text: t.guest });
+	var btnStartLabel = el('span', { class: 'pc-btn-label', text: t.start });
+	var btnGuestLabel = el('span', { class: 'pc-btn-label', text: t.guest });
+	var btnStart = el('button', { class: 'pc-btn pc-btn-primary', type: 'submit' }, [btnStartLabel, el('span', { class: 'pc-btn-spin', 'aria-hidden': 'true' })]);
+	var btnGuest = el('button', { class: 'pc-btn pc-btn-ghost', type: 'button' }, [btnGuestLabel, el('span', { class: 'pc-btn-spin', 'aria-hidden': 'true' })]);
 	var profForm = el('form', { class: 'pc-form', novalidate: 'novalidate' }, [inName, inContact, profErr, btnStart, btnGuest]);
 	var screenProfile = el('div', { class: 'pc-screen pc-profile' }, [
 		el('div', { class: 'pc-intro' }, [el('span', { class: 'pc-intro-ic', html: icon('spark') }), el('p', { text: cfg.intro })]),
@@ -292,7 +320,7 @@
 	if (!micOK) { composer.classList.add('no-mic'); }
 
 	var screenChat = el('div', { class: 'pc-screen pc-chat' }, [msgs, toast, sugg, pendingBox, composer]);
-	var body = el('div', { class: 'pc-body' }, [screenLoading, screenError, screenProfile, screenChat]);
+	var body = el('div', { class: 'pc-body' }, [screenError, screenProfile, screenChat]);
 	var win = el('section', { class: 'pc-window', role: 'dialog', 'aria-label': cfg.botName }, [el('div', { class: 'pc-aurora', 'aria-hidden': 'true' }), header, body]);
 
 	root.appendChild(teaser);
@@ -303,7 +331,7 @@
 
 	/* ---------- صفحه‌ها ---------- */
 	function showScreen(name) {
-		[['loading', screenLoading], ['error', screenError], ['profile', screenProfile], ['chat', screenChat]].forEach(function (p) {
+		[['error', screenError], ['profile', screenProfile], ['chat', screenChat]].forEach(function (p) {
 			p[1].classList.toggle('is-active', p[0] === name);
 		});
 		root.setAttribute('data-screen', name);
@@ -315,6 +343,8 @@
 		window.requestAnimationFrame(go);
 	}
 
+	function nearBottom() { return msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 90; }
+
 	function showToast(text) {
 		toast.textContent = text;
 		toast.classList.add('is-on');
@@ -323,15 +353,18 @@
 	}
 
 	/* ---------- پیام‌ها ---------- */
-	function addMsg(m, animate) {
+	/* ساخت ردیف پیام (بدون قرار دادن در صفحه). stick = ردیف پایین لیست است (با لود شدن عکس، لیست پایین می‌ماند). */
+	function buildRow(m, animate, stick) {
 		var isUser = m.role === 'user';
 		var isAdmin = m.role === 'admin';
 		var bubble = el('div', { class: 'pc-bubble' });
+		var hasLinks = !!(m.links && m.links.length);
+		var row;
 
 		if (m.attachment && m.attachment.type === 'image') {
 			var img = el('img', { src: m.attachment.url, alt: t.image, loading: 'lazy' });
 			var link = el('a', { class: 'pc-img', href: m.attachment.url, target: '_blank', rel: 'noopener noreferrer' }, [img]);
-			img.addEventListener('load', function () { scrollDown(false); });
+			img.addEventListener('load', function () { if (stick && state.stick) { scrollDown(false); } });
 			bubble.appendChild(link);
 		} else if (m.attachment && m.attachment.type === 'audio') {
 			bubble.appendChild(el('audio', { class: 'pc-audio', controls: 'controls', preload: 'metadata', src: m.attachment.url }));
@@ -341,11 +374,23 @@
 			linkify(p, m.text);
 			bubble.appendChild(p);
 		}
-		bubble.appendChild(el('time', { class: 'pc-time', text: fmtTime(m.time) }));
+		var hasBubble = !!(m.text || m.attachment || !hasLinks);
+		if (hasBubble) { bubble.appendChild(el('time', { class: 'pc-time', text: fmtTime(m.time) })); }
 
-		var row = el('div', { class: 'pc-row ' + (isUser ? 'pc-user' : 'pc-bot') + (isAdmin ? ' pc-admin' : '') + (animate === false ? ' no-anim' : '') }, [bubble]);
+		row = el('div', { class: 'pc-row ' + (isUser ? 'pc-user' : 'pc-bot') + (isAdmin ? ' pc-admin' : '') + (animate === false ? ' no-anim' : '') }, [hasBubble ? bubble : null]);
+		// زیرپیام ساختاریافتهٔ لینک‌ها (کارت‌های کوچک محصول/مقاله/صفحه)
+		if (hasLinks) {
+			var box = linksNode(m.links);
+			if (!hasBubble) { box.appendChild(el('time', { class: 'pc-time pc-time-solo', text: fmtTime(m.time) })); }
+			row.appendChild(box);
+		}
 		if (isAdmin && m.admin_name) { row.appendChild(el('span', { class: 'pc-by', text: t.supportBy + ' ' + m.admin_name })); }
 		if (m.id) { row.setAttribute('data-id', String(m.id)); state.ids[m.id] = true; }
+		return row;
+	}
+
+	function addMsg(m, animate) {
+		var row = buildRow(m, animate, true);
 		var anchor = typingAnchor();
 		if (anchor) { msgs.insertBefore(row, anchor); } else { msgs.appendChild(row); }
 		scrollDown(animate !== false);
@@ -406,6 +451,42 @@
 		Array.prototype.forEach.call(sugg.querySelectorAll('.pc-chip'), function (c) { c.disabled = on; });
 	}
 
+	/* ---------- قفل نوار ورودی ----------
+	 * تا وقتی پیام‌های گفتگو لود می‌شوند کاربر می‌تواند تایپ کند ولی دکمهٔ ارسال (و ضبط ویس) قفل است. */
+	function setLocked(on) {
+		state.locked = !!on;
+		btnSend.disabled = !!on;
+		if (micOK) { btnMic.disabled = !!on; }
+		composer.classList.toggle('is-locked', !!on);
+	}
+
+	/* اسکلت لودینگ به شکل پیام‌هایی که در لیست پیام‌ها بالا می‌آیند */
+	function skeletonNode() {
+		var wrap = el('div', { class: 'pc-skels', role: 'status', 'aria-label': t.loadingMsgs });
+		[['bot', '74%', 58], ['user', '46%', 40], ['bot', '84%', 86], ['user', '58%', 40], ['bot', '62%', 50]].forEach(function (d, i) {
+			var b = el('div', { class: 'pc-sk pc-sk-' + d[0] });
+			b.style.width = d[1];
+			b.style.height = d[2] + 'px';
+			b.style.animationDelay = (i * 110) + 'ms, 0ms';
+			wrap.appendChild(b);
+		});
+		return wrap;
+	}
+
+	/* صفحهٔ چت را فوراً باز می‌کند؛ پیام‌ها هنوز در راه‌اند. */
+	function showChatLoading() {
+		msgs.innerHTML = '';
+		msgs.appendChild(skeletonNode());
+		state.typingEl = null;
+		state.adminTypingEl = null;
+		state.ids = {};
+		state.hasMore = false;
+		setSuggestions([]);
+		setLocked(true);
+		showScreen('chat');
+		window.setTimeout(function () { ta.focus(); }, 380);
+	}
+
 	/* ---------- بارگذاری اولیه ---------- */
 	function applyInit(d) {
 		if (d.uid && d.uid !== state.uid) { state.uid = d.uid; lsSet(K_UID, d.uid); }
@@ -416,25 +497,91 @@
 		state.ids = {};
 		state.sig = d.sig || '';
 		state.muted = !!d.ai_muted;
+		state.hasMore = !!d.has_more;
+		state.loadingMore = false;
+		state.stick = true;
 		applyOnline(d.online);
-		(d.messages || []).forEach(function (m) { addMsg(m, false); });
-		if (d.welcome) { addMsg({ role: 'assistant', text: d.welcome, time: new Date().toISOString() }, false); }
+
+		// فقط ۱۰ پیام آخر می‌آید؛ پیام‌ها یکی‌یکی (با تأخیر کم) در لیست ظاهر می‌شوند.
+		var frag = document.createDocumentFragment(), n = 0;
+		(d.messages || []).forEach(function (m) {
+			var row = buildRow(m, true, true);
+			row.style.animationDelay = (Math.min(n++, 10) * 45) + 'ms';
+			frag.appendChild(row);
+		});
+		if (d.welcome) {
+			var w = buildRow({ role: 'assistant', text: d.welcome, time: new Date().toISOString() }, true, true);
+			w.style.animationDelay = (Math.min(n++, 10) * 45) + 'ms';
+			frag.appendChild(w);
+		}
+		msgs.appendChild(frag);
 		setSuggestions(d.suggestions || []);
 		showScreen('chat');
 		state.loaded = true;
-		state.pendingBot = !!d.pending;
-		if (state.pendingBot) { showTyping(); }
+		setLocked(false);
+		applyThinking(d, true);
 		scrollDown(false);
 		schedulePoll();
 		window.setTimeout(function () { ta.focus(); }, 380);
+		window.requestAnimationFrame(maybeFill);
 	}
 
 	function init() {
-		if (state.loading) { return; }
+		if (state.loading) { return state.initP; }
 		state.loading = true;
-		showScreen('loading');
-		api('chat/init').then(applyInit).catch(function () { showScreen('error'); }).then(function () { state.loading = false; });
+		// بازدیدکنندهٔ قبلی یا کاربر واردشده: بدون صبر برای سرور صفحهٔ چت (با لودینگ پیام‌ها) باز می‌شود.
+		// بازدیدکنندهٔ کاملاً تازه: فرم نام فوراً نشان داده می‌شود (ارسال فرم تا پایان این درخواست صبر می‌کند).
+		if (state.uid || cfg.loggedIn) { showChatLoading(); } else { showScreen('profile'); }
+		state.initP = api('chat/init').then(applyInit).catch(function () { showScreen('error'); }).then(function () { state.loading = false; });
+		return state.initP;
 	}
+
+	/* ---------- پیام‌های قبلی (اسکرول به بالا) ---------- */
+	function oldestRowId() {
+		var r = msgs.querySelector('.pc-row[data-id]');
+		return r ? parseInt(r.getAttribute('data-id'), 10) || 0 : 0;
+	}
+
+	function loadOlder() {
+		if (!state.loaded || !state.hasMore || state.loadingMore) { return Promise.resolve(); }
+		var before = oldestRowId();
+		if (!before) { return Promise.resolve(); }
+		state.loadingMore = true;
+
+		var pill = el('div', { class: 'pc-older', role: 'status', 'aria-label': t.loadingOlder }, [
+			el('span', { class: 'pc-older-pill' }, [el('i'), el('i'), el('i'), el('em', { text: t.loadingOlder })])
+		]);
+		msgs.insertBefore(pill, msgs.firstChild);
+
+		return api('chat/history?before=' + before + '&limit=10').then(function (d) {
+			var first = msgs.querySelector('.pc-row');
+			var offset = first ? first.getBoundingClientRect().top : 0;
+			var frag = document.createDocumentFragment();
+			(d.messages || []).forEach(function (m) {
+				if (state.ids[m.id]) { return; }
+				frag.appendChild(buildRow(m, false, false));
+			});
+			if (pill.parentNode) { pill.parentNode.removeChild(pill); }
+			msgs.insertBefore(frag, first || null);
+			// جای اسکرول ثابت می‌ماند: پیام‌هایی که کاربر می‌دید همان‌جا می‌مانند و پیام‌های قبلی بالاتر اضافه می‌شوند.
+			if (first) { msgs.scrollTop += first.getBoundingClientRect().top - offset; }
+			state.hasMore = !!d.has_more;
+		}).catch(function (e) {
+			if (pill.parentNode) { pill.parentNode.removeChild(pill); }
+			showToast((e && e.message) || t.loadError);
+		}).then(function () { state.loadingMore = false; });
+	}
+
+	/* اگر ۱۰ پیام آخر صفحه را پر نکرد (اسکرولی وجود ندارد)، خودکار پیام‌های قبلی هم می‌آیند. */
+	function maybeFill() {
+		if (!state.loaded || !state.hasMore || state.loadingMore || !msgs.clientHeight) { return; }
+		if (msgs.scrollHeight <= msgs.clientHeight + 40) { loadOlder().then(function () { window.requestAnimationFrame(maybeFill); }); }
+	}
+
+	msgs.addEventListener('scroll', function () {
+		state.stick = nearBottom();
+		if (msgs.scrollTop < 80) { loadOlder(); }
+	}, { passive: true });
 
 	/* ---------- ارسال ---------- */
 	function clearPending() {
@@ -446,7 +593,7 @@
 	}
 
 	function send(text, file, kind) {
-		if (state.busy) { return; }
+		if (state.busy || state.locked || !state.loaded) { return; } // پیام‌ها هنوز در حال بارگذاری‌اند
 		text = (text || '').trim();
 		if (!file && state.pending) { file = state.pending.file; kind = 'image'; }
 		if (!text && !file) { return; }
@@ -460,7 +607,11 @@
 		var row = addMsg({ role: 'user', text: text, time: new Date().toISOString(), attachment: file ? { type: kind, url: localUrl } : null });
 		row.classList.add('is-sending');
 		clearPending();
-		showTyping();
+		state.stick = true;
+		// تأخیر هوش مصنوعی: پیام جمع می‌شود و «در حال تایپِ هوش مصنوعی» فقط وقتی نشان داده می‌شود که تأخیر تمام شود و هوش مصنوعی واقعاً شروع کند.
+		// بدون تأخیر (۰ ثانیه) هوش مصنوعی همان لحظه شروع می‌کند، پس نقطه‌ها فوراً می‌آیند.
+		window.clearTimeout(state.typeT);
+		if (cfg.aiDelay > 0) { hideTyping(); } else { showTyping(); }
 
 		var fd = new FormData();
 		fd.append('text', text);
@@ -473,12 +624,11 @@
 		Promise.all([api('chat/message', { method: 'POST', body: fd }), minWait]).then(function (res) {
 			var d = res[0];
 			row.classList.remove('is-sending');
-			// تأخیر هوش مصنوعی: پیام فقط ذخیره شده و پاسخ بعد از چند ثانیه سکوتِ تایپ می‌آید؛ نقطه‌های تایپ می‌مانند.
-			state.pendingBot = !!d.pending;
-			if (!d.pending) { hideTyping(); }
+			// تأخیر هوش مصنوعی: پیام فقط ذخیره شده و پاسخ بعد از چند ثانیه سکوتِ تایپ می‌آید (d.wait = ثانیه‌های باقی‌مانده).
 			if (d.user && d.user.id) { row.setAttribute('data-id', String(d.user.id)); state.ids[d.user.id] = true; }
 			(d.replies || (d.reply ? [d.reply] : [])).forEach(function (m) { addMsg(m); });
 			setSuggestions(d.suggestions || []);
+			applyThinking(d, true);
 			if (d.pending) { schedulePoll(); }
 		}).catch(function (e) {
 			hideTyping();
@@ -541,8 +691,10 @@
 		}
 
 		var lastNew = null;
+		var oldest = oldestRowId();
 		list.forEach(function (m) {
 			if (state.ids[m.id]) { return; }
+			if (oldest && m.id < oldest) { return; } // پیام قدیمی که هنوز بارگذاری نشده؛ با اسکرول به بالا می‌آید
 			addMsg(m);
 			if (m.role !== 'user') { added++; lastNew = m; }
 		});
@@ -554,6 +706,25 @@
 		}
 	}
 
+	/* نشانگر «در حال تایپِ هوش مصنوعی»:
+	 *  - thinking = سرور واقعاً در حال ساخت پاسخ است ← نقطه‌ها نشان داده می‌شوند (مگر کاربر همان لحظه تایپ می‌کند).
+	 *  - pending ولی نه thinking = پیام‌ها هنوز در تأخیر هوش مصنوعی جمع می‌شوند ← نقطه‌ها نیستند؛ فقط با تمام شدن wait ثانیه می‌آیند. */
+	function applyThinking(d, force) {
+		window.clearTimeout(state.typeT);
+		state.pendingBot = !!d.pending;
+		// force = پاسخِ خودِ درخواست ارسال/آغاز (busy هنوز true است)؛ در polling وسط ارسال چیزی پنهان نمی‌شود.
+		if (!d.pending) { if (force || !state.busy) { hideTyping(); } return; }
+		if (d.thinking) {
+			if (Date.now() - state.lastInput < 2500) { hideTyping(); } else { showTyping(); }
+			return;
+		}
+		if (cfg.aiDelay > 0) { hideTyping(); }
+		var left = Math.max(0, parseInt(d.wait, 10) || 0);
+		state.typeT = window.setTimeout(function () {
+			if (state.pendingBot && Date.now() - state.lastInput >= 2500) { showTyping(); }
+		}, left * 1000 + 150);
+	}
+
 	function applyPoll(d) {
 		applyOnline(d.online);
 		state.muted = !!d.ai_muted;
@@ -561,9 +732,7 @@
 		if (d.changed && d.messages) { syncMessages(d.messages); }
 		if (d.sig) { state.sig = d.sig; }
 		// پیام‌های جمع‌شده منتظر پاسخ‌اند: تا وقتی کاربر دوباره تایپ نکرده نقطه‌های تایپ نشان داده می‌شود.
-		state.pendingBot = !!d.pending;
-		if (d.pending) { if (Date.now() - state.lastInput < 2500) { hideTyping(); } else { showTyping(); } }
-		else if (!state.busy) { hideTyping(); }
+		applyThinking(d);
 	}
 
 	/* فاصلهٔ polling: چت باز و تب مرورگر فعال = fast (۱ ثانیه)؛ چت بسته یا کاربر در تب دیگر = slow (۴ ثانیه).
@@ -576,7 +745,7 @@
 	function poll() {
 		if (!state.loaded || (document.hidden && !cfg.poll.hidden) || state.busy || state.polling) { schedulePoll(); return; }
 		state.polling = true;
-		api('chat/poll?sig=' + encodeURIComponent(state.sig))
+		api('chat/poll?sig=' + encodeURIComponent(state.sig) + '&limit=' + Math.min(200, Math.max(20, Object.keys(state.ids).length + 10)))
 			.then(applyPoll)
 			.catch(function () { /* noop: دور بعد دوباره تلاش می‌شود */ })
 			.then(function () { state.polling = false; schedulePoll(); });
@@ -596,7 +765,7 @@
 		composer.classList.toggle('has-content', !!(ta.value.trim() || state.pending));
 	}
 
-	ta.addEventListener('input', function () { state.lastInput = Date.now(); if (state.pendingBot) { hideTyping(); } autoGrow(); notifyTyping(); });
+	ta.addEventListener('input', function () { state.lastInput = Date.now(); window.clearTimeout(state.typeT); if (state.pendingBot) { hideTyping(); } autoGrow(); notifyTyping(); });
 	ta.addEventListener('keydown', function (e) {
 		if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(ta.value); }
 	});
@@ -680,17 +849,39 @@
 	recSend.addEventListener('click', function () { stopRec(true); });
 
 	/* ---------- فرم پروفایل ---------- */
+	function latinDigits(str) {
+		return str.replace(/[۰-۹]/g, function (c) { return String(c.charCodeAt(0) - 1776); }).replace(/[٠-٩]/g, function (c) { return String(c.charCodeAt(0) - 1632); });
+	}
+	function profileBusy(on, guest) {
+		btnStart.disabled = btnGuest.disabled = inName.disabled = inContact.disabled = !!on;
+		btnStart.classList.toggle('is-loading', !!on && !guest);
+		btnGuest.classList.toggle('is-loading', !!on && !!guest);
+		btnStartLabel.textContent = (on && !guest) ? t.starting : t.start;
+		btnGuestLabel.textContent = (on && guest) ? t.starting : t.guest;
+	}
+	function profileFail(message) {
+		profErr.textContent = message || t.loadError;
+		profForm.classList.remove('is-shake');
+		void profForm.offsetWidth;
+		profForm.classList.add('is-shake');
+	}
 	function submitProfile(guest) {
 		profErr.textContent = '';
-		var name = inName.value.trim(), contact = inContact.value.trim();
+		var name = inName.value.trim(), contact = latinDigits(inContact.value.trim());
+		// اعتبارسنجی سمت مرورگر (همان قاعدهٔ سرور) تا خطا بدون رفت‌وبرگشت شبکه نشان داده شود.
+		if (!guest) {
+			var phone = contact.replace(/[\s\-()]/g, '');
+			if (!name) { profileFail(t.nameRequired); inName.focus(); return; }
+			if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) && !/^\+?\d{8,15}$/.test(phone)) { profileFail(t.contactInvalid); inContact.focus(); return; }
+		}
 		var body = guest ? { guest: true } : { name: name, contact: contact };
-		btnStart.disabled = btnGuest.disabled = true;
-		api('chat/profile', { method: 'POST', body: body }).then(applyInit).catch(function (e) {
-			profErr.textContent = e.message || t.loadError;
-			profForm.classList.remove('is-shake');
-			void profForm.offsetWidth;
-			profForm.classList.add('is-shake');
-		}).then(function () { btnStart.disabled = btnGuest.disabled = false; });
+		profileBusy(true, guest); // دکمه فوراً لودینگ می‌گیرد؛ فرم تا پایان ثبت قفل است
+		// اگر درخواست اولیهٔ چت هنوز تمام نشده، اول صبر می‌کنیم تا هویت (uid) ساخته شود.
+		Promise.resolve(state.initP).then(function () {
+			return api('chat/profile', { method: 'POST', body: body });
+		}).then(applyInit).catch(function (e) {
+			profileFail(e && e.message);
+		}).then(function () { profileBusy(false); });
 	}
 	profForm.addEventListener('submit', function (e) { e.preventDefault(); submitProfile(false); });
 	btnGuest.addEventListener('click', function () { submitProfile(true); });

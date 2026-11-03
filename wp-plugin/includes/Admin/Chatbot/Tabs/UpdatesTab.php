@@ -104,6 +104,9 @@ final class UpdatesTab extends AbstractTab {
 	protected function data(): array {
 		$sources = array();
 		foreach ( $this->source_defs() as $id => $def ) {
+			if ( LiveStore::is_hidden( (string) $id ) ) {
+				continue; // وبلاگ‌ها و برگه‌ها فعلاً نمایش داده نمی‌شوند (کدشان نگه داشته شده است).
+			}
 			$sources[ $id ] = $def + array( 'state' => LiveStore::source( $id ) );
 		}
 

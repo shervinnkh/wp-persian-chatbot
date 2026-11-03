@@ -289,7 +289,7 @@ final class AdminChatController {
 			$in = implode( ',', array_map( 'intval', $last_ids ) );
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 			foreach ( (array) $wpdb->get_results( "SELECT * FROM {$m} WHERE id IN ({$in})" ) as $msg ) {
-				$last_map[ (int) $msg->id ] = $this->store->format( $msg );
+				$last_map[ (int) $msg->id ] = $this->store->format( $msg, false ); // خلاصهٔ فهرست: بدون پرس‌وجوی کارت لینک
 			}
 		}
 

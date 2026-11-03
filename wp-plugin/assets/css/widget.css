@@ -93,10 +93,10 @@
 .paia-chat .pc-screen{display:none;flex:1;min-height:0;flex-direction:column}
 .paia-chat .pc-screen.is-active{display:flex;animation:pc-screen .5s var(--pc-ease) both}
 
-/* لودینگ و خطا */
-.paia-chat .pc-loading{padding:18px;gap:12px}
+/* اسکلت قدیمی (فقط پنل مدیریت چت از آن استفاده می‌کند) */
 .paia-chat .pc-skel{height:52px;border-radius:18px;background:linear-gradient(100deg,var(--pc-line) 30%,color-mix(in srgb,var(--pc-line) 30%,var(--pc-pop)) 50%,var(--pc-line) 70%);background-size:220% 100%;animation:pc-shimmer 1.4s linear infinite}
 .paia-chat .pc-skel-a{width:68%}.paia-chat .pc-skel-b{width:48%;align-self:flex-end}.paia-chat .pc-skel-c{width:78%}
+/* خطا */
 .paia-chat .pc-error{align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:var(--pc-muted)}
 
 /* ---------- فرم نام و تماس ---------- */
@@ -117,6 +117,10 @@
 .paia-chat .pc-btn{height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:500;transition:transform .25s var(--pc-ease),box-shadow .25s,opacity .2s}
 .paia-chat .pc-btn:active{transform:scale(.97)}
 .paia-chat .pc-btn:disabled{opacity:.6;cursor:progress}
+.paia-chat .pc-btn-spin{display:none;width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-top-color:transparent;animation:pc-spin .7s linear infinite;flex:none}
+.paia-chat .pc-btn.is-loading .pc-btn-spin{display:block}
+.paia-chat .pc-btn.is-loading:disabled{opacity:1;cursor:progress}
+.paia-chat .pc-input:disabled{opacity:.6}
 .paia-chat .pc-btn-primary{background:var(--pc-grad);color:#fff;box-shadow:0 10px 22px -8px color-mix(in srgb,var(--pc-primary) 70%,transparent)}
 .paia-chat .pc-btn-primary:hover{transform:translateY(-1px)}
 .paia-chat .pc-btn-ghost{background:color-mix(in srgb,#fff 60%,transparent);box-shadow:0 0 0 1px var(--pc-line);color:var(--pc-muted)}
@@ -124,6 +128,21 @@
 
 /* ---------- پیام‌ها ---------- */
 .paia-chat .pc-msgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 16px 10px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--pc-line) transparent}
+/* لودینگ پیام‌ها: حباب‌های اسکلتی داخل خود لیست پیام‌ها (به‌جای صفحهٔ لودینگ جدا) */
+.paia-chat .pc-skels{display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.paia-chat .pc-sk{border-radius:20px;background:linear-gradient(100deg,var(--pc-line) 30%,color-mix(in srgb,var(--pc-line) 30%,var(--pc-pop)) 50%,var(--pc-line) 70%);background-size:220% 100%;animation:pc-in .5s var(--pc-ease) both,pc-shimmer 1.4s linear infinite}
+.paia-chat .pc-sk-user{align-self:flex-start;background:linear-gradient(100deg,color-mix(in srgb,var(--pc-primary) 22%,transparent) 30%,color-mix(in srgb,var(--pc-primary) 9%,transparent) 50%,color-mix(in srgb,var(--pc-primary) 22%,transparent) 70%);background-size:220% 100%}
+.paia-chat .pc-sk-bot{align-self:flex-end}
+.paia-chat[dir="ltr"] .pc-sk-user{align-self:flex-end}
+.paia-chat[dir="ltr"] .pc-sk-bot{align-self:flex-start}
+/* بارگذاری پیام‌های قبلی هنگام اسکرول به بالا: نشانگر شناور بالای لیست (جای پیام‌ها را جابه‌جا نمی‌کند) */
+.paia-chat .pc-older{position:sticky;top:0;z-index:3;height:0;margin-bottom:-10px;display:flex;justify-content:center;pointer-events:none;overflow:visible}
+.paia-chat .pc-older-pill{margin-top:2px;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 14px;border-radius:999px;background:var(--pc-pop);box-shadow:0 0 0 1px var(--pc-line),0 8px 18px -8px rgba(15,23,42,.35);font-size:12px;color:var(--pc-muted);animation:pc-in .35s var(--pc-ease) both}
+.paia-chat .pc-older-pill i{width:6px;height:6px;border-radius:50%;background:var(--pc-primary);opacity:.4;animation:pc-dot 1.1s ease-in-out infinite}
+.paia-chat .pc-older-pill i:nth-child(2){animation-delay:.15s;background:var(--pc-accent)}
+.paia-chat .pc-older-pill i:nth-child(3){animation-delay:.3s}
+.paia-chat .pc-older-pill em{font-style:normal;margin-inline-start:4px}
+
 .paia-chat .pc-row{display:flex;flex-direction:column;max-width:86%;animation:pc-in .5s var(--pc-ease) both}
 .paia-chat .pc-row.no-anim{animation:none}
 .paia-chat .pc-user{align-self:flex-start}   /* RTL: پیام کاربر سمت راست */
@@ -138,6 +157,24 @@
 .paia-chat .pc-text{margin:0;white-space:pre-wrap}
 .paia-chat .pc-text a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 .paia-chat .pc-time{display:block;margin-top:2px;font-size:11px;opacity:.6}
+.paia-chat .pc-time-solo{margin:2px 6px 0}
+
+/* زیرپیام لینک‌ها: کارت‌های کوچک (عکس + عنوان + یک خط اطلاعات) زیر حباب هوش مصنوعی */
+.paia-chat .pc-links{display:flex;flex-direction:column;gap:6px;margin-top:6px;min-width:min(250px,100%)}
+.paia-chat .pc-lcard{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:16px;background:var(--pc-card);box-shadow:0 0 0 1px var(--pc-line),0 6px 16px -12px rgba(15,23,42,.3);color:var(--pc-text);text-decoration:none;animation:pc-in .45s var(--pc-ease) both;transition:transform .25s var(--pc-ease),box-shadow .25s,background .25s}
+.paia-chat .pc-lcard:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px color-mix(in srgb,var(--pc-primary) 45%,transparent),0 10px 20px -12px color-mix(in srgb,var(--pc-primary) 55%,transparent)}
+.paia-chat .pc-lcard:active{transform:scale(.98)}
+.paia-chat .pc-lc-media{flex:none;width:46px;height:46px;border-radius:12px;overflow:hidden;background:var(--pc-field);display:grid;place-items:center;color:var(--pc-primary)}
+.paia-chat .pc-lc-media img{display:block;width:100%;height:100%;object-fit:cover}
+.paia-chat .pc-lc-media .pc-svg{width:22px;height:22px}
+.paia-chat .pc-lc-text{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.5}
+.paia-chat .pc-lc-title{font-size:13px;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.paia-chat .pc-lc-sub{font-size:11.5px;color:var(--pc-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paia-chat .pc-lc-go{flex:none;color:var(--pc-muted);display:grid;place-items:center;transition:transform .25s var(--pc-ease),color .25s}
+.paia-chat .pc-lc-go .pc-svg{width:16px;height:16px}
+.paia-chat[dir="ltr"] .pc-lc-go .pc-svg{transform:scaleX(-1)}
+.paia-chat .pc-lcard:hover .pc-lc-go{color:var(--pc-primary);transform:translateX(-2px)}
+.paia-chat[dir="ltr"] .pc-lcard:hover .pc-lc-go{transform:translateX(2px)}
 .paia-chat .pc-img{display:block;margin:0 -6px 6px;border-radius:14px;overflow:hidden}
 .paia-chat .pc-img img{display:block;width:100%;max-height:220px;object-fit:cover;transition:transform .5s var(--pc-ease)}
 .paia-chat .pc-img:hover img{transform:scale(1.04)}
@@ -190,6 +227,12 @@
 .paia-chat .pc-composer.has-content .pc-send,.paia-chat .pc-composer.no-mic .pc-send{transform:none;opacity:1;pointer-events:auto}
 .paia-chat .pc-composer.has-content .pc-mic{transform:scale(.3) rotate(60deg);opacity:0;pointer-events:none}
 .paia-chat .pc-composer.no-mic:not(.has-content) .pc-send{opacity:.5}
+/* قفل ارسال تا پایان بارگذاری پیام‌ها: نوشتن آزاد است، دکمه با چرخانک قفل می‌ماند */
+.paia-chat .pc-act:disabled{cursor:not-allowed}
+.paia-chat .pc-composer.is-locked .pc-send,.paia-chat .pc-composer.is-locked.has-content .pc-send{opacity:.55;pointer-events:none;box-shadow:none}
+.paia-chat .pc-composer.is-locked .pc-send .pc-svg{display:none}
+.paia-chat .pc-composer.is-locked .pc-send::after{content:"";width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-top-color:transparent;animation:pc-spin .7s linear infinite}
+.paia-chat .pc-composer.is-locked .pc-mic{opacity:.5;pointer-events:none}
 
 /* ضبط ویس */
 .paia-chat .pc-rec{position:absolute;inset:6px 14px 14px;display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:24px;background:var(--pc-field);box-shadow:0 0 0 1.5px #EF4444,0 0 0 5px rgba(239,68,68,.12);opacity:0;visibility:hidden;transform:scale(.96);transition:opacity .25s,transform .4s var(--pc-ease),visibility 0s .4s}

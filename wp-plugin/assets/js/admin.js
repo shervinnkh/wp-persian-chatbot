@@ -2696,7 +2696,10 @@
 		var delBtn = role( wrap, 'live-delete' );
 
 		// سه ردیف ثابت اول لیست: تمام محصولات، تمام وبلاگ‌ها، تمام برگه‌ها (هر کدام یک فرم تنظیمات دارد).
-		var SOURCES = [ 'products', 'blog', 'pages' ];
+		// وبلاگ‌ها و برگه‌ها از ۰.۵.۲۴ سمت سرور پنهان‌اند (LiveStore::HIDDEN_SOURCES)؛ فقط منبع‌هایی که در داده آمده‌اند نمایش داده می‌شوند.
+		var SOURCES = [ 'products', 'blog', 'pages' ].filter( function ( key ) {
+			return !! ( ( config.live && config.live.sources ) || {} )[ key ];
+		} );
 		var sourceTitle = { products: i18n.lvProductsTitle, blog: i18n.lvBlogTitle, pages: i18n.lvPagesTitle };
 		var sourceChip = { products: i18n.lvProductsChip, blog: i18n.lvBlogChip, pages: i18n.lvPagesChip };
 		var data = config.live || { sources: {}, items: [] };

@@ -5,6 +5,7 @@
  *  GET  /chat/init     بارگذاری هویت، تاریخچه و پیشنهادها
  *  POST /chat/profile  ثبت نام/تماس (یا ادامه به‌عنوان مهمان)
  *  POST /chat/message  ارسال پیام (متن، عکس یا ویس) + دریافت پاسخ
+ *  GET  /chat/history  صفحهٔ پیام‌های قدیمی‌تر (before = شناسهٔ قدیمی‌ترین پیام نمایش‌داده‌شده؛ ۱۰ تا ۱۰ تا)
  *  GET  /chat/poll     به‌روزرسانی دوره‌ای (پیام‌های جدید/حذف‌شده، تایپینگ پشتیبان، وضعیت آنلاین)
  *  POST /chat/typing   اعلام «کاربر در حال تایپ است»
  *
@@ -21,6 +22,9 @@ use WP_REST_Request;
 defined( 'ABSPATH' ) || exit;
 
 final class ChatController {
+
+	/** تعداد پیام در هر بار بارگذاری تاریخچه (۱۰ پیام آخر؛ با اسکرول به بالا ۱۰ تای قبلی). */
+	public const PAGE_SIZE = 10;
 
 	/** @var ChatStore */
 	private $store;
@@ -69,7 +73,21 @@ final class ChatController {
 				'callback'            => array( $this, 'poll' ),
 				'permission_callback' => array( $this, 'allowed' ),
 				'args'                => array(
-					'sig' => array( 'type' => 'string', 'default' => '' ),
+					'sig'   => array( 'type' => 'string', 'default' => '' ),
+					'limit' => array( 'type' => 'integer', 'default' => 30 ),
+				),
+			)
+		);
+		register_rest_route(
+			'paia/v1',
+			'/chat/history',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'history' ),
+				'permission_callback' => array( $this, 'allowed' ),
+				'args'                => array(
+					'before' => array( 'type' => 'integer', 'default' => 0 ),
+					'limit'  => array( 'type' => 'integer', 'default' => self::PAGE_SIZE ),
 				),
 			)
 		);
@@ -122,7 +140,8 @@ final class ChatController {
 	 * @return array<string,mixed>
 	 */
 	private function payload( object $visitor, int $user_id ): array {
-		$messages    = $this->store->history( (string) $visitor->uid, $user_id, 100 );
+		$page        = $this->store->page( (string) $visitor->uid, $user_id, self::PAGE_SIZE );
+		$messages    = $page['messages'];
 		$suggestions = array();
 		$welcome     = '';
 
@@ -136,6 +155,8 @@ final class ChatController {
 			}
 		}
 
+		$wait = $this->wait_for( $visitor );
+
 		return array(
 			'uid'           => (string) $visitor->uid,
 			'user'          => array(
@@ -147,6 +168,9 @@ final class ChatController {
 			'online'        => ChatSettings::is_online(),
 			'ai_muted'      => (int) $visitor->ai_muted > 0,
 			'pending'       => $this->is_pending( $visitor ),
+			'thinking'      => $this->is_thinking( $visitor ),
+			'wait'          => $wait,
+			'has_more'      => $page['has_more'],
 			'messages'      => $messages,
 			'welcome'       => $welcome,
 			'suggestions'   => $suggestions,
@@ -159,6 +183,19 @@ final class ChatController {
 	private function is_pending( object $visitor ): bool {
 		// «پاسخ در راه است»: یا پیام‌های جمع‌شده منتظر ai_delay‌اند یا سرور پاسخ را گرفته و وب‌هوکش هنوز نرسیده.
 		return $this->responder->has_pending( $visitor ) || ChatAnswers::is_waiting( (string) $visitor->uid );
+	}
+
+	/**
+	 * آیا هوش مصنوعی همین الان دارد پاسخ می‌سازد؟ (فقط وقتی «در حال تایپ» نشان داده می‌شود.)
+	 * زمانی که پیام‌ها هنوز در تأخیر هوش مصنوعی جمع می‌شوند، هوش مصنوعی چیزی نمی‌نویسد پس این false است.
+	 */
+	private function is_thinking( object $visitor ): bool {
+		return (int) $visitor->ai_muted <= 0 && ChatAnswers::is_waiting( (string) $visitor->uid );
+	}
+
+	/** ثانیه‌های باقی‌ماندهٔ تأخیر هوش مصنوعی برای پیام‌های جمع‌شده (0 = نوبت پردازش رسیده یا پیامی در انتظار نیست). */
+	private function wait_for( object $visitor ): int {
+		return (int) $visitor->ai_muted <= 0 ? $this->responder->wait_seconds( $visitor ) : 0;
 	}
 
 	public function init( WP_REST_Request $request ) {
@@ -182,6 +219,8 @@ final class ChatController {
 
 		$out = array(
 			'pending'      => (int) $visitor->ai_muted <= 0 && $this->is_pending( $visitor ),
+			'thinking'     => $this->is_thinking( $visitor ),
+			'wait'         => $this->wait_for( $visitor ),
 			'sig'          => $sig,
 			'changed'      => $sig !== (string) $request->get_param( 'sig' ),
 			'online'       => ChatSettings::is_online(),
@@ -189,9 +228,32 @@ final class ChatController {
 			'admin_typing' => $this->store->typing( $uid )['admin'],
 		);
 		if ( $out['changed'] ) {
-			$out['messages'] = $this->store->thread( $uid, $user_id, 100 );
+			// فقط به‌اندازهٔ پیام‌هایی که ویجت نشان می‌دهد (پیش‌فرض ۳۰): پیام‌های جدید و حذف‌شده در همین بازه تشخیص داده می‌شوند.
+			$limit           = max( 10, min( 200, (int) $request->get_param( 'limit' ) ) );
+			$out['messages'] = $this->store->thread( $uid, $user_id, $limit );
 		}
 		return rest_ensure_response( $out );
+	}
+
+	/**
+	 * پیام‌های قدیمی‌تر برای اسکرول به بالا: ۱۰ پیام قبل از شناسهٔ `before`.
+	 */
+	public function history( WP_REST_Request $request ) {
+		list( $visitor, $user_id ) = $this->identity( $request );
+
+		$page = $this->store->page(
+			(string) $visitor->uid,
+			$user_id,
+			max( 1, min( 30, (int) $request->get_param( 'limit' ) ) ),
+			max( 0, (int) $request->get_param( 'before' ) )
+		);
+
+		return rest_ensure_response(
+			array(
+				'messages' => $page['messages'],
+				'has_more' => $page['has_more'],
+			)
+		);
 	}
 
 	public function typing( WP_REST_Request $request ) {
@@ -301,17 +363,22 @@ final class ChatController {
 		// صفحهٔ جاری (فقط نگه داشته می‌شود؛ هنگام درخواست پاسخ به سرور می‌رود).
 		PageContext::remember( $uid, (string) $request->get_param( 'page_url' ), (string) $request->get_param( 'page_title' ) );
 
-		$replies = array();
-		$pending = false;
+		$replies  = array();
+		$pending  = false;
+		$thinking = false;
+		$wait     = 0;
 
 		if ( 0 === ChatSettings::ai_delay() ) {
 			// بدون تأخیر: همین‌جا پاسخ داده می‌شود.
 			$done    = $this->responder->maybe_run( $this->store->visitor( $uid ), true );
 			$replies = is_array( $done ) ? $done : array();
-			$pending = ChatAnswers::is_waiting( $uid ); // سرور پاسخ را گرفته و با وب‌هوک می‌فرستد
+			$pending  = ChatAnswers::is_waiting( $uid ); // سرور پاسخ را گرفته و با وب‌هوک می‌فرستد
+			$thinking = $pending;
 		} else {
 			// پیام فقط ذخیره می‌شود؛ بعد از ai_delay ثانیه سکوتِ تایپ، همهٔ پیام‌ها یک‌جا پردازش می‌شوند.
+			// تا آن موقع «در حال تایپِ هوش مصنوعی» نشان داده نمی‌شود (thinking = false)؛ wait = ثانیه‌های باقی‌مانده.
 			$pending = true;
+			$wait    = ChatSettings::ai_delay();
 			$this->responder->schedule( $uid );
 		}
 
@@ -323,6 +390,8 @@ final class ChatController {
 				'reply'       => $replies ? $replies[0] : null,
 				'replies'     => $replies,
 				'pending'     => $pending && (int) $visitor->ai_muted <= 0,
+				'thinking'    => $thinking && (int) $visitor->ai_muted <= 0,
+				'wait'        => (int) $visitor->ai_muted <= 0 ? $wait : 0,
 				'suggestions' => $last ? $last['suggestions'] : array(),
 			)
 		);

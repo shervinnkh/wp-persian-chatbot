@@ -86,11 +86,11 @@ $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-u
 						<legend class="paia-autosync__name"><?php echo esc_html( $paia_source['label'] ); ?></legend>
 						<label class="paia-check">
 							<input type="checkbox" class="paia-tick" data-role="sync-add" name="<?php echo esc_attr( SyncSettings::FORM_FIELD . '[' . $paia_id . '][add]' ); ?>" value="1" <?php checked( ! empty( $paia_row['add'] ) ); ?>>
-							<span><?php esc_html_e( 'به‌محض افزوده و منتشر شدن در سایت، به لیست مطالب افزونهٔ هوش مصنوعی اضافه شود', 'persian-ai-assistant' ); ?></span>
+							<span><?php esc_html_e( 'به‌محض افزودن و ویرایش کردن در سایت، به لیست مطالب افزونهٔ هوش مصنوعی اضافه (و به‌روز) شود', 'persian-ai-assistant' ); ?></span>
 						</label>
 						<label class="paia-check">
 							<input type="checkbox" class="paia-tick" data-role="sync-train" name="<?php echo esc_attr( SyncSettings::FORM_FIELD . '[' . $paia_id . '][train]' ); ?>" value="1" <?php checked( ! empty( $paia_row['train'] ) ); ?> <?php disabled( empty( $paia_row['add'] ) ); ?>>
-							<span><?php esc_html_e( 'بلافاصله به هوش مصنوعی آموزش داده شود', 'persian-ai-assistant' ); ?></span>
+							<span><?php esc_html_e( 'به‌محض افزودن و ویرایش کردن در سایت، بلافاصله به هوش مصنوعی آموزش داده شود', 'persian-ai-assistant' ); ?></span>
 						</label>
 						<small class="paia-autosync__hint"><?php esc_html_e( 'برای فعال شدن گزینهٔ دوم، اول باید گزینهٔ اول تیک خورده باشد.', 'persian-ai-assistant' ); ?></small>
 					</fieldset>

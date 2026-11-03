@@ -19,7 +19,9 @@ namespace PersianAIAssistant\Chat;
 
 use PersianAIAssistant\Apis\Callback;
 use PersianAIAssistant\Apis\Client;
+use PersianAIAssistant\Database\LiveStore;
 use PersianAIAssistant\Database\LogStore;
+use PersianAIAssistant\Extraction\PostTypes;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -132,6 +134,26 @@ final class ReplyEngine {
 	}
 
 	/**
+	 * مجوزها و ابزارهای داده زندهٔ این سایت را به بدنهٔ پیام اضافه می‌کند:
+	 *  - live_product_datas: زیرمجموعهٔ [price, stock] طبق تیک‌های تب «اطلاعات به‌روز ← تمام محصولات» (نبودن = ابزار محصول به AI داده نمی‌شود)؛
+	 *  - tools: ردیف‌های فعال «اطلاعات تعریف‌شده» به شکل [{id, title, description}] (حداکثر ۳۰).
+	 * متن واقعی را بعداً خود سرور از POST /live/products و POST /live/tool (apis/Endpoints) می‌گیرد.
+	 *
+	 * @param array<string,mixed> $payload بدنهٔ در حال ساخت (با ارجاع).
+	 */
+	private function attach_live_tools( array &$payload ): void {
+		$fields = PostTypes::products() ? LiveStore::ai_product_fields() : array();
+		if ( $fields ) {
+			$payload['live_product_datas'] = $fields;
+		}
+
+		$tools = LiveStore::ai_tools();
+		if ( $tools ) {
+			$payload['tools'] = $tools;
+		}
+	}
+
+	/**
 	 * پیام‌های کاربرِ بدون پاسخ هوش مصنوعی (هوش مصنوعی خاموش است یا پشتیبان انسانی جواب می‌دهد) فقط ذخیره می‌شوند
 	 * تا تاریخچهٔ گفتگو در سرور کامل بماند.
 	 *
@@ -225,6 +247,13 @@ final class ReplyEngine {
 			if ( $page ) {
 				$payload['page'] = $page;
 			}
+			// «توضیحات مهم» مدیر سایت (تنظیمات ← عمومی) ← پرامپت. (تا ۰.۵.۲۳ اصلاً به سرور نمی‌رفت.)
+			$notes = trim( (string) ChatSettings::get( 'important_notes', '' ) );
+			if ( '' !== $notes ) {
+				$payload['notes'] = $notes;
+			}
+			// ابزارهای داده زنده (LIVE_TOOLS_API.md §2): در هر پیامِ دارای generate_ai_answer دوباره فرستاده می‌شوند؛ سرور چیزی بین پیام‌ها نگه نمی‌دارد.
+			$this->attach_live_tools( $payload );
 			// پاسخ غیرهمزمان: سرور فوراً «queued» می‌دهد و پاسخ را بعداً به این آدرس (وب‌هوک) می‌فرستد.
 			$payload['callback'] = Callback::descriptor();
 		}

@@ -54,6 +54,47 @@ components:
         message: { type: string }
         data: { type: object, properties: { status: { type: integer } } }
 paths:
+  /live/products:
+    post:
+      summary: Live price/stock of products (AI tool, called by the AI server)
+      description: HTTP 200 for every business result; 401 only for a bad signature. Only fields in `fields` that the site also allows are returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fields, products]
+              properties:
+                request_id: { type: string }
+                fields: { type: array, items: { type: string, enum: [price, stock] } }
+                products:
+                  type: array
+                  maxItems: 5
+                  items:
+                    type: object
+                    properties: { id: { type: integer }, name: { type: string } }
+      responses:
+        "200":
+          description: "{ok:true,message} or {ok:false,error}"
+        "401": { description: Bad signature }
+  /live/tool:
+    post:
+      summary: Live text of a site-defined dynamic tool (AI tool)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tool_id]
+              properties:
+                request_id: { type: string }
+                tool_id: { oneOf: [{ type: integer }, { type: string }] }
+      responses:
+        "200":
+          description: "{ok:true,text} or {ok:false,error}"
+        "401": { description: Bad signature }
   /ai/ping:
     get:
       summary: Health check / handshake (empty body)

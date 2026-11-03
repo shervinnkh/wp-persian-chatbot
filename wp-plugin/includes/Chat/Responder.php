@@ -60,6 +60,23 @@ final class Responder {
 		}
 	}
 
+	/**
+	 * چند ثانیه دیگر مانده تا پیام‌های جمع‌شده برای هوش مصنوعی فرستاده شوند (تأخیر هوش مصنوعی).
+	 * 0 = وقتش رسیده (یا پیامی در انتظار نیست). با هر پیام/تایپ تازهٔ کاربر دوباره از اول شروع می‌شود.
+	 * ویجت تا صفر نشدن این مقدار «در حال تایپِ هوش مصنوعی» نشان نمی‌دهد.
+	 */
+	public function wait_seconds( object $visitor ): int {
+		$uid  = (string) $visitor->uid;
+		$rows = $this->store->pending_rows( $uid, (int) $visitor->wp_user_id, (int) $visitor->ai_done_id );
+		if ( ! $rows ) {
+			return 0;
+		}
+		$last = end( $rows );
+		$ref  = max( (int) strtotime( $last->created_at . ' UTC' ), $this->store->user_typing_at( $uid ) );
+
+		return max( 0, ChatSettings::ai_delay() - ( time() - $ref ) );
+	}
+
 	public function has_pending( object $visitor ): bool {
 		return (bool) $this->store->pending_rows( (string) $visitor->uid, (int) $visitor->wp_user_id, (int) $visitor->ai_done_id );
 	}

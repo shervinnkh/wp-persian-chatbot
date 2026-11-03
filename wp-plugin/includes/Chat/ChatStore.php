@@ -161,9 +161,54 @@ final class ChatStore {
 	}
 
 	/**
+	 * یک صفحه از پیام‌های گفتگو (قدیمی‌ترین ← جدیدترین) برای بارگذاری تدریجی ویجت.
+	 *
+	 * @param int $limit     تعداد پیام در هر صفحه.
+	 * @param int $before_id 0 = جدیدترین‌ها؛ در غیر این صورت فقط پیام‌هایی با شناسهٔ کوچک‌تر از این.
+	 * @return array{messages:array<int,array<string,mixed>>, has_more:bool}
+	 */
+	public function page( string $uid, int $user_id, int $limit = 10, int $before_id = 0 ): array {
+		global $wpdb;
+		$limit = max( 1, min( 50, $limit ) );
+		$table = ChatSchema::messages_table();
+		$where = self::thread_where( 'm', $uid, $user_id );
+		if ( $before_id > 0 ) {
+			$where .= $wpdb->prepare( ' AND m.id < %d', $before_id ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
+		// یکی بیشتر می‌خوانیم تا بدانیم پیام قدیمی‌تری هم مانده یا نه.
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+		$rows = (array) $wpdb->get_results( $wpdb->prepare( "SELECT m.* FROM {$table} m WHERE {$where} ORDER BY m.id DESC LIMIT %d", $limit + 1 ) );
+
+		$has_more = count( $rows ) > $limit;
+		if ( $has_more ) {
+			$rows = array_slice( $rows, 0, $limit );
+		}
+
+		return array(
+			'messages' => array_map( array( $this, 'format' ), array_reverse( $rows ) ),
+			'has_more' => $has_more,
+		);
+	}
+
+	/**
+	 * @param bool $resolve_links false = نشانگرهای [product-link:…] فقط از متن برداشته می‌شوند و کارتی ساخته نمی‌شود
+	 *                            (برای فهرست‌هایی که فقط خلاصهٔ متن لازم دارند و نباید پرس‌وجوی اضافه بزنند).
 	 * @return array<string,mixed>
 	 */
-	public function format( object $row ): array {
+	public function format( object $row, bool $resolve_links = true ): array {
+		$text  = (string) $row->content;
+		$links = array();
+		if ( 'assistant' === $row->role && MessageLinks::has_markers( $text ) ) {
+			if ( $resolve_links ) {
+				$parsed = MessageLinks::parse( $text );
+				$text   = $parsed['text'];
+				$links  = $parsed['links'];
+			} else {
+				$stripped = MessageLinks::strip( $text );
+				$text     = '' !== $stripped['text'] ? $stripped['text'] : '🔗';
+			}
+		}
+
 		$sugg = array();
 		if ( ! empty( $row->suggestions ) ) {
 			$decoded = json_decode( (string) $row->suggestions, true );
@@ -174,7 +219,8 @@ final class ChatStore {
 			'role'        => 'user' === $row->role ? 'user' : ( 'admin' === $row->role ? 'admin' : 'assistant' ),
 			'admin_name'  => 'admin' === $row->role ? (string) $row->admin_name : '',
 			'admin_id'    => 'admin' === $row->role ? (int) $row->admin_user_id : 0,
-			'text'        => (string) $row->content,
+			'text'        => $text,
+			'links'       => $links, // کارت‌های لینک (محصول/مقاله/صفحه) که زیر پیام نمایش داده می‌شوند
 			'attachment'  => '' !== (string) $row->attachment_type ? array(
 				'type' => (string) $row->attachment_type,
 				'url'  => (string) $row->attachment_url,
