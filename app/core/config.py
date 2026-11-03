@@ -14,6 +14,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parents[2]
 _HEX = re.compile(r"[0-9a-fA-F]+")
 
+# Default wording of the two tones (the real values come from TONE_FORMAL / TONE_FRIENDLY in .env;
+# these are only the fallbacks and are also used when a prompt is built without Settings).
+DEFAULT_TONE_FORMAL = (
+    "Formal and professional. Be polite and respectful, write complete, well-formed sentences, "
+    "and avoid slang, jokes and emojis. In Persian address the visitor with \u00abشما\u00bb and use "
+    "the formal written register."
+)
+DEFAULT_TONE_FRIENDLY = (
+    "Friendly and warm, like a helpful, upbeat shop assistant chatting with a customer. Sound "
+    "natural and conversational with short sentences; light colloquial Persian is fine (still "
+    "polite: address the visitor with \u00abشما\u00bb unless they use \u00abتو\u00bb). At most one "
+    "emoji per message, and never slang or anything that could offend."
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -114,6 +128,54 @@ class Settings(BaseSettings):
     # The FIRST one is the default: used when the client sends none or one that is not listed.
     AI_ALLOWED_MODELS: str = "gpt-5-4"
 
+    # --- Tone of the answers. The client sends `tone` = formal | friendly per message; when it
+    # sends none (or something else) DEFAULT_TONE is used. The text of the chosen tone is put
+    # into the system prompt (English instructions; the answer itself is in the visitor's language).
+    DEFAULT_TONE: Literal["formal", "friendly"] = "formal"
+    TONE_FORMAL: str = DEFAULT_TONE_FORMAL
+    TONE_FRIENDLY: str = DEFAULT_TONE_FRIENDLY
+
+    # --- Real answer generation (RAG + LLM) ---
+    # The visitor's question is embedded (EMBEDDING_MODEL), the RAG_TOP_K most similar chunks are
+    # found in Qdrant and added to the system prompt. RAG_MIN_SCORE (cosine, 0 = off) drops weak
+    # matches; tune it with the `rag.retrieved` log lines (they show the scores).
+    RAG_TOP_K: int = Field(3, ge=1, le=10)
+    RAG_MIN_SCORE: float = Field(0.0, ge=0.0, le=1.0)
+    # Reasoning models count their hidden reasoning inside this limit: keep it generous.
+    ANSWER_MAX_OUTPUT_TOKENS: int = Field(2000, ge=200, le=32000)
+    ANSWER_LLM_TIMEOUT: int = Field(90, ge=10, le=900)
+    ANSWER_LLM_MAX_RETRIES: int = Field(2, ge=0, le=10)  # SDK-level retries per call
+    # json_schema = strict structured output (OpenAI) | json_object = JSON mode (many compatible
+    # gateways) | none = rely on the prompt only
+    ANSWER_RESPONSE_FORMAT: Literal["json_schema", "json_object", "none"] = "json_schema"
+    # Optional (reasoning models only): minimal | low | medium | high. Empty = do not send.
+    ANSWER_REASONING_EFFORT: str = ""
+    # Maximum number of AI calls per visitor message (K). Round 1 may ask for tools (live data);
+    # the LAST round never gets tools and must produce the final answer. 1 = tools are disabled.
+    ANSWER_MAX_LLM_ROUNDS: int = Field(2, ge=1, le=5)
+
+    # --- Live-data tools (backend -> WordPress site, signed like the completion callbacks) ---
+    # The two endpoints live on PLUGIN_BASE_URL (never taken from the client request).
+    # products: live price/stock of products (ids, or names when no id is known)
+    # dynamic : text of a site-owner-defined tool, fetched by the tool id the client sent
+    TOOLS_PRODUCTS_PATH: str = "/wp-json/paia/v1/live/products"
+    TOOLS_DYNAMIC_PATH: str = "/wp-json/paia/v1/live/tool"
+    TOOLS_TIMEOUT: float = Field(10.0, ge=1, le=60)
+    TOOLS_MAX_CALLS_PER_ROUND: int = Field(4, ge=1, le=20)  # tool calls executed per AI round
+    TOOLS_MAX_PRODUCTS_PER_CALL: int = Field(5, ge=1, le=20)
+    TOOLS_MAX_DYNAMIC: int = Field(30, ge=1, le=100)  # dynamic tools accepted per request
+    TOOLS_MAX_RESULT_CHARS: int = Field(12000, ge=500, le=100000)  # cut a longer tool result
+
+    # --- Voice (speech-to-text of voice messages) ---
+    STT_MODEL: str = "whisper-1"
+    STT_LANGUAGE: str = "fa"  # ISO-639-1 hint; empty = auto-detect
+    STT_TIMEOUT: int = Field(120, ge=10, le=900)
+
+    # --- Images sent to the AI (vision) ---
+    # A larger image is re-encoded (JPEG, scaled down if needed) until it fits this size.
+    IMAGE_MAX_KB: int = Field(1024, ge=50, le=20480)
+    IMAGE_DETAIL: Literal["auto", "low", "high"] = "auto"
+
     # --- Async AI answers (generate_ai_answer + callback): queued, answered by a loop INSIDE the
     # API process, delivered to the plugin by the delivery worker (callback kind "chat_answer").
     # Answer generation is network I/O only, so a high concurrency costs almost no CPU; the real
@@ -199,6 +261,14 @@ class Settings(BaseSettings):
                 raise ValueError(f"Invalid model name in AI_ALLOWED_MODELS: {name!r}")
         return ",".join(names)
 
+    @field_validator("TOOLS_PRODUCTS_PATH", "TOOLS_DYNAMIC_PATH")
+    @classmethod
+    def _check_tool_path(cls, v: str) -> str:
+        v = v.strip()
+        if not v.startswith("/") or "://" in v or ".." in v or "?" in v or "#" in v:
+            raise ValueError("TOOLS_*_PATH must be a path starting with / (no host, no query)")
+        return v
+
     @field_validator("PLUGIN_BASE_URL")
     @classmethod
     def _check_plugin_url(cls, v: str) -> str:
@@ -263,6 +333,11 @@ class Settings(BaseSettings):
     @property
     def default_model(self) -> str:
         return self.allowed_models[0]
+
+    def tone_text(self, tone: str | None) -> str:
+        """Prompt wording of a tone; unknown/empty -> DEFAULT_TONE."""
+        texts = {"formal": self.TONE_FORMAL, "friendly": self.TONE_FRIENDLY}
+        return texts.get((tone or "").strip().lower()) or texts[self.DEFAULT_TONE]
 
     def resolve_model(self, requested: str | None) -> str:
         """The requested model if it is allowed, otherwise the first (default) one."""

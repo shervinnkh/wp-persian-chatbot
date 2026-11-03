@@ -82,6 +82,8 @@ class Message(Base):
     suggestions: Mapped[list | None] = mapped_column(JSON, nullable=True)
     admin_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     admin_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Speech-to-text of a voice message (filled when the AI answer is generated).
+    transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

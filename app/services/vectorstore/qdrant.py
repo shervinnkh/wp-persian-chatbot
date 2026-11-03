@@ -110,6 +110,29 @@ class VectorStore:
                 ),
             )
 
+    async def search(
+        self, vector: list[float], *, limit: int, min_score: float | None = None
+    ) -> list[tuple[str, float]]:
+        """Nearest chunks (cosine) as `(chunk_id, score)`, best first."""
+        await self.ensure_collection()
+        response = await self._call(
+            "search",
+            lambda: self._client.query_points(
+                self.collection,
+                query=vector,
+                limit=limit,
+                score_threshold=min_score or None,
+                with_payload=["chunk_id"],
+                with_vectors=False,
+            ),
+        )
+        out: list[tuple[str, float]] = []
+        for point in response.points:
+            chunk_id = (point.payload or {}).get("chunk_id")
+            if chunk_id:
+                out.append((str(chunk_id), float(point.score)))
+        return out
+
     async def delete_stale(self, record_id: str, keep_count: int) -> None:
         """Remove points of `record_id` whose chunk_index >= keep_count (record got shorter)."""
         flt = models.Filter(

@@ -6,13 +6,24 @@ import re
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.db.messaging_models import AttachmentType, MessageRole
 from app.schemas.ingest import CallbackIn
 
 _UID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,64}$")
 MAX_SUGGESTIONS = 4
+MAX_NOTES_CHARS = 1500
+MAX_REQUEST_TOOLS = 100  # hard schema limit; TOOLS_MAX_DYNAMIC (.env) is the working limit
+LIVE_PRODUCT_FIELDS = ("price", "stock")  # live product data the site may allow
+_TOOL_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,40}$")
 
 
 class ChatSite(BaseModel):
@@ -29,6 +40,51 @@ class ChatPage(BaseModel):
     slug: str | None = Field(None, max_length=200)  # "" / "home" for the front page
     title: str | None = Field(None, max_length=300)
     type: str | None = Field(None, max_length=40)  # home | product | post | page | archive | other
+    # Optional: the WordPress post id of the page (e.g. the product id on a product page). Lets the
+    # AI ask the live-product tool by id when the visitor says "this product".
+    id: int | str | None = None
+
+    @field_validator("id")
+    @classmethod
+    def _page_id(cls, v: int | str | None) -> int | str | None:
+        if isinstance(v, str):
+            v = v.strip()[:40]
+            return int(v) if v.isdigit() else (v or None)
+        return v
+
+
+class ChatDynamicTool(BaseModel):
+    """A live-information tool defined by the site manager (text fetched live by `id`)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: int | str
+    title: str = Field(..., max_length=200)
+    # "when to call it". The plugin currently sends the key as "disciprtion": all spellings work.
+    description: str = Field(
+        "",
+        max_length=1000,
+        validation_alias=AliasChoices("description", "disciprtion", "discription", "desc"),
+    )
+
+    @field_validator("id")
+    @classmethod
+    def _id(cls, v: int | str) -> int | str:
+        if isinstance(v, bool):
+            raise ValueError("tool id must be an int or a short string")
+        if isinstance(v, int):
+            if v < 0:
+                raise ValueError("tool id must not be negative")
+            return v
+        v = v.strip()
+        if not _TOOL_ID_RE.match(v):
+            raise ValueError("tool id has invalid characters")
+        return int(v) if v.isdigit() else v
+
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def _strip(cls, v):
+        return v.strip() if isinstance(v, str) else v
 
 
 class SendMessageRequest(BaseModel):
@@ -55,10 +111,58 @@ class SendMessageRequest(BaseModel):
     tone: Literal["formal", "friendly"] | None = None
     site: ChatSite | None = None
     page: ChatPage | None = None
+    # Important instructions of the site owner (plugin setting `ai.notes`); goes into the prompt.
+    # Optional; longer text is cut (never an error).
+    notes: str | None = None
+    # Live product data the site can give (tool "product live info"): any of "price", "stock".
+    # Missing/empty = the site has NO live product data: the product tool is never offered.
+    # (A {"price": true, "stock": false} object is accepted too.)
+    live_product_datas: list[str] | None = None
+    # Dynamic tools of the site manager: [{id, title, description}, ...]. Each one the AI may
+    # call; its text is fetched live from the site by id and put into the prompt.
+    tools: list[ChatDynamicTool] | None = Field(None, max_length=MAX_REQUEST_TOOLS)
     # With generate_ai_answer=true AND a callback: the request returns at once
     # (ai_answer.status="queued") and the answer is POSTed to the callback URL when it is ready
     # (kind "chat_answer"). Without a callback the answer is generated inside the request.
     callback: CallbackIn | None = None
+
+    @field_validator("notes")
+    @classmethod
+    def _notes(cls, v: str | None) -> str | None:
+        v = (v or "").strip()
+        return v[:MAX_NOTES_CHARS] or None
+
+    @field_validator("live_product_datas", mode="before")
+    @classmethod
+    def _live_fields(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            v = [k for k, on in v.items() if on]
+        elif isinstance(v, str):
+            v = [v]
+        if not isinstance(v, (list, tuple)):
+            return None
+        out: list[str] = []
+        for item in v:
+            key = str(item).strip().lower()
+            if key in LIVE_PRODUCT_FIELDS and key not in out:
+                out.append(key)  # unknown names are ignored, never an error
+        return out or None
+
+    @field_validator("tools", mode="after")
+    @classmethod
+    def _unique_tools(cls, v: list[ChatDynamicTool] | None) -> list[ChatDynamicTool] | None:
+        if not v:
+            return None
+        seen: set[str] = set()
+        out: list[ChatDynamicTool] = []
+        for t in v:
+            if str(t.id) in seen:
+                continue
+            seen.add(str(t.id))
+            out.append(t)
+        return out
 
     @field_validator("wp_user_id")
     @classmethod
@@ -112,6 +216,8 @@ class SendMessageRequest(BaseModel):
             self.generate_ai_answer = False
         if not self.generate_ai_answer:
             self.callback = None
+            self.live_product_datas = None
+            self.tools = None
         return self
 
 
@@ -131,6 +237,7 @@ class MessageOut(BaseModel):
     created_at: datetime
     admin_user_id: int | None
     admin_name: str | None
+    transcript: str | None = None  # speech-to-text of a voice message (after the AI answered)
 
     @field_validator("created_at")
     @classmethod

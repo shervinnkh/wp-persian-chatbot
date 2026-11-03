@@ -25,6 +25,7 @@ from app.services.conversation.answer import (
     AiAnswerResult,
     AnswerGenerator,
     FixedAnswerGenerator,
+    GeneratedAnswer,
 )
 from app.services.conversation.history import HistoryBuilder
 from app.services.conversation.prompt import PromptContext
@@ -33,6 +34,7 @@ from app.services.ingestion.callback import validate_callback
 from app.services.messaging import storage
 from app.services.messaging.answers import AnswerQueue
 from app.services.messaging.errors import ConversationNotFoundError, MessageNotFoundError
+from app.services.speech import Transcriber, UnusableAudioError
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +58,14 @@ class MessagingService:
         db: Database,
         answer_generator: AnswerGenerator | None = None,
         token_counter: TokenCounter | None = None,
+        transcriber: Transcriber | None = None,
     ):
         self.settings = settings
         self.db = db
         self.repo = MessagingRepository(db)
         self.answer_generator: AnswerGenerator = answer_generator or FixedAnswerGenerator()
         self._counter = token_counter
+        self.transcriber = transcriber or Transcriber(settings)
         self.summaries = SummaryService(settings=settings, repo=self.repo)  # enqueue only
         self.answers = AnswerQueue(self)
         self._ready = False
@@ -83,6 +87,7 @@ class MessagingService:
             logger.info("messaging.ready")
 
     async def close(self) -> None:
+        await self.transcriber.close()
         await self.db.dispose()
 
     # ------------------------------------------------------------------ send
@@ -154,12 +159,13 @@ class MessagingService:
     async def _generate_answer(
         self, conversation_id: int, question: Message, ctx: PromptContext
     ) -> AiAnswerResult:
-        """History -> (fixed for now) answer -> saved as `assistant`. Never raises: the user
+        """History -> answer (text + suggestions) -> saved as `assistant`. Never raises: the user
         message is already stored, so a failure here only marks the answer as failed."""
         try:
             conv = await self.repo.get_conversation(conversation_id)
             if conv is None:
                 raise ConversationNotFoundError("Conversation not found")
+            question = await self._ensure_transcript(question)
             builder = HistoryBuilder(
                 self.repo,
                 self.counter,
@@ -167,13 +173,19 @@ class MessagingService:
                 trigger_tokens=self.settings.SUMMARY_TRIGGER_TOKENS,
             )
             history = await builder.build(conv, question)
-            text = await self.answer_generator.generate(history, ctx)
+            generated = await self.answer_generator.generate(history, ctx)
+            answer = (
+                generated
+                if isinstance(generated, GeneratedAnswer)
+                else GeneratedAnswer(text=str(generated))
+            )
             reply = await self.repo.add_message(
                 conversation_id,
                 visitor_uid=conv.visitor_uid,
                 wp_user_id=conv.wp_user_id,
                 role="assistant",
-                content=text,
+                content=answer.text,
+                suggestions=answer.suggestions or None,
             )
         except Exception:  # noqa: BLE001
             logger.exception(
@@ -198,6 +210,32 @@ class MessagingService:
             summarize_upto_message_id=reply.id if history.needs_summary else None,
             model=ctx.model,
         )
+
+    async def _ensure_transcript(self, msg: Message) -> Message:
+        """Voice question -> speech-to-text, saved on the message (`transcript`) so the history,
+        the knowledge search and later summaries see the words. A file the API rejects is skipped
+        (the AI then sees a bare "[voice message]" and asks for text); a temporary API failure
+        raises, so the answer job is retried and the voice is transcribed again."""
+        if (
+            msg.attachment_type != "voice"
+            or not msg.attachment_path
+            or (msg.transcript or "").strip()
+            or not self.settings.OPENAI_API_KEY.get_secret_value()
+        ):
+            return msg
+        path = storage.resolve_attachment_path(self.settings, msg.attachment_path)
+        if path is None or not path.is_file():
+            logger.warning("messaging.voice_file_missing message_id=%s", msg.id)
+            return msg
+        try:
+            text = await self.transcriber.transcribe(path)
+        except UnusableAudioError as exc:
+            logger.warning("messaging.voice_unusable message_id=%s reason=%s", msg.id, exc)
+            return msg
+        if not text:
+            logger.info("messaging.voice_empty message_id=%s", msg.id)
+            return msg
+        return await self.repo.set_transcript(msg.id, text) or msg
 
     async def _fetch_attachment(
         self, msg: Message, url: str, kind: str
