@@ -59,6 +59,26 @@ class UnprocessableRecordError(AppError):
     code = "unprocessable_record"
 
 
+class FileProcessingError(AppError):
+    """A knowledge file cannot be downloaded / read / indexed. `code` says why; `retryable` marks
+    a temporary failure (website 5xx, network) - everything else would fail the same way again."""
+
+    status_code = 422
+    code = "file_error"
+
+    def __init__(self, code: str, message: str, *, retryable: bool = False):
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
+
+
+class StorageQuotaError(FileProcessingError):
+    status_code = 507
+
+    def __init__(self, message: str):
+        super().__init__("storage_quota_exceeded", message)
+
+
 class InvalidCallbackError(AppError):
     """The `callback` object of a request is unusable or points to a forbidden host."""
 

@@ -1,15 +1,14 @@
 
 from __future__ import annotations
- 
+
 import re
 import zipfile
 from pathlib import Path
 from typing import Any, Iterator
- 
-from lxml import etree
- 
+
 from common import Block, ExtractionError, build_result, check_input_file, run_cli
- 
+from lxml import etree
+
 EXTRACTOR_NAME = "docx_extractor"
 MAX_UNCOMPRESSED_BYTES = 500 * 1024 * 1024  # محافظ zip-bomb
  

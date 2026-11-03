@@ -92,6 +92,18 @@ class Settings(BaseSettings):
     MESSAGE_ATTACHMENT_MAX_MB: int = Field(20, ge=1, le=100)
     MESSAGE_DOWNLOAD_TIMEOUT: int = Field(30, ge=5, le=300)
 
+    # --- Knowledge files (file:*): the plugin sends a SHORT-LIVED SIGNED DOWNLOAD LINK; the
+    # ingestion worker downloads it (plugin host only, https, public IP), extracts text
+    # (pdf/docx/txt), chunks, embeds. Originals are kept under UPLOADS_DIR/knowledge and count
+    # toward UPLOADS_MAX_TOTAL_MB (chat attachments are NOT counted).
+    UPLOADS_MAX_TOTAL_MB: int = Field(200, ge=1, le=1_000_000)
+    FILES_MAX_MB: int = Field(100, ge=1, le=2000)  # per file
+    FILES_KEEP_ORIGINAL: bool = True  # False = delete the file right after indexing
+    FILES_CONNECT_TIMEOUT: float = Field(10.0, ge=1, le=60)
+    FILES_READ_TIMEOUT: float = Field(60.0, ge=5, le=600)
+    FILES_DOWNLOAD_RETRIES: int = Field(2, ge=0, le=5)  # inside one job, temporary errors only
+    FILES_MAX_EXTRACTED_CHARS: int = Field(3_000_000, ge=1000, le=100_000_000)
+
     # --- Conversation history + summarization ---
     # History sent to the AI = last summary + the last HISTORY_RECENT_PAIRS (user + reply) pairs
     # in full + the newest user message. When the token count of the whole unsummarized
@@ -290,6 +302,18 @@ class Settings(BaseSettings):
     @property
     def uploads_dir(self) -> Path:
         return self._abs(self.UPLOADS_DIR)
+
+    @property
+    def files_dir(self) -> Path:
+        return self.uploads_dir / "knowledge"
+
+    @property
+    def files_max_bytes(self) -> int:
+        return self.FILES_MAX_MB * 1024 * 1024
+
+    @property
+    def uploads_max_total_bytes(self) -> int:
+        return self.UPLOADS_MAX_TOTAL_MB * 1024 * 1024
 
     @property
     def tiktoken_cache_dir(self) -> Path:

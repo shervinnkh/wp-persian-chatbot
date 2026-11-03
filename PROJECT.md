@@ -5,7 +5,7 @@
 
 | مورد | مقدار |
 |---|---|
-| نسخهٔ فعلی | `0.3.8` (پاسخ غیرهمزمان با صف + وب‌هوک؛ مدل/لحن/اطلاعات سایت و صفحه، endpoint لاگ، `operation` در callback شکست حذف؛ روی 0.3.6: صف ingestion + callback) |
+| نسخهٔ فعلی | `0.4.0` (متن‌های دستی `text:*` و فایل‌های `file:*` از مسیر صف ingestion + callback؛ دانلود با لینک امضادار کوتاه‌عمر که افزونه می‌سازد؛ استخراج PDF/DOCX/TXT؛ سقف ۲۰۰MB + `GET /v1/storage`؛ روی 0.3.8: پاسخ غیرهمزمان) |
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -86,15 +86,17 @@ persian-ai-backend/
 │  ├─ api/
 │  │  ├─ deps.py           require_signed_request (احراز هویت + IP allowlist)
 │  │  ├─ router.py         مونتاژ routerها؛ `/v1` با وابستگی احراز هویت
-│  │  └─ v1/               health.py (عمومی)، system.py (/v1/ping)، knowledge.py (رکوردها؛ فقط صف)، jobs.py (وضعیت job)، messaging.py (پیام‌ها)
+│  │  └─ v1/               health.py (عمومی)، system.py (/v1/ping)، knowledge.py (رکوردها/متن‌ها/فایل‌ها؛ فقط صف)، jobs.py (وضعیت job)، messaging.py (پیام‌ها)، storage.py (`/v1/storage`)، logs.py
 │  ├─ schemas/             مدل‌های Pydantic درخواست/پاسخ (common.py، knowledge.py، messaging.py، ingest.py)
 │  ├─ services/
 │  │  ├─ chunking/         normalize.py (نرمال‌سازی فارسی)، render.py (رکورد ← متن فارسی)،
 │  │  │                    splitter.py (چانک بر اساس توکن)، tokens.py (tiktoken)،
-│  │  │                    jalali.py (تاریخ شمسی)، pipeline.py (build_plan)
+│  │  │                    jalali.py (تاریخ شمسی)، pipeline.py (build_plan)، doc_chunker.py (چانکر هم‌اندازهٔ فایل/متن بزرگ)
 │  │  ├─ embedding/        openai_embedder.py (batch + لاگ usage)
 │  │  ├─ vectorstore/      qdrant.py (collection، upsert، حذف با فیلتر record_id)
-│  │  ├─ ingestion/        service.py (KnowledgeService: upsert_many / delete_many)، queue.py (سمت API: اعتبارسنجی + ثبت job + وضعیت)،
+│  │  ├─ files/            download.py (دانلود با لینک امضادار: SSRF، IP پین‌شده، سقف حجم/۲۰۰MB، ذخیره در `uploads/knowledge/<id>/`)
+│  │  ├─ extractors/       pdf_extractor.py · docs_extractor.py · txt_extractor.py · common.py · loader.py (فایل ← `DocBlock`ها)
+│  │  ├─ ingestion/        content.py (ContentService: شاخهٔ `text:*` و `file:*`)، service.py (KnowledgeService: upsert_many / delete_many / store_prebuilt)، queue.py (سمت API: اعتبارسنجی + ثبت job + وضعیت)،
 │  │  │                    processor.py (سمت worker)، delivery.py (ارسال callback: batch/backoff/breaker/ping)، callback.py (SSRF + قفل سایت)
 │  │  ├─ messaging/        service.py (MessagingService: ثبت/حذف پیام + تولید پاسخ)، storage.py (دانلود امن پیوست)، errors.py
 │  │  ├─ conversation/     history.py (HistoryBuilder: خلاصه + ۳ زوج آخر + پیام آخر، شمارش توکن)، answer.py (پاسخ ثابت؛ جای LLM)،
@@ -245,7 +247,18 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `ANSWER_CALLBACK_MAX_ATTEMPTS` / `ANSWER_CALLBACK_TTL_SECONDS` | `4` / `600` | سقف ارسال ناموفق وب‌هوک پاسخ / حداکثر عمر آن (ثانیه)، بعد رها می‌شود |
 | `AI_ALLOWED_MODELS` | `gpt-5-4` | فهرست نام مدل‌های مجاز با کاما (همان کلیدهای «سرویس هوش مصنوعی» افزونه). **اولی پیش‌فرض است**: اگر افزونه `model` نفرستد یا خارج از فهرست باشد اولی استفاده می‌شود |
 
-مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`.
+**جدید در 0.4.0** (فایل‌های پایگاه دانش؛ لینک دانلود را افزونه می‌سازد، بخش «متن‌ها و فایل‌ها»):
+
+| کلید | پیش‌فرض | توضیح |
+|---|---|---|
+| `UPLOADS_MAX_TOTAL_MB` | `200` | سقف مجموع فایل‌های دانلودشدهٔ پایگاه دانش (`uploads/knowledge`). فایل پیوست چت حساب نمی‌شود. با رسیدن به سقف ← `storage_quota_exceeded` و هیچ دانلود/چانکینگی انجام نمی‌شود |
+| `FILES_MAX_MB` | `100` | سقف هر فایل (هم از حجم اعلامی و هم هنگام استریم) |
+| `FILES_KEEP_ORIGINAL` | `true` | `false` ← فایل بعد از ایندکس پاک می‌شود (سقف ۲۰۰MB فقط حین پردازش معنا دارد) |
+| `FILES_CONNECT_TIMEOUT` / `FILES_READ_TIMEOUT` | `10` / `60` | timeout دانلود (ثانیه) |
+| `FILES_DOWNLOAD_RETRIES` | `2` | تلاش مجدد داخل یک job برای خطای موقت سایت (5xx/429/شبکه)؛ بعدش تلاش‌های job (`INGEST_MAX_ATTEMPTS`) |
+| `FILES_MAX_EXTRACTED_CHARS` | `3000000` | سقف متن استخراج‌شده |
+
+دانلود فقط از میزبان `PLUGIN_BASE_URL` (یا اولین سایت ثبت‌شده) و با `CALLBACK_ALLOW_PRIVATE_NETWORKS=false` فقط https/پورت 443 و 8443 و IP عمومی.
 
 ## ۶. فرمت یکنواخت خطا
 
@@ -267,9 +280,8 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `POST /v1/jobs/status` | امضادار | ✅ 0.3.6 | بدنه `{ids:[...]}` ← آخرین وضعیت هر رکورد: `trained`/`untrained`/`failed`/`processing`/`unknown` (+`rev`, `job_id`, `error`, و `operation:"delete"` برای حذفِ شکست‌خورده)؛ تور ایمنی وقتی callback گم شود (README افزونه §6) |
 | `GET /v1/knowledge/records?limit&offset&kind` | امضادار | ✅ 0.3.2 | فهرست رکوردهای ذخیره‌شده (دیباگ) |
 | `GET /v1/knowledge/records/{id}` | امضادار | ✅ 0.3.2 | رکورد + داده خام + چانک‌ها + payloadهای Qdrant + `in_sync` (دیباگ) |
-| `PUT /v1/knowledge/texts/{id}` · `DELETE …` | امضادار | ⏳ 0.3.0 | متن‌های دستی (چانک‌ها از افزونه می‌آیند) |
-| `PUT /v1/knowledge/files/{id}` · `DELETE …` | امضادار | ⏳ 0.4.0 | `{url,title}` ← دانلود ← متن ← چانک؛ سقف ۲۰۰MB |
-| `GET /v1/storage` | امضادار | ⏳ 0.4.0 | مصرف uploads نسبت به سقف |
+| `text:*` و `file:*` روی `POST/PUT/DELETE /v1/knowledge/records` | امضادار | ✅ 0.4.0 | **همان endpointهای صف‌دار** (endpoint جدا ندارند؛ `/texts` و `/files` حذف شدند). `text:*` ← چانک‌های افزونه (`data.chunks`) نگه داشته می‌شود؛ `file:*` ← `data.download.url` (لینک امضادار) ← دانلود ← استخراج ← چانک. بخش «متن‌ها و فایل‌ها» |
+| `GET /v1/storage` | امضادار | ✅ 0.4.0 | `{used_bytes, max_bytes, free_bytes, files, max_file_bytes}` از فایل‌های پایگاه دانش |
 | `POST /v1/chat/reply` | امضادار | ⏳ 0.5.0 | پیام(ها)+پیوست+tools ← پاسخ/پیشنهادها/ویس/پیوست |
 | `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. با `generate_ai_answer=true` روی پیام کاربر، پاسخ (فعلاً ثابت) هم تولید و ذخیره و برگردانده می‌شود. فقط وقتی `generate_ai_answer=true`: فیلدهای `model`، `tone` (`formal|friendly`)، `site{title,description}`، `page{url,slug,title,type}` و `callback`؛ با `callback` پاسخ **غیرهمزمان** است (`ai_answer.status="queued"` + `job_id`) و بعداً با وب‌هوک `kind:"chat_answer"` می‌آید (بخش «پاسخ غیرهمزمان»)؛ بدون `callback` پاسخ داخل همان درخواست ساخته می‌شود؛ بخش «پیام‌رسانی» و «تاریخچه، تولید پاسخ و خلاصه‌سازی» |
 | `DELETE /v1/conversations/{conversation_id}/messages/{message_id}` | امضادار | ✅ 0.3.4 | حذف یک پیام (+ فایل پیوست) |
@@ -282,8 +294,8 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 - [x] **0.1.0** — ساختار، تنظیمات، لاگینگ، HMAC، `/health` و `/v1/ping`، تست‌ها، `run.bat`، فایل‌های دیپلوی
 - [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصه‌سازی: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ✅ آماده‌سازی تاریخچه، کلید `generate_ai_answer`، پاسخ ثابت، خلاصه‌سازی بر پایهٔ توکن با worker (0.3.5)؛ ⏳ Alembic، endpoint تاریخچه
-- [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ⏳ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
-- [~] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه: ✅ زیرساخت worker/صف/callback (0.3.6؛ برای هر `id` با هر پیشوند کار می‌کند)؛ ⏳ endpointهای `text:*` و `file:*`، دانلود و استخراج متن
+- [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ✅ متن‌های دستی و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
+- [x] **0.4.0** — متن‌های دستی و فایل‌ها از صف: ✅ `text:*` (چانک‌های افزونه)، ✅ `file:*` (لینک امضادار ← دانلود ← PDF/DOCX/TXT ← چانک)، ✅ سقف ۲۰۰MB + `/v1/storage`، ✅ حذف فایل دانلودشده هنگام حذف رکورد. (`.doc` قدیمی پشتیبانی نمی‌شود)
 - [ ] **0.5.0** — تولید پاسخ (سازوکار `model`/`tone`/`site`/`page`/پاسخ غیرهمزمان و `PromptContext` از 0.3.7 آماده است؛ فقط LLM واقعی مانده): RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
 - [ ] **0.6.0** — ابزارها (tools) و callback امضادار به افزونه برای داده‌های زنده
 - [ ] **0.7.0** — ویس: STT برای ورودی، TTS برای پاسخ
@@ -488,12 +500,30 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 **لاگ‌ها** (بدون متن رکورد/راز): `ingest.enqueued`، `ingest.job_done` / `job_retry` / `job_failed` / `job_crashed`، `ingest.purged`، `callback.delivered` / `failed` / `site_stopped` / `site_recovered` / `ping_failed` / `bad_request` / `batch_split` / `delivery_dead` / `clock_offset`.
 
-**محدودیت‌های شناخته‌شده:** (۱) worker تحویل باید یک نمونه باشد (دو نمونه فقط تحویل تکراریِ بی‌ضرر می‌سازند). (۲) `dead` شدن نتیجه یعنی افزونه باید با `POST /v1/jobs/status` وضعیت را بگیرد؛ فراخوانی خودکار آن سمت افزونه هنوز نیست. (۳) فیلد `job_id` هر نتیجه و `job_id` دسته‌ای (`b_…`) افزودهٔ ما به قرارداد است (افزونه باید فیلد ناشناخته را نادیده بگیرد). (۴) SQLite با چند پروسه (API + workerها) کار می‌کند (WAL)؛ برای بار بالا PostgreSQL. (۵) در حالت `QDRANT_PATH` حلقهٔ ingestion داخل API است (چانکینگ در thread)؛ برای production Qdrant سرور + worker جدا. (۶) `text:*` و `file:*` هنوز endpoint ندارند (0.4.0).
+**محدودیت‌های شناخته‌شده:** (۱) worker تحویل باید یک نمونه باشد (دو نمونه فقط تحویل تکراریِ بی‌ضرر می‌سازند). (۲) `dead` شدن نتیجه یعنی افزونه باید با `POST /v1/jobs/status` وضعیت را بگیرد؛ فراخوانی خودکار آن سمت افزونه هنوز نیست. (۳) فیلد `job_id` هر نتیجه و `job_id` دسته‌ای (`b_…`) افزودهٔ ما به قرارداد است (افزونه باید فیلد ناشناخته را نادیده بگیرد). (۴) SQLite با چند پروسه (API + workerها) کار می‌کند (WAL)؛ برای بار بالا PostgreSQL. (۵) در حالت `QDRANT_PATH` حلقهٔ ingestion داخل API است (چانکینگ در thread)؛ برای production Qdrant سرور + worker جدا. (۶) *(برطرف‌شد در 0.4.0)* `text:*` و `file:*` از همین صف می‌گذرند.
 
-### فایل‌ها و سقف ۲۰۰MB (0.4.0)
-- ورودی فقط URL است (بدنهٔ JSON کوچک)؛ سرور با httpx استریم‌دانلود می‌کند در `uploads/{نوع}/{سال}/{ماه}/{uuid}.{پسوند}`، با بررسی نوع/امضای فایل و سقف حجم هر فایل.
-- سقف کل ۲۰۰MB: مجموع حجم ثبت‌شده + حجم فایل جدید (و هنگام استریم) از سقف بیشتر شود ← خطای `storage_quota_exceeded` (HTTP 507 یا 413) و هیچ دانلود/چانکینگی انجام نمی‌شود.
-- **SSRF:** دانلود فقط از دامنهٔ سایت پذیرنده (`PLUGIN_BASE_URL`) و https؛ آدرس‌های داخلی/لوپ‌بک رد می‌شوند.
+### متن‌ها و فایل‌ها (پیاده‌شده در 0.4.0)
+
+هر دو از **همان مسیر صف 0.3.6** می‌گذرند (`POST|PUT|DELETE /v1/knowledge/records` ← job ← worker ← callback)؛ `IngestProcessor` بر اساس پیشوند شناسه به `ContentService` (`services/ingestion/content.py`) می‌دهد و بقیهٔ رکوردها مثل قبل به `KnowledgeService`. هر دو با `KnowledgeService.store_prebuilt` ذخیره می‌شوند (همان قفل، همان ترتیب Qdrant ← دیتابیس، همان ارسال مجدد هوشمند).
+
+**`text:*`** — بدنه `data: {type:"text", chunks:[...], text:"..."}`:
+- چانک‌های افزونه **همان‌طور** نگه داشته می‌شوند؛ فقط چانکی بزرگ‌تر از `CHUNK_MAX_TOKENS` با همان الگوریتم هم‌اندازه (+overlap) دوباره تقسیم می‌شود (`rechunk_text_chunks`). بدون `chunks` از `text` استفاده می‌شود؛ هیچ‌کدام نبود ← 422 `unprocessable_record` همان لحظهٔ ثبت.
+- `records.type="text"`، عنوان = اولین خط غیرخالی (≤۸۰ نویسه). `render_record` هم شاخهٔ `text` دارد (پیش‌نمایش/`scripts/preview_chunks.py`).
+
+**`file:*`** — بدنه `data: {type:"file", title, original_name, ext, size, sha256, download:{url, expires}}`:
+```
+افزونه: لینک امضادار کوتاه‌عمر می‌سازد  https://site/wp-json/paia/v1/ai/file?id=file:…&exp=…&sig=…
+   sig = HMAC_SHA256(api_key, "paia-file\n{id}\n{exp}")     (سرور هوش مصنوعی هیچ چیز را امضا/تأیید نمی‌کند)
+POST records ─▶ 200 فوری ─▶ worker: بررسی لینک ─▶ دانلود (استریم، SSRF، سقف) ─▶ sha256 ─▶ استخراج ─▶ چانک ─▶ امبدینگ ─▶ Qdrant+DB ─▶ callback
+```
+- **لینک:** عمر پیش‌فرض ۱ ساعت (افزونه، فیلتر `paia_file_link_ttl`، ۵ دقیقه..۲۴ ساعت). لینک منقضی ← 422 هنگام ثبت یا `failed` با `download_link_expired` در worker بدون تلاش مجدد (افزونه دوباره «آموزش» می‌زند؛ کرون بازبینی هم با `unknown` لینک تازه می‌سازد). لینک **هرگز ذخیره نمی‌شود**: بعد از پایان job ستون `payload` null می‌شود و `records.data`/hash آن را ندارند.
+- **SSRF:** https (توسعه: http با `CALLBACK_ALLOW_PRIVATE_NETWORKS`)، پورت 443/8443، بدون credential، هاست باید با `PLUGIN_BASE_URL` (یا سایت قفل‌شده) یکی باشد؛ DNS قبل از اتصال حل و IPهای غیرعمومی رد و اتصال به همان IP بررسی‌شده انجام می‌شود؛ redirect دنبال نمی‌شود.
+- **سقف:** هر فایل `FILES_MAX_MB`؛ مجموع `UPLOADS_MAX_TOTAL_MB` (فقط فایل‌های پایگاه دانش؛ فضای همین رکورد در جایگزینی آزاد حساب می‌شود). از حجم اعلامی پیش از دانلود و هنگام استریم بررسی می‌شود ← `storage_quota_exceeded` / `file_too_large`، بدون چانکینگ و بدون تلاش مجدد.
+- **ذخیره:** `uploads/knowledge/file_<id>/source.<ext>` (`*.part` ← جابه‌جایی اتمیک). با `FILES_KEEP_ORIGINAL=false` بعد از ایندکس پاک می‌شود. حذف رکورد (`DELETE`/`PUT`) پوشه را هم پاک می‌کند؛ شکست در هر مرحله فایل یتیم باقی نمی‌گذارد.
+- **تغییرنکرده:** `sha256` + عنوان + نام + پسوند + حجم، hash رکورد است؛ فایل و عنوان یکسان ← بدون دانلود `unchanged`. `sha256` اعلامی با فایل دانلودشده نخواند ← `checksum_mismatch`.
+- **فرمت:** `.pdf` `.docx` `.txt` (استخراج‌گرها در `services/extractors/`، همان CLIهای مستقل). `.doc` قدیمی ← `unsupported_extension`؛ PDF اسکن‌شده بدون لایهٔ متن ← `no_text_extracted` (OCR نداریم). چانک‌ها با `فایل: عنوان` و `بخش: …` شروع می‌شوند (`doc_chunker.py`).
+- **خطاها** (`error_code`، در callback `failed` + `error`): `unsupported_extension`، `invalid_download_url`، `download_link_expired`، `download_forbidden` (سایت 401/403)، `file_not_found`، `download_failed` (5xx/شبکه: تلاش مجدد)، `file_too_large`، `storage_quota_exceeded`، `invalid_file`، `checksum_mismatch`، `extraction_failed`، `no_text_extracted`، `extracted_text_too_large`.
+- **`GET /v1/storage`** مصرف را نشان می‌دهد.
 
 ### ابزارها (0.6.0)
 - لیست ابزارها در هر پیام از کلاینت می‌آید (`name, description, parameters`)؛ در پرامپت/function-calling به مدل داده می‌شود.
@@ -592,3 +622,12 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - **`run.bat` بازنویسی شد:** workerهای جدید `worker_delivery` و `worker_ingestion` (پنجرهٔ جدا)؛ اگر `QDRANT_PATH` در `.env` پر باشد پنجرهٔ ingestion باز نمی‌شود چون API خودش اجرا می‌کند.
 - تست: ۱۵۹ تست pytest سبز (جدید: `tests/test_ingest_queue.py` صف/تلاش مجدد/اعتبارسنجی و قفل callback؛ `tests/test_callback_delivery.py` دسته‌بندی، امضا، backoff، breaker، 401/404/413، سایت کند، سقف هم‌زمانی، ترنسپورت واقعی روی سرور محلی)؛ `test_knowledge_api.py` با صف تطبیق داده شد. `ruff check .` تمیز. **اجرا نشده:** ارسال به یک سایت وردپرس واقعی با HTTPS، `run.bat` روی ویندوز، OpenAI و Qdrant واقعی.
 - تغییر رفتار (شکستن سازگاری): پاسخ POST/PUT/DELETE دیگر `confirmed_ids/results` ندارد؛ افزونه باید با 200 `ai_status=1` بزند و نتیجه را از callback (یا `/v1/jobs/status`) بگیرد.
+
+### 0.4.0
+- **`text:*` از صف:** `ContentService` (`services/ingestion/content.py`) را `IngestProcessor` برای هر job با پیشوند `text` صدا می‌زند: چانک‌های افزونه نگه داشته می‌شوند و فقط چانک بزرگ‌تر از `CHUNK_MAX_TOKENS` دوباره تقسیم می‌شود. `render_record` شاخهٔ `text` گرفت (قبلاً مثل مقاله رندر می‌شد). متن بدون چانک/متن ← 422 هنگام ثبت.
+- **`file:*` از صف:** افزونه در `data.download` یک **لینک امضادار کوتاه‌عمر** می‌فرستد (`url`, `expires`)؛ worker آن را با `files/download.py` دانلود می‌کند (SSRF: https، هاست قفل‌شدهٔ سایت، DNS بررسی‌شده و اتصال به IP پین‌شده، بدون redirect؛ سقف `FILES_MAX_MB` و `UPLOADS_MAX_TOTAL_MB` هم از حجم اعلامی و هم هنگام استریم)، `sha256` را با اعلامیِ افزونه تطبیق می‌دهد، با `extractors/` متن می‌گیرد و با `doc_chunker.py` چانک می‌کند. لینک هیچ‌جا ذخیره نمی‌شود. فایل و عنوان یکسان ← `unchanged` بدون دانلود. حذف/جایگزینی رکورد پوشهٔ دانلودشده را هم پاک می‌کند.
+- `KnowledgeService`: `store_prebuilt` (مراحل امبدینگ ← Qdrant ← دیتابیس برای چانک‌های آماده؛ `_upsert_one` هم از آن استفاده می‌کند)، `pipeline_for`، `get_state`، `lock`. `FileProcessingError` / `StorageQuotaError` در `core/errors.py` (کدهای خطا در بخش «متن‌ها و فایل‌ها»). `IngestQueueService` بررسی ارزان `text:*`/`file:*` را هنگام ثبت انجام می‌دهد (422 فوری برای `.doc`، لینک نامعتبر/منقضی/هاست غریبه، متن خالی).
+- `GET /v1/storage`. **حذف شد:** `api/v1/knowledge_files.py` (`/texts` و `/files` که هرگز ثبت نشده بودند)، `scripts/kb_files.py`، `INSTALL_0.4.0.md`، `FILES_BASE_URL` (دیگر `path` نمی‌آید).
+- تنظیمات جدید `.env`: `UPLOADS_MAX_TOTAL_MB`، `FILES_MAX_MB`، `FILES_KEEP_ORIGINAL`، `FILES_CONNECT_TIMEOUT`، `FILES_READ_TIMEOUT`، `FILES_DOWNLOAD_RETRIES`، `FILES_MAX_EXTRACTED_CHARS` (جدول بخش ۵ + `.env.example`). `requirements.txt`: `pdfplumber`، `lxml`. نسخه ← `0.4.0`.
+- **`run.bat` تغییر کرد:** worker جدید ندارد، ولی بررسی وابستگی‌ها حالا `pdfplumber` و `lxml` را هم می‌آزماید تا نصب‌های قبلی خودکار `pip install -r requirements.txt` بزنند.
+- تست: همهٔ pytest سبز (۱۷۹ تست؛ جدید `tests/test_content_files.py`: متن با چانک‌های افزونه و تقسیم چانک بزرگ، دانلود با لینک امضادار از یک سایت محلی، استخراج، ایندکس، `unchanged` بدون دانلود، حذف فایل، سقف ۱MB، لینک منقضی، 403 سایت، checksum، PDF جعلی، `.doc` و هاست غریبه)؛ `ruff check .` تمیز؛ استخراج واقعی DOCX و PDF دستی امتحان شد. **اجرا نشده:** دانلود از یک سایت وردپرس واقعی روی HTTPS (آزمون با سرور HTTP محلی و حالت توسعه)، OpenAI و Qdrant واقعی، `run.bat` روی ویندوز، PDF اسکن‌شده/فارسیِ پیچیده.

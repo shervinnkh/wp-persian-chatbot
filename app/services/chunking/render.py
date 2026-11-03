@@ -382,6 +382,34 @@ def _render_site(d: dict) -> Rendered:
     )  # noqa: E501
 
 
+def text_pieces(d: dict) -> list[str]:
+    """The plugin's chunks of a manual text (`chunks`), or its whole `text` as one piece."""
+    raw = d.get("chunks")
+    pieces = [p for p in raw if isinstance(p, str) and p.strip()] if isinstance(raw, list) else []
+    if not pieces and isinstance(d.get("text"), str) and d["text"].strip():
+        pieces = [d["text"]]
+    return pieces
+
+
+def text_title(pieces: list[str]) -> str:
+    """Title of a manual text = its first non-empty line (as in the plugin's list)."""
+    for piece in pieces:
+        for line in piece.splitlines():
+            if line.strip():
+                return line.strip()[:80]
+    return ""
+
+
+def _render_text(d: dict) -> Rendered:
+    """Manual text (`text:*`): one group per plugin chunk. (The queue worker keeps the plugin's
+    chunks as they are through ContentService; this keeps preview/legacy paths consistent.)"""
+    pieces = text_pieces(d)
+    title = text_title(pieces)
+    return Rendered(
+        "text", title, None, [Group("main", f"متن: {title}", p, overlap=False) for p in pieces]
+    )
+
+
 # ---------------------------------------------------------------- dispatch
 def render_record(record_id: str, data: dict) -> Rendered:
     kind = record_id.split(":", 1)[0]
@@ -391,6 +419,8 @@ def render_record(record_id: str, data: dict) -> Rendered:
         rendered = _render_taxonomies(data)
     elif kind == "site":
         rendered = _render_site(data)
+    elif kind == "text":
+        rendered = _render_text(data)
     elif kind == "product" or _s(data.get("type")) == "product":
         rendered = _render_product(data)
     else:

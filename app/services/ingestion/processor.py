@@ -13,6 +13,7 @@ import time
 from app.core.config import Settings
 from app.db.ingest_models import IngestJob
 from app.db.ingest_repository import DeliverySpec, IngestRepository
+from app.services.ingestion.content import ContentService
 from app.services.ingestion.service import KnowledgeService
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,8 @@ class IngestProcessor:
         self.settings = settings
         self.repo = repo
         self.knowledge = knowledge
+        # text:* / file:* have their own build steps; every other record goes to KnowledgeService
+        self.content = ContentService(knowledge, settings, locked_site=repo.locked_site)
 
     # ------------------------------------------------------------------ one job
     async def process_next(self) -> bool:
@@ -66,7 +69,7 @@ class IngestProcessor:
     async def _execute(self, job: IngestJob) -> tuple[str, dict]:
         """-> ("trained" | "untrained", per-record stats). Raises _JobFailure."""
         if job.action in ("delete", "replace"):
-            deleted = (await self.knowledge.delete_many([job.record_id]))[0]
+            deleted = await self.content.delete(job.record_id)
             if deleted.status == "failed":
                 raise _JobFailure(
                     f"delete step: {deleted.error}",
@@ -77,9 +80,7 @@ class IngestProcessor:
                 return "untrained", deleted.model_dump()
         if not isinstance(job.payload, dict):
             raise _JobFailure("The job has no record data", retryable=False)
-        added = (
-            await self.knowledge.upsert_many([(job.record_id, job.payload)], force=job.force)
-        )[0]
+        added = await self.content.upsert(job.record_id, job.payload, force=job.force)
         if added.status == "failed":
             raise _JobFailure(
                 added.error or "Processing failed", retryable=added.retryable, code=added.error_code

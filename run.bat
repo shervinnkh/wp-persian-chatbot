@@ -3,7 +3,7 @@ rem ====================================================================
 rem  Persian AI Backend - launcher (Windows cmd)
 rem
 rem    run.bat            activate venv, start all workers (summarizer, delivery, ingestion) + FastAPI
-rem    run.bat install    (re)install requirements.txt
+rem    run.bat install    (re)install requirements.txt (pdfplumber + lxml are needed for knowledge files)
 rem    run.bat test       install dev requirements and run the tests
 rem    (Qdrant: a running server at QDRANT_URL, or QDRANT_PATH = embedded mode; with embedded
 rem     Qdrant the ingestion loop runs inside the API, so no ingestion window is opened)
@@ -135,7 +135,7 @@ echo [error] Could not create the virtual environment. Install Python 3.10+ and 
 exit /b 1
 
 :ensure_packages
-python -c "import fastapi, uvicorn, pydantic_settings, sqlalchemy, aiosqlite, qdrant_client, openai, tiktoken, httpx" 2>nul
+python -c "import fastapi, uvicorn, pydantic_settings, sqlalchemy, aiosqlite, qdrant_client, openai, tiktoken, httpx, pdfplumber, lxml" 2>nul
 if not errorlevel 1 exit /b 0
 echo [setup] Installing requirements...
 python -m pip install --upgrade pip

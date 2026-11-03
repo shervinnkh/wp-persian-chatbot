@@ -19,7 +19,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from app.core.config import Settings
-from app.core.errors import AppError
+from app.core.errors import AppError, UnprocessableRecordError
 from app.db.base import Database
 from app.db.repository import ChunkWrite, KnowledgeRepository, RecordWrite
 from app.schemas.knowledge import (
@@ -31,6 +31,7 @@ from app.services.chunking.pipeline import (
     ChunkPlan,
     build_plan,
     data_hash,
+    make_chunk_id,
 )
 from app.services.chunking.splitter import ChunkConfig
 from app.services.chunking.tokens import TokenCounter
@@ -199,15 +200,52 @@ class KnowledgeService:
             self.counter.exact, (time.perf_counter() - t0) * 1000,
         )  # fmt: skip
 
+        return await self.store_prebuilt(
+            record_id,
+            record_type=plan.record_type,
+            title=plan.title,
+            url=plan.url,
+            data=data,
+            digest=digest,
+            chunks=[(c.text, c.tokens, c.hash) for c in plan.chunks],
+            kinds=[c.kind for c in plan.chunks],
+            pipeline=self.pipeline_id,
+            force=force,
+            state=state,
+        )
+
+    async def store_prebuilt(
+        self,
+        record_id: str,
+        *,
+        record_type: str,
+        title: str,
+        url: str | None,
+        data: dict,
+        digest: str,
+        chunks: list[tuple[str, int, str]],
+        pipeline: str,
+        force: bool,
+        state,
+        kinds: list[str] | None = None,
+    ) -> UpsertItemResult:
+        """Steps 2-5 for chunks that are already built: (text, tokens, hash) per chunk.
+
+        Used by `_upsert_one` (records) and by ContentService (texts and files)."""
+        if not chunks:
+            raise UnprocessableRecordError("Record produced no text chunks")
+        kinds = kinds or ["main"] * len(chunks)
+        total_tokens = sum(t for _, t, _ in chunks)
+
         # 2. embed only the chunks whose text changed (or all, when pipeline/force says so)
-        reuse = state is not None and not force and state.pipeline == self.pipeline_id
+        reuse = state is not None and not force and state.pipeline == pipeline
         old_hashes = state.chunk_hashes if (state and reuse) else {}
-        to_embed = [c for c in plan.chunks if old_hashes.get(c.index) != c.hash]
+        to_embed = [(i, c) for i, c in enumerate(chunks) if old_hashes.get(i) != c[2]]
         embedding_tokens = 0
         if to_embed:
-            embedded = await self.embedder.embed([c.text for c in to_embed])
+            embedded = await self.embedder.embed([c[0] for _, c in to_embed])
             embedding_tokens = embedded.prompt_tokens
-            expected = sum(c.tokens for c in to_embed)
+            expected = sum(c[1] for _, c in to_embed)
             if (
                 self.counter.exact
                 and expected
@@ -216,27 +254,25 @@ class KnowledgeService:
                 logger.warning(
                     "knowledge.token_mismatch id=%s tiktoken=%d api_prompt_tokens=%d "
                     "(check TIKTOKEN_ENCODING vs EMBEDDING_MODEL)",
-                    record_id,
-                    expected,
-                    embedding_tokens,
-                )
+                    record_id, expected, embedding_tokens,
+                )  # fmt: skip
 
             # 3. vectors -> Qdrant (payload holds ids + small filter fields only)
             points = [
                 VectorPoint(
-                    chunk_id=c.chunk_id,
+                    chunk_id=make_chunk_id(record_id, i),
                     vector=vec,
                     payload={
                         "record_id": record_id,
-                        "chunk_id": c.chunk_id,
-                        "chunk_index": c.index,
-                        "kind": c.kind,
-                        "type": plan.record_type,
-                        "url": plan.url,
-                        "title": plan.title,
+                        "chunk_id": make_chunk_id(record_id, i),
+                        "chunk_index": i,
+                        "kind": kinds[i],
+                        "type": record_type,
+                        "url": url,
+                        "title": title,
                     },
                 )
-                for c, vec in zip(to_embed, embedded.vectors, strict=True)
+                for (i, _), vec in zip(to_embed, embedded.vectors, strict=True)
             ]
             await self.vectorstore.upsert(points)
             logger.info("knowledge.qdrant_upserted id=%s points=%d", record_id, len(points))
@@ -244,10 +280,10 @@ class KnowledgeService:
             logger.info("knowledge.no_new_chunks id=%s (all chunk texts unchanged)", record_id)
 
         # 4. the record may have become shorter: drop points of chunks that no longer exist
-        if state is not None and state.chunk_count > len(plan.chunks):
-            await self.vectorstore.delete_stale(record_id, len(plan.chunks))
+        if state is not None and state.chunk_count > len(chunks):
+            await self.vectorstore.delete_stale(record_id, len(chunks))
             logger.info(
-                "knowledge.qdrant_stale_removed id=%s from_index=%d", record_id, len(plan.chunks)
+                "knowledge.qdrant_stale_removed id=%s from_index=%d", record_id, len(chunks)
             )
 
         # 5. text DB (one transaction)
@@ -255,27 +291,42 @@ class KnowledgeService:
             RecordWrite(
                 record_id=record_id,
                 kind=record_id.split(":", 1)[0],
-                type=plan.record_type,
-                title=plan.title,
-                url=plan.url,
+                type=record_type,
+                title=title,
+                url=url,
                 data=data,
                 data_hash=digest,
-                pipeline=self.pipeline_id,
+                pipeline=pipeline,
             ),
-            [ChunkWrite(c.chunk_id, c.index, c.text, c.tokens, c.hash) for c in plan.chunks],
+            [
+                ChunkWrite(make_chunk_id(record_id, i), i, c[0], c[1], c[2])
+                for i, c in enumerate(chunks)
+            ],
         )
         logger.info(
-            "knowledge.db_saved id=%s created=%s chunks=%d", record_id, created, len(plan.chunks)
+            "knowledge.db_saved id=%s created=%s chunks=%d", record_id, created, len(chunks)
         )
         return UpsertItemResult(
             id=record_id,
             status="created" if created else "updated",
-            chunks=len(plan.chunks),
+            chunks=len(chunks),
             embedded_chunks=len(to_embed),
-            reused_chunks=len(plan.chunks) - len(to_embed),
-            tokens=plan.total_tokens,
+            reused_chunks=len(chunks) - len(to_embed),
+            tokens=total_tokens,
             embedding_tokens=embedding_tokens,
         )
+
+    # ------------------------------------------------------------------ helpers for ContentService
+    def pipeline_for(self, extra: str) -> str:
+        """Pipeline id for records built outside `build_plan` (texts/files): the base pipeline
+        (tokenizer, chunk sizes, embedding model) plus the version of their own chunker."""
+        return f"{self.pipeline_id}|{extra}"
+
+    async def get_state(self, record_id: str):
+        return await self.repo.get_state(record_id)
+
+    def lock(self, record_id: str):
+        return self._locks.hold(record_id)
 
     # ------------------------------------------------------------------ delete
     async def delete_many(self, ids: list[str]) -> list[DeleteItemResult]:

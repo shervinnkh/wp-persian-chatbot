@@ -13,7 +13,6 @@ from common import (
     build_result,
     check_input_file,
     garbage_ratio,
-    has_rtl,
     is_ltr_letter,
     is_rtl_letter,
     median,

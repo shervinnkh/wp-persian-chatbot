@@ -1,10 +1,10 @@
 """API side of the ingestion queue: validate, store the job, answer. Nothing heavy happens here.
 
-    plugin ──POST {records, callback}──▶ enqueue (one DB transaction) ──▶ 200 {job_id…}
-                                                         │
-                          ingestion worker (separate process): chunk → embed → Qdrant → DB
-                                                         │
-                          delivery worker (separate process): POST {results} to callback.url
+plugin ──POST {records, callback}──▶ enqueue (one DB transaction) ──▶ 200 {job_id…}
+                                                     │
+                      ingestion worker (separate process): chunk → embed → Qdrant → DB
+                                                     │
+                      delivery worker (separate process): POST {results} to callback.url
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import logging
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
-from app.core.errors import ServiceUnavailableError
+from app.core.errors import FileProcessingError, ServiceUnavailableError, UnprocessableRecordError
 from app.db.base import Database
 from app.db.ingest_repository import IngestRepository, NewJob, SiteUpsert
 from app.schemas.ingest import (
@@ -26,6 +26,7 @@ from app.schemas.ingest import (
     QueuedJob,
 )
 from app.schemas.knowledge import RecordIn
+from app.services.files.download import check_download_url, pick_extension
 from app.services.ingestion.callback import ValidatedCallback, validate_callback
 
 logger = logging.getLogger(__name__)
@@ -58,13 +59,9 @@ class IngestQueueService:
     async def _validated(self, callback: CallbackIn | None) -> ValidatedCallback | None:
         if callback is None:
             return None
-        return validate_callback(
-            self.settings, callback, locked_site=await self.repo.locked_site()
-        )
+        return validate_callback(self.settings, callback, locked_site=await self.repo.locked_site())
 
-    async def _enqueue(
-        self, jobs: list[NewJob], cb: ValidatedCallback | None
-    ) -> EnqueueResponse:
+    async def _enqueue(self, jobs: list[NewJob], cb: ValidatedCallback | None) -> EnqueueResponse:
         site = (
             SiteUpsert(cb.site_key, cb.url, cb.ping_url, cb.site_url, cb.max_results)
             if cb
@@ -100,6 +97,7 @@ class IngestQueueService:
         """`replace=True` (PUT): the worker deletes the record completely, then adds it again."""
         await self.ensure_ready()
         cb = await self._validated(callback)
+        await self._check_content_records(records)
         jobs = [
             NewJob(
                 record_id=r.id,
@@ -114,6 +112,33 @@ class IngestQueueService:
             for r in records
         ]
         return await self._enqueue(jobs, cb)
+
+    async def _check_content_records(self, records: list[RecordIn]) -> None:
+        """Cheap checks for text:* / file:* so a hopeless request is refused at once (422) instead
+        of failing later in the worker. No network, no file access."""
+        locked = None
+        for r in records:
+            kind = r.id.split(":", 1)[0]
+            if kind == "text":
+                from app.services.chunking.render import text_pieces
+
+                if not text_pieces(r.data):
+                    raise UnprocessableRecordError(f"{r.id}: text has no chunks or text")
+            elif kind == "file":
+                dl = r.data.get("download")
+                if not isinstance(dl, dict) or not dl.get("url"):
+                    raise UnprocessableRecordError(
+                        f"{r.id}: file record needs data.download.url (signed link)"
+                    )
+                try:
+                    pick_extension(
+                        str(r.data.get("original_name") or ""), str(r.data.get("ext") or "")
+                    )
+                    if locked is None:
+                        locked = await self.repo.locked_site() or ""
+                    check_download_url(self.settings, str(dl["url"]), locked_site=locked or None)
+                except FileProcessingError as exc:
+                    raise UnprocessableRecordError(f"{r.id}: {exc.message}") from exc
 
     async def enqueue_deletes(
         self, ids: list[str], *, callback: CallbackIn | None
