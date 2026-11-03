@@ -1,8 +1,8 @@
-"""Answer generation (placeholder).
+"""Answer generation interface.
 
-Only the interface and a FIXED answer exist for now. The real generator (system prompt + RAG +
-LLM) replaces `FixedAnswerGenerator` without touching callers: it must implement `generate`
-(the whole answer).
+`AnswerGenerator.generate` returns a `GeneratedAnswer` (text + quick-reply suggestions; a plain
+`str` is still accepted). `LLMAnswerGenerator` (llm_answer.py) is the real one; the fixed one is
+only used when no OPENAI_API_KEY is configured (and in tests).
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from typing import Literal, Protocol
 from app.db.messaging_models import Message
 from app.services.conversation.history import PreparedHistory
 from app.services.conversation.prompt import PromptContext
+from app.services.conversation.reply_format import GeneratedAnswer
 
 FIXED_ANSWER = (
     "سلام! پیام شما دریافت شد. این یک پاسخ آزمایشی است و به‌زودی دستیار هوشمند پاسخ می‌دهد."
@@ -22,7 +23,7 @@ FIXED_ANSWER = (
 class AnswerGenerator(Protocol):
     async def generate(
         self, history: PreparedHistory, ctx: PromptContext | None = None
-    ) -> str: ...
+    ) -> GeneratedAnswer | str: ...
 
 
 class FixedAnswerGenerator:
@@ -30,8 +31,11 @@ class FixedAnswerGenerator:
 
     async def generate(
         self, history: PreparedHistory, ctx: PromptContext | None = None  # noqa: ARG002
-    ) -> str:
-        return FIXED_ANSWER
+    ) -> GeneratedAnswer:
+        return GeneratedAnswer(text=FIXED_ANSWER)
+
+
+__all__ = ["AiAnswerResult", "AnswerGenerator", "FixedAnswerGenerator", "GeneratedAnswer"]
 
 
 @dataclass

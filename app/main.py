@@ -26,6 +26,33 @@ from app.core.middleware import (
 logger = logging.getLogger(__name__)
 
 
+def _attach_llm_generator(settings: Settings, messaging, knowledge) -> None:
+    """Real answers (RAG + LLM) replace the fixed placeholder, sharing the knowledge service's
+    embedder / Qdrant client (embedded Qdrant can be opened by one process only). A generator
+    injected by the caller (tests) is left alone."""
+    from app.services.conversation.answer import FixedAnswerGenerator
+
+    if not isinstance(messaging.answer_generator, FixedAnswerGenerator):
+        return
+    parts = [getattr(knowledge, n, None) for n in ("vectorstore", "embedder", "repo")]
+    if not settings.OPENAI_API_KEY.get_secret_value() or any(p is None for p in parts):
+        logger.warning(
+            "AI answers use the FIXED placeholder text: OPENAI_API_KEY is empty or the "
+            "knowledge service is unavailable"
+        )
+        return
+    from app.services.conversation.llm_answer import LLMAnswerGenerator
+    from app.services.conversation.retrieval import KnowledgeRetriever
+
+    vectorstore, embedder, repo = parts
+    retriever = KnowledgeRetriever(
+        embedder=embedder, vectorstore=vectorstore, repo=repo,
+        top_k=settings.RAG_TOP_K, min_score=settings.RAG_MIN_SCORE,
+    )  # fmt: skip
+    messaging.answer_generator = LLMAnswerGenerator(settings, retriever)
+    logger.info("AI answers: RAG + LLM generator active (top_k=%d)", settings.RAG_TOP_K)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
@@ -70,6 +97,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await messaging.ensure_ready()
         except Exception as exc:  # noqa: BLE001
             logger.error("Messaging service not ready at startup (will retry on use): %s", exc)
+    if messaging is not None:
+        _attach_llm_generator(settings, messaging, service)
     queue = getattr(app.state, "ingest_queue", None)
     if queue is None:
         try:
@@ -118,6 +147,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await asyncio.wait_for(ingest_task, timeout=30)
         except Exception:  # noqa: BLE001
             ingest_task.cancel()
+    if messaging is not None:
+        closer = getattr(messaging.answer_generator, "close", None)
+        if closer is not None:
+            try:
+                await closer()
+            except Exception:  # noqa: BLE001
+                logger.exception("Answer generator could not be closed")
     if service is not None:
         await service.close()
     if messaging is not None:

@@ -5,7 +5,11 @@
 
 | مورد | مقدار |
 |---|---|
+<<<<<<< HEAD
 | نسخهٔ فعلی | `0.4.0` (متن‌های دستی `text:*` و فایل‌های `file:*` از مسیر صف ingestion + callback؛ دانلود با لینک امضادار کوتاه‌عمر که افزونه می‌سازد؛ استخراج PDF/DOCX/TXT؛ سقف ۲۰۰MB + `GET /v1/storage`؛ روی 0.3.8: پاسخ غیرهمزمان) |
+=======
+| نسخهٔ فعلی | `0.6.0` (حلقهٔ حداکثر K فراخوانی AI با ابزارهای داده زنده [محصولات + ابزارهای داینامیک سایت]، ورودی ویس [STT] و تصویر [vision]؛ روی 0.5.0: RAG + پرامپت پویا + JSON `{text, suggestions}`) |
+>>>>>>> answer_generation
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -100,8 +104,12 @@ persian-ai-backend/
 │  │  │                    processor.py (سمت worker)، delivery.py (ارسال callback: batch/backoff/breaker/ping)، callback.py (SSRF + قفل سایت)
 │  │  ├─ messaging/        service.py (MessagingService: ثبت/حذف پیام + تولید پاسخ)، storage.py (دانلود امن پیوست)، errors.py
 │  │  ├─ conversation/     history.py (HistoryBuilder: خلاصه + ۳ زوج آخر + پیام آخر، شمارش توکن)، answer.py (پاسخ ثابت؛ جای LLM)،
+│  │  │                    prompt.py (پرامپت پایهٔ انگلیسیِ پویا)، retrieval.py (RAG: امبدینگ پرسش ← Qdrant ← متن چانک)،
+│  │  │                    llm_answer.py (LLMAnswerGenerator)، reply_format.py (JSON خروجی + پارسر)،
 │  │  │                    summarizer.py (پرامپت انگلیسی + کلاینت OpenAI)، summary_service.py (صف: enqueue / process_next)
-│  │  └─ llm, tools, speech, vision   (آیندهٔ نزدیک؛ فعلاً docstring)
+│  │  ├─ tools/            client.py (SiteToolClient: فراخوانی امضادار API سایت)، catalog.py (ToolKit: تعریف ابزارها + اجرا) — 0.6.0
+│  │  ├─ speech/           transcriber.py (ویس ← متن، whisper-1/fa) — 0.6.0
+│  │  └─ vision/           images.py (کوچک‌سازی عکس تا ≤ ۱MB و ساخت data-URL) — 0.6.0
 │  ├─ db/                  base.py (engine/session)، models.py (records, chunks)،
 │  │                       messaging_models.py (conversations, messages, summary_requests)، messaging_repository.py (MessagingRepository)،
 │  │                       repository.py (تنها جای SQL پایگاه دانش)، ingest_models.py + ingest_repository.py (صف ingestion و outbox callback)
@@ -112,6 +120,8 @@ persian-ai-backend/
 │  ├─ inspect_db.py        خواندن مستقیم SQLite (رکوردها و متن چانک‌ها)؛ `_client.py` کمکی
 │  ├─ generate_secret.py   ساخت راز (`--write` داخل .env می‌نویسد)
 │  └─ sign_request.py      کلاینت مرجع برای تست دستی با امضا
+├─ docs/
+│  └─ LIVE_TOOLS_API.md    راهنمای فنی پیاده‌سازی دو API سمت سایت (محصولات + ابزارهای داینامیک) — 0.6.0
 ├─ deploy/                 nginx.conf.example، firewall-ufw.sh، ai-backend.service
 ├─ tests/                  pytest (امنیت + API + چانکینگ + پایگاه دانش + پیام‌رسانی + تاریخچه/خلاصه‌سازی)
 └─ data/  uploads/  logs/  (اجرا-زمان؛ داخل git نیستند)
@@ -237,6 +247,21 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `CALLBACK_BREAKER_FAILURES` / `CALLBACK_PING_INTERVAL_SECONDS` | `5` / `300` | بعد از N شکست پیاپی فقط ping دوره‌ای تا سایت برگردد |
 | `CALLBACK_WORKER_POLL_SECONDS` | `2` | فاصلهٔ حلقهٔ worker تحویل |
 
+**جدید در 0.5.0** (پاسخ واقعی؛ جزئیات: بخش «تولید پاسخ واقعی»):
+
+| کلید | پیش‌فرض | توضیح |
+|---|---|---|
+| `DEFAULT_TONE` | `formal` | لحنِ پیش‌فرض وقتی کلاینت `tone` نفرستد (`formal` یا `friendly`) |
+| `TONE_FORMAL` / `TONE_FRIENDLY` | متن انگلیسی داخل `Settings` | متن لحن که داخل پرامپت می‌رود؛ در `.env` یک‌خطی و داخل کوتیشن |
+| `RAG_TOP_K` | `3` | تعداد چانک برتر که به پرامپت اضافه می‌شود |
+| `RAG_MIN_SCORE` | `0` | حداقل شباهت کسینوسی (۰ = خاموش)؛ با لاگ `rag.retrieved` تنظیم شود |
+| `ANSWER_MAX_OUTPUT_TOKENS` | `2000` | سقف خروجی (مدل‌های reasoning استدلال پنهان را هم از همین سقف مصرف می‌کنند) |
+| `ANSWER_LLM_TIMEOUT` / `ANSWER_LLM_MAX_RETRIES` | `90` / `2` | timeout و تلاش مجدد SDK برای هر فراخوانی LLM |
+| `ANSWER_RESPONSE_FORMAT` | `json_schema` | `json_schema` (OpenAI) \| `json_object` (بسیاری از گیت‌وی‌ها) \| `none` |
+| `ANSWER_REASONING_EFFORT` | خالی | اختیاری، فقط مدل‌های reasoning: `minimal\|low\|medium\|high` |
+
+اگر `OPENAI_API_KEY` خالی باشد همچنان پاسخ ثابتِ آزمایشی داده می‌شود (هشدار در لاگ استارت).
+
 **جدید در 0.3.7:**
 
 | کلید | پیش‌فرض | توضیح |
@@ -247,6 +272,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `ANSWER_CALLBACK_MAX_ATTEMPTS` / `ANSWER_CALLBACK_TTL_SECONDS` | `4` / `600` | سقف ارسال ناموفق وب‌هوک پاسخ / حداکثر عمر آن (ثانیه)، بعد رها می‌شود |
 | `AI_ALLOWED_MODELS` | `gpt-5-4` | فهرست نام مدل‌های مجاز با کاما (همان کلیدهای «سرویس هوش مصنوعی» افزونه). **اولی پیش‌فرض است**: اگر افزونه `model` نفرستد یا خارج از فهرست باشد اولی استفاده می‌شود |
 
+<<<<<<< HEAD
 **جدید در 0.4.0** (فایل‌های پایگاه دانش؛ لینک دانلود را افزونه می‌سازد، بخش «متن‌ها و فایل‌ها»):
 
 | کلید | پیش‌فرض | توضیح |
@@ -259,6 +285,28 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `FILES_MAX_EXTRACTED_CHARS` | `3000000` | سقف متن استخراج‌شده |
 
 دانلود فقط از میزبان `PLUGIN_BASE_URL` (یا اولین سایت ثبت‌شده) و با `CALLBACK_ALLOW_PRIVATE_NETWORKS=false` فقط https/پورت 443 و 8443 و IP عمومی.
+=======
+**جدید در 0.6.0** (حلقهٔ AI + ابزارها + ویس + تصویر؛ جزئیات: بخش «حلقهٔ AI، ابزارها، ویس و تصویر»):
+
+| کلید | پیش‌فرض | توضیح |
+|---|---|---|
+| `ANSWER_MAX_LLM_ROUNDS` | `2` | **K**: حداکثر تعداد فراخوانی AI برای هر پیام. دور آخر هرگز ابزار ندارد و حتماً پاسخ نهایی تولید می‌کند. `1` = ابزارها خاموش |
+| `TOOLS_PRODUCTS_PATH` | `/wp-json/paia/v1/live/products` | مسیر API محصولات روی سایت (میزبان = `PLUGIN_BASE_URL`) |
+| `TOOLS_DYNAMIC_PATH` | `/wp-json/paia/v1/live/tool` | مسیر API ثابت ابزارهای داینامیک |
+| `TOOLS_TIMEOUT` | `10` | timeout هر فراخوانی API سایت (ثانیه) |
+| `TOOLS_MAX_CALLS_PER_ROUND` | `4` | حداکثر فراخوانی ابزار در هر دور (بقیه «اجرا نشد» برمی‌گردند) |
+| `TOOLS_MAX_PRODUCTS_PER_CALL` | `5` | حداکثر محصول در یک فراخوانی ابزار محصول |
+| `TOOLS_MAX_DYNAMIC` | `30` | حداکثر ابزار داینامیکِ پذیرفته‌شده در هر درخواست |
+| `TOOLS_MAX_RESULT_CHARS` | `12000` | نتیجهٔ بلندتر از این بریده می‌شود |
+| `STT_MODEL` / `STT_LANGUAGE` | `whisper-1` / `fa` | مدل و زبان پیش‌فرض تبدیل ویس به متن (زبان خالی = تشخیص خودکار) |
+| `STT_TIMEOUT` | `120` | timeout تبدیل ویس |
+| `IMAGE_MAX_KB` | `1024` | عکسِ بزرگ‌تر بازکدگذاری (JPEG) و کوچک می‌شود تا از این حجم بیشتر نباشد |
+| `IMAGE_DETAIL` | `auto` | `auto\|low\|high` — پارامتر detail بینایی OpenAI |
+
+وابستگی جدید: **`Pillow`** (کوچک‌سازی عکس) — `pip install Pillow` و در `requirements.txt` اضافه شود. (برای ویس‌های amr/aac اختیاری: ffmpeg روی سرور.)
+
+مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`.
+>>>>>>> answer_generation
 
 ## ۶. فرمت یکنواخت خطا
 
@@ -283,10 +331,16 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `text:*` و `file:*` روی `POST/PUT/DELETE /v1/knowledge/records` | امضادار | ✅ 0.4.0 | **همان endpointهای صف‌دار** (endpoint جدا ندارند؛ `/texts` و `/files` حذف شدند). `text:*` ← چانک‌های افزونه (`data.chunks`) نگه داشته می‌شود؛ `file:*` ← `data.download.url` (لینک امضادار) ← دانلود ← استخراج ← چانک. بخش «متن‌ها و فایل‌ها» |
 | `GET /v1/storage` | امضادار | ✅ 0.4.0 | `{used_bytes, max_bytes, free_bytes, files, max_file_bytes}` از فایل‌های پایگاه دانش |
 | `POST /v1/chat/reply` | امضادار | ⏳ 0.5.0 | پیام(ها)+پیوست+tools ← پاسخ/پیشنهادها/ویس/پیوست |
-| `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. با `generate_ai_answer=true` روی پیام کاربر، پاسخ (فعلاً ثابت) هم تولید و ذخیره و برگردانده می‌شود. فقط وقتی `generate_ai_answer=true`: فیلدهای `model`، `tone` (`formal|friendly`)، `site{title,description}`، `page{url,slug,title,type}` و `callback`؛ با `callback` پاسخ **غیرهمزمان** است (`ai_answer.status="queued"` + `job_id`) و بعداً با وب‌هوک `kind:"chat_answer"` می‌آید (بخش «پاسخ غیرهمزمان»)؛ بدون `callback` پاسخ داخل همان درخواست ساخته می‌شود؛ بخش «پیام‌رسانی» و «تاریخچه، تولید پاسخ و خلاصه‌سازی» |
+| `POST /v1/chat/messages` | امضادار | ✅ 0.3.4 | ثبت پیام (`user\|admin\|assistant`)؛ ساخت/یافتن گفتگوی یکتای کاربر؛ ذخیرهٔ فوری؛ دانلود عکس/ویس. با `generate_ai_answer=true` روی پیام کاربر، پاسخ (RAG + LLM؛ بدون `OPENAI_API_KEY` ثابت) هم تولید و ذخیره و برگردانده می‌شود. فقط وقتی `generate_ai_answer=true`: فیلدهای `model`، `tone` (`formal|friendly`)، `site{title,description}`، `page{url,slug,title,type}`، `notes` (یادداشت‌های مهم صاحب سایت، تا ۱۵۰۰ نویسه؛ بلندتر بریده می‌شود، خطا نیست) و `callback`؛ همه اختیاری‌اند؛ با `callback` پاسخ **غیرهمزمان** است (`ai_answer.status="queued"` + `job_id`) و بعداً با وب‌هوک `kind:"chat_answer"` می‌آید (بخش «پاسخ غیرهمزمان»)؛ بدون `callback` پاسخ داخل همان درخواست ساخته می‌شود؛ بخش «پیام‌رسانی» و «تاریخچه، تولید پاسخ و خلاصه‌سازی» |
 | `DELETE /v1/conversations/{conversation_id}/messages/{message_id}` | امضادار | ✅ 0.3.4 | حذف یک پیام (+ فایل پیوست) |
 | `DELETE /v1/conversations/{conversation_id}/messages` | امضادار | ✅ 0.3.4 | حذف همهٔ پیام‌های گفتگو (+ فایل‌ها)؛ خود گفتگو می‌ماند |
 | `GET /v1/conversations/{id}/messages` | امضادار | ⏳ | تاریخچه (تابع `list_messages` در repository آماده است) |
+
+**فیلدهای جدید `POST /v1/chat/messages` در 0.6.0** (فقط وقتی `generate_ai_answer=true`؛ همراه هر پیام):
+- `live_product_datas`: آرایه‌ای از `"price"` و/یا `"stock"` (یا آبجکت `{"price":true,"stock":false}`). **نبود/خالی = سایت داده لایو محصول ندارد ← ابزار محصول اصلاً به AI داده نمی‌شود.**
+- `tools`: `[{"id":0,"title":"خدمات نصب کولر","description":"اگر درباره هزینه … پرسیدند …"}, …]` (کلید `disciprtion` افزونه هم پذیرفته می‌شود). هر مورد = یک ابزار داینامیک.
+- `page.id`: (اختیاری) شناسهٔ نوشتهٔ وردپرس صفحه؛ در صفحهٔ محصول = شناسهٔ محصول.
+- در پاسخ، `message.transcript` (متن ویس) پر می‌شود.
 
 اضافه‌کردن endpoint: فایل جدید در `app/api/v1/`، ثبت در `app/api/router.py` زیر `v1_router` (احراز هویت خودکار اعمال می‌شود)، schema در `app/schemas/`، منطق در `app/services/`.
 
@@ -294,12 +348,21 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 - [x] **0.1.0** — ساختار، تنظیمات، لاگینگ، HMAC، `/health` و `/v1/ping`، تست‌ها، `run.bat`، فایل‌های دیپلوی
 - [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصه‌سازی: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ✅ آماده‌سازی تاریخچه، کلید `generate_ai_answer`، پاسخ ثابت، خلاصه‌سازی بر پایهٔ توکن با worker (0.3.5)؛ ⏳ Alembic، endpoint تاریخچه
+<<<<<<< HEAD
 - [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ✅ متن‌های دستی و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
 - [x] **0.4.0** — متن‌های دستی و فایل‌ها از صف: ✅ `text:*` (چانک‌های افزونه)، ✅ `file:*` (لینک امضادار ← دانلود ← PDF/DOCX/TXT ← چانک)، ✅ سقف ۲۰۰MB + `/v1/storage`، ✅ حذف فایل دانلودشده هنگام حذف رکورد. (`.doc` قدیمی پشتیبانی نمی‌شود)
 - [ ] **0.5.0** — تولید پاسخ (سازوکار `model`/`tone`/`site`/`page`/پاسخ غیرهمزمان و `PromptContext` از 0.3.7 آماده است؛ فقط LLM واقعی مانده): RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
 - [ ] **0.6.0** — ابزارها (tools) و callback امضادار به افزونه برای داده‌های زنده
 - [ ] **0.7.0** — ویس: STT برای ورودی، TTS برای پاسخ
 - [ ] **0.8.0** — تصویر: تحلیل عکس ورودی و ارسال عکس به‌عنوان پیوست پاسخ
+=======
+- [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ⏳ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
+- [~] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه: ✅ زیرساخت worker/صف/callback (0.3.6؛ برای هر `id` با هر پیشوند کار می‌کند)؛ ⏳ endpointهای `text:*` و `file:*`، دانلود و استخراج متن
+- [x] **0.5.0** — ✅ پیاده‌شده (بخش «تولید پاسخ واقعی»؛ هنوز بدون tools/ویس/تصویر). متن قبلی: تولید پاسخ (سازوکار `model`/`tone`/`site`/`page`/پاسخ غیرهمزمان و `PromptContext` از 0.3.7 آماده است؛ فقط LLM واقعی مانده): RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
+- [x] **0.6.0** — ✅ ابزارهای داده زنده (محصولات + داینامیک سایت) داخل حلقهٔ حداکثر K فراخوانی AI؛ API سمت سایت: `docs/LIVE_TOOLS_API.md`
+- [~] **0.7.0** — ویس: ✅ STT ورودی (whisper-1، فارسی) در 0.6.0؛ ⏳ TTS برای پاسخ
+- [~] **0.8.0** — تصویر: ✅ عکس ورودی (کوچک‌سازی ≤ ۱MB + ارسال به مدل) در 0.6.0؛ ⏳ ارسال عکس به‌عنوان پیوست پاسخ
+>>>>>>> answer_generation
 
 ## ۹. طراحی مراحل بعد (پیشنهاد معماری — پیش از پیاده‌سازی هر مرحله باید تأیید شود)
 
@@ -321,7 +384,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | جدول | ستون‌ها |
 |---|---|
 | `conversations` | `id`، `owner_key` (unique)، `visitor_uid`، `wp_user_id`، `created_at`، `updated_at`، `summary`، `summarized_upto_message_id`، `summary_updated_at` |
-| `messages` | `id`، `conversation_id` (FK، cascade)، `visitor_uid`، `wp_user_id`، `role`، `content`، `attachment_type` (`image\|voice`)، `attachment_url`، `attachment_path`، `suggestions` (JSON، حداکثر ۴)، `admin_user_id`، `admin_name`، `created_at` |
+| `messages` | `id`، `conversation_id` (FK، cascade)، `visitor_uid`، `wp_user_id`، `role`، `content`، `attachment_type` (`image\|voice`)، `attachment_url`، `attachment_path`، `suggestions` (JSON، حداکثر ۴)، `admin_user_id`، `admin_name`، `transcript` (0.6.0؛ متن ویس)، `created_at` |
 
 ستون‌های خلاصه (`summary`، `summarized_upto_message_id`، `summary_updated_at`) روی `conversations` و جدول `summary_requests` در 0.3.5 اضافه شدند. چون Alembic هنوز نیست، `Database.init()` ستون‌های nullableِ جدید را روی جدول‌های موجود با `ALTER TABLE ... ADD COLUMN` اضافه می‌کند (`_add_missing_columns` در `app/db/base.py`)؛ دیتابیس قدیمی نیازی به پاک‌شدن ندارد.
 
@@ -376,6 +439,26 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 **پاک‌کردن:** `DELETE …/messages` (پاک‌کردن کل گفتگو) خلاصه، مرز آن و همهٔ `summary_requests` را هم پاک می‌کند. حذف *یک* پیام خلاصهٔ موجود را تغییر نمی‌دهد.
 
 **لاگ‌ها** (بدون متن): `messaging.answer_generated` (توکن‌ها و `needs_summary`)، `messaging.answer_failed`، `summary.enqueued` / `enqueue_skipped` / `enqueue_failed`، `summary.done` (نتیجه: `saved|already_covered|nothing_to_summarize|conversation_deleted|discarded_*`)، `summary.retry`، `summary.failed`، `summarizer.request` (توکن‌های مصرفی).
+
+### تولید پاسخ واقعی (پیاده‌شده در 0.5.0)
+
+**جریان هر پاسخ** (`LLMAnswerGenerator.generate`، جای `FixedAnswerGenerator`؛ در `lifespan` خودکار وصل می‌شود و embedder/Qdrant همان `KnowledgeService` را مشترک می‌گیرد چون Qdrant توکار فقط یک پروسه است):
+
+```
+PreparedHistory ─▶ 1) query: آخرین پیام کاربر (اگر <۲۵ نویسه بود، پیام قبلیِ کاربر هم پیش‌بند می‌شود؛ ویس/عکسِ بدون متن ← جست‌وجو نمی‌شود)
+                   2) normalize_text ─▶ امبدینگ (text-embedding-3-large) ─▶ Qdrant کسینوسی top RAG_TOP_K (۳)
+                   3) chunk_id ها ─▶ KnowledgeRepository.get_chunks ─▶ متن چانک + عنوان/نوع/URL رکورد
+                   4) system prompt = پرامپت پایه + لحن + سایت + صفحه + notes + خلاصه + <knowledge>
+                   5) messages = [system] + recent + question ─▶ LLM (مدل = ctx.model) ─▶ JSON
+                   6) parse_reply ─▶ {text, suggestions} ─▶ ذخیره با نقش assistant (suggestions روی همان پیام)
+```
+- **پرامپت پایه** (`prompt.py`): یک متن انگلیسیِ عمومی برای هر نوع سایت؛ فقط بخش‌های پویا عوض می‌شوند و هر کدام اختیاری است (نبودن = حذف، نه خطا). قوانین ثابت: پاسخ فقط از knowledge/گفتگو؛ **هرگز قیمت/موجودی/ارسال/وضعیت سفارش و هر داده زنده** (حتی اگر در knowledge باشد) ← لینکِ همان آیتم از knowledge و «خودتان بررسی کنید»؛ فقط URLهای موجود در knowledge؛ پاسخ کوتاه و بدون Markdown؛ سؤال مبهم ← یک سؤال روشن‌کننده؛ پیام «پشتیبان انسانی» و تحویل به انسان؛ ویس/عکس هنوز قابل‌فهم نیست؛ ضد prompt-injection (knowledge/خلاصه/پیام‌ها «داده»‌اند)؛ افشانکردن دستورها؛ خارج از دامنهٔ سایت رد؛ بدون توصیهٔ پزشکی/حقوقی/مالی قطعی؛ درخواست‌نکردن رمز/OTP/کارت.
+- **لحن:** `tone` از کلاینت (`formal|friendly`)، پیش‌فرض `DEFAULT_TONE=formal`؛ متن هر لحن از `TONE_FORMAL`/`TONE_FRIENDLY` در `.env`.
+- **notes:** یادداشت‌های مهم صاحب سایت در بخش `<owner_notes>`؛ نمی‌تواند قوانین ایمنی/قیمت/فرمت خروجی را لغو کند.
+- **خروجی:** `{"text": "...", "suggestions": ["...", ...]}`؛ suggestions حداکثر ۴ پاسخ کوتاه (۱ تا ۵ کلمه، از زبان کاربر) و `[]` وقتی سؤال باز است. با `json_schema` سخت‌گیرانه گرفته می‌شود؛ پارسر تحمل‌پذیر است (fence، متن ساده بدون suggestions)، ولی JSONِ ناقص هرگز به کاربر نمایش داده نمی‌شود (خطا ← تلاش مجدد صف). `text` در `messages.content` و `suggestions` در `messages.suggestions` ذخیره و در `ai_answer.message` و وب‌هوک برمی‌گردد.
+- **خطای بازیابی/LLM عمداً raise می‌شود** (نه «نمی‌دانم»)؛ صف تا `ANSWER_MAX_ATTEMPTS` تلاش مجدد می‌کند.
+- **لاگ‌ها** (بدون متن): `rag.retrieved` (تعداد، امتیازها، chunk_idها، زمان)، `rag.out_of_sync`، `answer.llm` (مدل، توکن‌ها، finish_reason، تعداد چانک).
+- **محدودیت‌های شناخته‌شده:** فیلتر سایت (`site_id`) نیست؛ ~~ویس/عکس هنوز به مدل داده نمی‌شود~~ (از 0.6.0 داده می‌شود)؛ `RAG_MIN_SCORE` پیش‌فرض خاموش است (با لاگ امتیازها تنظیم شود)؛ ابزارهای زنده 0.6.0.
 
 ### پایگاه دانش: چانکینگ ← امبدینگ ← Qdrant (پیاده‌شده در 0.3.0)
 
@@ -525,12 +608,42 @@ POST records ─▶ 200 فوری ─▶ worker: بررسی لینک ─▶ دا�
 - **خطاها** (`error_code`، در callback `failed` + `error`): `unsupported_extension`، `invalid_download_url`، `download_link_expired`، `download_forbidden` (سایت 401/403)، `file_not_found`، `download_failed` (5xx/شبکه: تلاش مجدد)، `file_too_large`، `storage_quota_exceeded`، `invalid_file`، `checksum_mismatch`، `extraction_failed`، `no_text_extracted`، `extracted_text_too_large`.
 - **`GET /v1/storage`** مصرف را نشان می‌دهد.
 
-### ابزارها (0.6.0)
-- لیست ابزارها در هر پیام از کلاینت می‌آید (`name, description, parameters`)؛ در پرامپت/function-calling به مدل داده می‌شود.
-- اجرای ابزار = درخواست امضادار از بک‌اند به افزونه (جهت معکوس؛ همان الگوریتم HMAC، ترجیحاً با رازِ جدا `PLUGIN_CALLBACK_SECRET`) روی یک endpoint افزونه؛ نتیجه به مدل برمی‌گردد و تولید پاسخ ادامه می‌یابد. **آدرس callback از درخواست کلاینت خوانده نمی‌شود**؛ فقط از تنظیمات سرور.
-- سقف تعداد/زمان فراخوانی ابزار در هر پاسخ.
+### ابزارها (0.6.0) — پیاده‌شده؛ جزئیات در بخش «حلقهٔ AI، ابزارها، ویس و تصویر» پایین‌تر
+(طرح اولیه — «ابزارها با `name/description/parameters` از کلاینت» — کنار گذاشته شد: کلاینت فقط **مجوزها و فهرست ابزارهای داینامیک** را می‌فرستد؛ تعریف function را سرور می‌سازد. آدرس API از درخواست خوانده نمی‌شود، فقط `PLUGIN_BASE_URL` + مسیرهای `.env`.)
 
-### ویس و تصویر (0.7.0 / 0.8.0)
+### حلقهٔ AI، ابزارها، ویس و تصویر (پیاده‌شده در 0.6.0)
+
+**حلقهٔ فراخوانی AI** (`LLMAnswerGenerator.generate`؛ `K = ANSWER_MAX_LLM_ROUNDS`، پیش‌فرض ۲):
+
+```
+RAG ─▶ ToolKit.build(live_product_datas, tools) ─▶ system prompt ─▶ messages (+ عکس)
+for دور in 1..K:
+    دور < K  : مدل می‌تواند tool_calls بدهد (tool_choice=auto)
+               ├ tool_call ندارد  ─▶ پاسخ نهایی (پایان؛ حالت رایج = فقط یک فراخوانی)
+               └ tool_call دارد   ─▶ اجرای همزمان ابزارها (API سایت) ─▶ نتیجه‌ها با نقش `tool` به messages ─▶ دور بعد
+    دور = K  : tool_choice=none + پیام سیستمی FINAL_ROUND_NOTICE («دیگر ابزار نداری؛ فقط از داشته‌هایت پاسخ بده، چیزی از خودت درنیاور»)
+               ─▶ پاسخ نهایی همیشه تولید می‌شود
+```
+- ابزار فقط وقتی داده می‌شود که `K ≥ 2` و `PLUGIN_BASE_URL` تنظیم باشد و سایت مجوز/ابزار فرستاده باشد؛ وگرنه رفتار 0.5.0 (یک فراخوانی، بدون ابزار).
+- **خطای ابزار هرگز پاسخ را خراب نمی‌کند:** متن `ERROR: …` به‌عنوان نتیجهٔ ابزار به مدل برمی‌گردد و مدل صادقانه می‌گوید اطلاعات ندارد. (خطای خود LLM مثل قبل raise می‌شود و صف پاسخ تلاش مجدد می‌کند.)
+- لاگ‌ها (بدون متن): `answer.llm … round=1/2 … tool_calls=N`، `tools.call name= status= chars= ms=`، `tools.site_ok|site_status|site_unreachable`، `answer.tools_used`، `tools.disabled reason=PLUGIN_BASE_URL_empty`.
+
+**دو دستهٔ ابزار** (`app/services/tools/catalog.py`):
+
+| ابزار | نام function | چه وقت به AI داده می‌شود | آرگومان | API سایت |
+|---|---|---|---|---|
+| **پیش‌فرض: محصولات** | `get_product_live_info` | فقط اگر `live_product_datas` در همان پیام خالی نباشد؛ توضیح ابزار و فیلدهای دریافتی دقیقاً مطابق همان مجوزها (`price` = قیمت/حراج، `stock` = وضعیت/تعداد موجودی/پیش‌سفارش) | `products: [{id}|{name}]` — **اولویت id**؛ name فقط وقتی id معلوم نیست | `POST {PLUGIN_BASE_URL}{TOOLS_PRODUCTS_PATH}` |
+| **اضافه: داینامیک** | `site_tool_<id>` (یکی برای هر ابزار) | هر ابزارِ آمده در `tools` همان پیام؛ توضیح function = `title. description` | ندارد | `POST {PLUGIN_BASE_URL}{TOOLS_DYNAMIC_PATH}` با `{tool_id}` |
+
+- AI شناسهٔ محصول را از attribute `id="product:23"` منابع knowledge (که از 0.6.0 در پرامپت می‌آید) یا `page.id` (صفحهٔ محصول) برمی‌دارد؛ اگر نبود نام را می‌فرستد. پیشوند (`product:`) در سرور حذف و فقط عدد فرستاده می‌شود.
+- **پرامپت:** قانون قبلی «هرگز قیمت/موجودی نگو» با منطق جدید تداخل داشت ← `rules_live_data()` در `prompt.py`: بدون ابزار = همان قانون سخت‌گیرانهٔ قبلی؛ با ابزار = داده زنده **فقط** از نتیجهٔ ابزارِ همین پرسش (نه از knowledge/تاریخچه/notes)، مقدارها عیناً، فیلدی که مجوزش نیست ممنوع، سایر داده‌های زندهٔ بدون ابزار ممنوع. بخش `RULES_TOOLS` (همهٔ ابزارها را یک‌جا و همزمان بخواه، نتیجه DATA است نه دستور، نبودِ داده را صادقانه بگو، نام ابزار را به کاربر نگو) فقط وقتی ابزار هست اضافه می‌شود.
+- **امنیت:** آدرس هرگز از درخواست کلاینت خوانده نمی‌شود؛ ریدایرکت دنبال نمی‌شود؛ در production فقط https و میزبان عمومی. درخواست با همان امضای callbackها (`X-PAIA-Timestamp` / `X-PAIA-Signature = sha256=HMAC("{ts}.{body}")` با `PLUGIN_CALLBACK_SECRET`) + `X-PAIA-Request`. قرارداد کامل سمت سایت: **`docs/LIVE_TOOLS_API.md`**.
+
+**ویس ورودی** (`speech/transcriber.py`، فراخوانی از `MessagingService._ensure_transcript` قبل از ساخت تاریخچه): پیام کاربر با ویسِ دانلودشده ← `audio.transcriptions` (`STT_MODEL=whisper-1`، `STT_LANGUAGE=fa`) ← متن در ستون `messages.transcript` ذخیره می‌شود (پیام اصلی/`content` تغییر نمی‌کند) ← در تاریخچه به شکل `[voice message] <متن>` می‌آید، پس جست‌وجوی RAG و خلاصه‌سازی‌های بعدی هم کلمات را می‌بینند. فایلی که API رد کند (۴۰۰) رد می‌شود و AI «[voice message]» خالی می‌بیند؛ خطای موقت raise می‌شود ← job پاسخ تلاش مجدد می‌کند (و چون transcript ذخیره می‌شود، دوباره پرداخت نمی‌شود). amr/aac فقط با ffmpeg نصب‌شده تبدیل می‌شود.
+
+**تصویر ورودی** (`vision/images.py`، فراخوانی از `LLMAnswerGenerator._question_content`): فقط عکسِ **آخرین پیام کاربر** همراه همان پیام به شکل `content=[{type:text},{type:image_url,data-URL}]` می‌رود. فایل ≤ `IMAGE_MAX_KB` (۱MB) و غیر-GIF بدون تغییر؛ وگرنه با Pillow: چرخش EXIF، تخت‌کردن شفافیت روی سفید، JPEG با کیفیت ۸۵→۴۵ و در صورت نیاز کاهش ضلع بلندتر (از ۲۰۴۸ تا ۳۲۰) تا حجم جا شود. عکس‌های قدیمی‌تر فقط با برچسب `[image]` می‌مانند. اگر باز نشد (فایل نیست/Pillow نصب نیست) متن `[image - could not be opened]` می‌شود.
+
+### ویس و تصویر (0.7.0 / 0.8.0) — ورودی‌ها در 0.6.0 پیاده شد
 - ویس ورودی: دانلود ← STT ← متن وارد همان مسیر پاسخ می‌شود. ویس خروجی: TTS ← فایل موقت + لینک دانلود کوتاه‌عمر امضادار که افزونه برمی‌دارد.
 - تصویر ورودی: دانلود ← تحلیل با مدل بینایی ← توضیح به زمینهٔ پاسخ اضافه می‌شود. تصویر خروجی: به‌صورت `attachments[]` در پاسخ.
 
@@ -623,6 +736,7 @@ POST records ─▶ 200 فوری ─▶ worker: بررسی لینک ─▶ دا�
 - تست: ۱۵۹ تست pytest سبز (جدید: `tests/test_ingest_queue.py` صف/تلاش مجدد/اعتبارسنجی و قفل callback؛ `tests/test_callback_delivery.py` دسته‌بندی، امضا، backoff، breaker، 401/404/413، سایت کند، سقف هم‌زمانی، ترنسپورت واقعی روی سرور محلی)؛ `test_knowledge_api.py` با صف تطبیق داده شد. `ruff check .` تمیز. **اجرا نشده:** ارسال به یک سایت وردپرس واقعی با HTTPS، `run.bat` روی ویندوز، OpenAI و Qdrant واقعی.
 - تغییر رفتار (شکستن سازگاری): پاسخ POST/PUT/DELETE دیگر `confirmed_ids/results` ندارد؛ افزونه باید با 200 `ai_status=1` بزند و نتیجه را از callback (یا `/v1/jobs/status`) بگیرد.
 
+<<<<<<< HEAD
 ### 0.4.0
 - **`text:*` از صف:** `ContentService` (`services/ingestion/content.py`) را `IngestProcessor` برای هر job با پیشوند `text` صدا می‌زند: چانک‌های افزونه نگه داشته می‌شوند و فقط چانک بزرگ‌تر از `CHUNK_MAX_TOKENS` دوباره تقسیم می‌شود. `render_record` شاخهٔ `text` گرفت (قبلاً مثل مقاله رندر می‌شد). متن بدون چانک/متن ← 422 هنگام ثبت.
 - **`file:*` از صف:** افزونه در `data.download` یک **لینک امضادار کوتاه‌عمر** می‌فرستد (`url`, `expires`)؛ worker آن را با `files/download.py` دانلود می‌کند (SSRF: https، هاست قفل‌شدهٔ سایت، DNS بررسی‌شده و اتصال به IP پین‌شده، بدون redirect؛ سقف `FILES_MAX_MB` و `UPLOADS_MAX_TOTAL_MB` هم از حجم اعلامی و هم هنگام استریم)، `sha256` را با اعلامیِ افزونه تطبیق می‌دهد، با `extractors/` متن می‌گیرد و با `doc_chunker.py` چانک می‌کند. لینک هیچ‌جا ذخیره نمی‌شود. فایل و عنوان یکسان ← `unchanged` بدون دانلود. حذف/جایگزینی رکورد پوشهٔ دانلودشده را هم پاک می‌کند.
@@ -631,3 +745,22 @@ POST records ─▶ 200 فوری ─▶ worker: بررسی لینک ─▶ دا�
 - تنظیمات جدید `.env`: `UPLOADS_MAX_TOTAL_MB`، `FILES_MAX_MB`، `FILES_KEEP_ORIGINAL`، `FILES_CONNECT_TIMEOUT`، `FILES_READ_TIMEOUT`، `FILES_DOWNLOAD_RETRIES`، `FILES_MAX_EXTRACTED_CHARS` (جدول بخش ۵ + `.env.example`). `requirements.txt`: `pdfplumber`، `lxml`. نسخه ← `0.4.0`.
 - **`run.bat` تغییر کرد:** worker جدید ندارد، ولی بررسی وابستگی‌ها حالا `pdfplumber` و `lxml` را هم می‌آزماید تا نصب‌های قبلی خودکار `pip install -r requirements.txt` بزنند.
 - تست: همهٔ pytest سبز (۱۷۹ تست؛ جدید `tests/test_content_files.py`: متن با چانک‌های افزونه و تقسیم چانک بزرگ، دانلود با لینک امضادار از یک سایت محلی، استخراج، ایندکس، `unchanged` بدون دانلود، حذف فایل، سقف ۱MB، لینک منقضی، 403 سایت، checksum، PDF جعلی، `.doc` و هاست غریبه)؛ `ruff check .` تمیز؛ استخراج واقعی DOCX و PDF دستی امتحان شد. **اجرا نشده:** دانلود از یک سایت وردپرس واقعی روی HTTPS (آزمون با سرور HTTP محلی و حالت توسعه)، OpenAI و Qdrant واقعی، `run.bat` روی ویندوز، PDF اسکن‌شده/فارسیِ پیچیده.
+=======
+### 0.5.0
+- **پاسخ واقعی:** `LLMAnswerGenerator` (RAG top-۳ + پرامپت پایهٔ پویا + تاریخچه/خلاصه + LLM) جای پاسخ ثابت؛ خروجی JSON `{text, suggestions}`؛ `suggestions` روی پیام assistant ذخیره می‌شود. `AnswerGenerator.generate` حالا `GeneratedAnswer` برمی‌گرداند (`str` هم پذیرفته می‌شود).
+- فایل‌های جدید: `conversation/prompt.py` (بازنویسی)، `retrieval.py`، `llm_answer.py`، `reply_format.py`؛ `VectorStore.search`؛ فیلد اختیاری `notes` در `POST /v1/chat/messages`؛ اتصال خودکار در `lifespan` (`_attach_llm_generator`).
+- تنظیمات جدید `.env` (جدول بخش ۵): `DEFAULT_TONE`، `TONE_FORMAL`، `TONE_FRIENDLY`، `RAG_*`، `ANSWER_MAX_OUTPUT_TOKENS`، `ANSWER_LLM_*`، `ANSWER_RESPONSE_FORMAT`، `ANSWER_REASONING_EFFORT`. نسخه ← `0.5.0`.
+- **`run.bat`:** تغییری لازم نبود (حلقهٔ پاسخ داخل API است؛ worker و وابستگی جدیدی نیامد).
+- تست: `tests/test_llm_answer.py` (پرامپت و بخش‌های اختیاری، پارسر، پرس‌وجوی کوتاه، retriever، generator با OpenAI/Qdrant جعلی، ذخیرهٔ suggestions). **اجرا نشد:** محیط توسعه شبکه/پکیج نداشت؛ فقط compile، پارسر و سازندهٔ پرامپت (با stub) آزموده شد. قبل از استفاده `run.bat test` و `ruff check .` را اجرا کنید. اجرا نشده: OpenAI/Qdrant واقعی و کیفیت پاسخ فارسی.
+
+### 0.6.0
+- **حلقهٔ AI:** `LLMAnswerGenerator.generate` حالا حداکثر `ANSWER_MAX_LLM_ROUNDS` (K، پیش‌فرض ۲) بار AI را صدا می‌زند؛ دورِ اول می‌تواند ابزار بخواهد، دورِ آخر بدون ابزار و با پیام «همین حالا پاسخ بده، از خودت درنیاور» پاسخ نهایی می‌دهد.
+- **ابزارها:** پیش‌فرض «محصولات» (`get_product_live_info`؛ قیمت/حراج و موجودی/تعداد/پیش‌سفارش؛ فقط با `live_product_datas`) و ابزارهای داینامیک مدیر سایت (`site_tool_<id>`؛ فهرست `tools` همراه هر پیام). فراخوانی امضادار به سایت با `SiteToolClient`؛ دو API سایت و قرارداد آن‌ها در `docs/LIVE_TOOLS_API.md`.
+- **ویس:** STT با `whisper-1` و زبان `fa` (قابل‌تغییر در `.env`)، ذخیرهٔ متن در `messages.transcript` (ستون جدید؛ با `ALTER TABLE` خودکار)، نمایش در `MessageOut.transcript`.
+- **تصویر:** عکس آخرین پیام کاربر (کوچک‌شده تا ≤ ۱MB با Pillow) همراه پیام به مدل داده می‌شود.
+- **پرامپت انگلیسی:** `RULES_LIVE_DATA` با منطق ابزار هماهنگ شد (`rules_live_data()`)، `RULES_TOOLS` و `FINAL_ROUND_NOTICE` اضافه شد، `RULES_ATTACHMENTS` بازنویسی شد (ویس = متن رونویسی‌شده، عکس = قابل‌دیدن)، attribute `id` به منابع knowledge و `id` صفحه به «Current page» اضافه شد.
+- فیلدهای جدید درخواست: `live_product_datas`، `tools`، `page.id`. `PromptContext` فیلدهای `page_id`، `live_product_datas`، `tools` را گرفت (jobهای صفِ قدیمی بدون این فیلدها سالم کار می‌کنند).
+- تنظیمات جدید `.env`: `ANSWER_MAX_LLM_ROUNDS`، `TOOLS_*`، `STT_*`، `IMAGE_*` (جدول بخش ۵). وابستگی جدید: `Pillow`. نسخه ← `0.6.0`.
+- **`run.bat`:** تغییری لازم نبود (worker/سرویس جدیدی نیامد). فقط `Pillow` باید نصب شود (`requirements.txt` در zip این نوبت نبود؛ `Pillow>=10` را خودتان به آن اضافه کنید).
+- تست: طبق دستور، هیچ تستی نوشته/اجرا نشد (فقط compile).
+>>>>>>> answer_generation

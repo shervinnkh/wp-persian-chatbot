@@ -124,6 +124,15 @@ class MessagingRepository:
             await s.commit()
             return msg
 
+    async def set_transcript(self, message_id: int, transcript: str) -> Message | None:
+        async with self.db.session() as s:
+            msg = await s.get(Message, message_id)
+            if msg is None:  # deleted meanwhile
+                return None
+            msg.transcript = transcript
+            await s.commit()
+            return msg
+
     async def get_message(self, conversation_id: int, message_id: int) -> Message | None:
         async with self.db.session() as s:
             res = await s.execute(

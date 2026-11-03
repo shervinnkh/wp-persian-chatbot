@@ -45,6 +45,11 @@ def attachment_placeholder(msg: Message) -> str:
 def message_text(msg: Message) -> str:
     """Text of a message as the AI should see it (attachments without a caption get a tag)."""
     content = (msg.content or "").strip()
+    transcript = (getattr(msg, "transcript", None) or "").strip()
+    if msg.attachment_type == "voice" and transcript:
+        # what the visitor SAID (speech-to-text), plus the caption when there is one
+        text = f"[voice message] {transcript}"
+        return f"{text}\n{content}" if content else text
     if msg.attachment_type and msg.content:
         return f"{attachment_placeholder(msg)} {content}"
     return content or attachment_placeholder(msg)

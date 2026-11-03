@@ -1,1 +1,5 @@
-"""Speech-to-text and text-to-speech (planned 0.7.0)."""
+"""Speech: voice message -> text."""
+
+from app.services.speech.transcriber import Transcriber, UnusableAudioError
+
+__all__ = ["Transcriber", "UnusableAudioError"]
