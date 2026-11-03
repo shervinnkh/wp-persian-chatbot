@@ -5,11 +5,7 @@
 
 | مورد | مقدار |
 |---|---|
-<<<<<<< HEAD
-| نسخهٔ فعلی | `0.4.0` (متن‌های دستی `text:*` و فایل‌های `file:*` از مسیر صف ingestion + callback؛ دانلود با لینک امضادار کوتاه‌عمر که افزونه می‌سازد؛ استخراج PDF/DOCX/TXT؛ سقف ۲۰۰MB + `GET /v1/storage`؛ روی 0.3.8: پاسخ غیرهمزمان) |
-=======
-| نسخهٔ فعلی | `0.6.0` (حلقهٔ حداکثر K فراخوانی AI با ابزارهای داده زنده [محصولات + ابزارهای داینامیک سایت]، ورودی ویس [STT] و تصویر [vision]؛ روی 0.5.0: RAG + پرامپت پویا + JSON `{text, suggestions}`) |
->>>>>>> answer_generation
+| نسخهٔ فعلی | `0.6.1` (0.6.0 + رفع تعارض merge در `__init__.py`؛ حلقهٔ حداکثر K فراخوانی AI با ابزارهای داده زنده [محصولات + ابزارهای داینامیک سایت]، ورودی ویس [STT] و تصویر [vision]؛ روی 0.5.0: RAG + پرامپت پویا + JSON `{text, suggestions}`) |
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -272,7 +268,6 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `ANSWER_CALLBACK_MAX_ATTEMPTS` / `ANSWER_CALLBACK_TTL_SECONDS` | `4` / `600` | سقف ارسال ناموفق وب‌هوک پاسخ / حداکثر عمر آن (ثانیه)، بعد رها می‌شود |
 | `AI_ALLOWED_MODELS` | `gpt-5-4` | فهرست نام مدل‌های مجاز با کاما (همان کلیدهای «سرویس هوش مصنوعی» افزونه). **اولی پیش‌فرض است**: اگر افزونه `model` نفرستد یا خارج از فهرست باشد اولی استفاده می‌شود |
 
-<<<<<<< HEAD
 **جدید در 0.4.0** (فایل‌های پایگاه دانش؛ لینک دانلود را افزونه می‌سازد، بخش «متن‌ها و فایل‌ها»):
 
 | کلید | پیش‌فرض | توضیح |
@@ -285,7 +280,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | `FILES_MAX_EXTRACTED_CHARS` | `3000000` | سقف متن استخراج‌شده |
 
 دانلود فقط از میزبان `PLUGIN_BASE_URL` (یا اولین سایت ثبت‌شده) و با `CALLBACK_ALLOW_PRIVATE_NETWORKS=false` فقط https/پورت 443 و 8443 و IP عمومی.
-=======
+
 **جدید در 0.6.0** (حلقهٔ AI + ابزارها + ویس + تصویر؛ جزئیات: بخش «حلقهٔ AI، ابزارها، ویس و تصویر»):
 
 | کلید | پیش‌فرض | توضیح |
@@ -306,7 +301,6 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 وابستگی جدید: **`Pillow`** (کوچک‌سازی عکس) — `pip install Pillow` و در `requirements.txt` اضافه شود. (برای ویس‌های amr/aac اختیاری: ffmpeg روی سرور.)
 
 مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`.
->>>>>>> answer_generation
 
 ## ۶. فرمت یکنواخت خطا
 
@@ -348,21 +342,12 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 - [x] **0.1.0** — ساختار، تنظیمات، لاگینگ، HMAC، `/health` و `/v1/ping`، تست‌ها، `run.bat`، فایل‌های دیپلوی
 - [~] **0.2.0** — دیتابیس (SQLAlchemy async + Alembic؛ پیش‌فرض SQLite، قابل‌تعویض با PostgreSQL)، کاربر/گفتگو/پیام، سه نقش، خلاصه‌سازی: ✅ گفتگو/پیام/سه نقش/ثبت و حذف/دانلود پیوست (0.3.4)؛ ✅ آماده‌سازی تاریخچه، کلید `generate_ai_answer`، پاسخ ثابت، خلاصه‌سازی بر پایهٔ توکن با worker (0.3.5)؛ ⏳ Alembic، endpoint تاریخچه
-<<<<<<< HEAD
 - [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ✅ متن‌های دستی و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
 - [x] **0.4.0** — متن‌های دستی و فایل‌ها از صف: ✅ `text:*` (چانک‌های افزونه)، ✅ `file:*` (لینک امضادار ← دانلود ← PDF/DOCX/TXT ← چانک)، ✅ سقف ۲۰۰MB + `/v1/storage`، ✅ حذف فایل دانلودشده هنگام حذف رکورد. (`.doc` قدیمی پشتیبانی نمی‌شود)
-- [ ] **0.5.0** — تولید پاسخ (سازوکار `model`/`tone`/`site`/`page`/پاسخ غیرهمزمان و `PromptContext` از 0.3.7 آماده است؛ فقط LLM واقعی مانده): RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
-- [ ] **0.6.0** — ابزارها (tools) و callback امضادار به افزونه برای داده‌های زنده
-- [ ] **0.7.0** — ویس: STT برای ورودی، TTS برای پاسخ
-- [ ] **0.8.0** — تصویر: تحلیل عکس ورودی و ارسال عکس به‌عنوان پیوست پاسخ
-=======
-- [~] **0.3.0** — Qdrant + chunking فارسی + embedding + CRUD با شناسهٔ ثابت: ✅ رکوردهای استخراج‌شده (محصول/وبلاگ/برگه/دسته‌بندی‌ها/سایت)؛ ⏳ متن‌های دستی (`text:*`) و فایل‌ها (0.4.0)؛ ⏳ endpoint جست‌وجوی برداری (در 0.5.0 با RAG)
-- [~] **0.4.0** — دانلود فایل، سقف ۲۰۰MB، استخراج متن (PDF/DOCX/TXT)، worker پس‌زمینه: ✅ زیرساخت worker/صف/callback (0.3.6؛ برای هر `id` با هر پیشوند کار می‌کند)؛ ⏳ endpointهای `text:*` و `file:*`، دانلود و استخراج متن
 - [x] **0.5.0** — ✅ پیاده‌شده (بخش «تولید پاسخ واقعی»؛ هنوز بدون tools/ویس/تصویر). متن قبلی: تولید پاسخ (سازوکار `model`/`tone`/`site`/`page`/پاسخ غیرهمزمان و `PromptContext` از 0.3.7 آماده است؛ فقط LLM واقعی مانده): RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
 - [x] **0.6.0** — ✅ ابزارهای داده زنده (محصولات + داینامیک سایت) داخل حلقهٔ حداکثر K فراخوانی AI؛ API سمت سایت: `docs/LIVE_TOOLS_API.md`
 - [~] **0.7.0** — ویس: ✅ STT ورودی (whisper-1، فارسی) در 0.6.0؛ ⏳ TTS برای پاسخ
 - [~] **0.8.0** — تصویر: ✅ عکس ورودی (کوچک‌سازی ≤ ۱MB + ارسال به مدل) در 0.6.0؛ ⏳ ارسال عکس به‌عنوان پیوست پاسخ
->>>>>>> answer_generation
 
 ## ۹. طراحی مراحل بعد (پیشنهاد معماری — پیش از پیاده‌سازی هر مرحله باید تأیید شود)
 
@@ -736,7 +721,6 @@ for دور in 1..K:
 - تست: ۱۵۹ تست pytest سبز (جدید: `tests/test_ingest_queue.py` صف/تلاش مجدد/اعتبارسنجی و قفل callback؛ `tests/test_callback_delivery.py` دسته‌بندی، امضا، backoff، breaker، 401/404/413، سایت کند، سقف هم‌زمانی، ترنسپورت واقعی روی سرور محلی)؛ `test_knowledge_api.py` با صف تطبیق داده شد. `ruff check .` تمیز. **اجرا نشده:** ارسال به یک سایت وردپرس واقعی با HTTPS، `run.bat` روی ویندوز، OpenAI و Qdrant واقعی.
 - تغییر رفتار (شکستن سازگاری): پاسخ POST/PUT/DELETE دیگر `confirmed_ids/results` ندارد؛ افزونه باید با 200 `ai_status=1` بزند و نتیجه را از callback (یا `/v1/jobs/status`) بگیرد.
 
-<<<<<<< HEAD
 ### 0.4.0
 - **`text:*` از صف:** `ContentService` (`services/ingestion/content.py`) را `IngestProcessor` برای هر job با پیشوند `text` صدا می‌زند: چانک‌های افزونه نگه داشته می‌شوند و فقط چانک بزرگ‌تر از `CHUNK_MAX_TOKENS` دوباره تقسیم می‌شود. `render_record` شاخهٔ `text` گرفت (قبلاً مثل مقاله رندر می‌شد). متن بدون چانک/متن ← 422 هنگام ثبت.
 - **`file:*` از صف:** افزونه در `data.download` یک **لینک امضادار کوتاه‌عمر** می‌فرستد (`url`, `expires`)؛ worker آن را با `files/download.py` دانلود می‌کند (SSRF: https، هاست قفل‌شدهٔ سایت، DNS بررسی‌شده و اتصال به IP پین‌شده، بدون redirect؛ سقف `FILES_MAX_MB` و `UPLOADS_MAX_TOTAL_MB` هم از حجم اعلامی و هم هنگام استریم)، `sha256` را با اعلامیِ افزونه تطبیق می‌دهد، با `extractors/` متن می‌گیرد و با `doc_chunker.py` چانک می‌کند. لینک هیچ‌جا ذخیره نمی‌شود. فایل و عنوان یکسان ← `unchanged` بدون دانلود. حذف/جایگزینی رکورد پوشهٔ دانلودشده را هم پاک می‌کند.
@@ -745,7 +729,7 @@ for دور in 1..K:
 - تنظیمات جدید `.env`: `UPLOADS_MAX_TOTAL_MB`، `FILES_MAX_MB`، `FILES_KEEP_ORIGINAL`، `FILES_CONNECT_TIMEOUT`، `FILES_READ_TIMEOUT`، `FILES_DOWNLOAD_RETRIES`، `FILES_MAX_EXTRACTED_CHARS` (جدول بخش ۵ + `.env.example`). `requirements.txt`: `pdfplumber`، `lxml`. نسخه ← `0.4.0`.
 - **`run.bat` تغییر کرد:** worker جدید ندارد، ولی بررسی وابستگی‌ها حالا `pdfplumber` و `lxml` را هم می‌آزماید تا نصب‌های قبلی خودکار `pip install -r requirements.txt` بزنند.
 - تست: همهٔ pytest سبز (۱۷۹ تست؛ جدید `tests/test_content_files.py`: متن با چانک‌های افزونه و تقسیم چانک بزرگ، دانلود با لینک امضادار از یک سایت محلی، استخراج، ایندکس، `unchanged` بدون دانلود، حذف فایل، سقف ۱MB، لینک منقضی، 403 سایت، checksum، PDF جعلی، `.doc` و هاست غریبه)؛ `ruff check .` تمیز؛ استخراج واقعی DOCX و PDF دستی امتحان شد. **اجرا نشده:** دانلود از یک سایت وردپرس واقعی روی HTTPS (آزمون با سرور HTTP محلی و حالت توسعه)، OpenAI و Qdrant واقعی، `run.bat` روی ویندوز، PDF اسکن‌شده/فارسیِ پیچیده.
-=======
+
 ### 0.5.0
 - **پاسخ واقعی:** `LLMAnswerGenerator` (RAG top-۳ + پرامپت پایهٔ پویا + تاریخچه/خلاصه + LLM) جای پاسخ ثابت؛ خروجی JSON `{text, suggestions}`؛ `suggestions` روی پیام assistant ذخیره می‌شود. `AnswerGenerator.generate` حالا `GeneratedAnswer` برمی‌گرداند (`str` هم پذیرفته می‌شود).
 - فایل‌های جدید: `conversation/prompt.py` (بازنویسی)، `retrieval.py`، `llm_answer.py`، `reply_format.py`؛ `VectorStore.search`؛ فیلد اختیاری `notes` در `POST /v1/chat/messages`؛ اتصال خودکار در `lifespan` (`_attach_llm_generator`).
@@ -763,4 +747,9 @@ for دور in 1..K:
 - تنظیمات جدید `.env`: `ANSWER_MAX_LLM_ROUNDS`، `TOOLS_*`، `STT_*`، `IMAGE_*` (جدول بخش ۵). وابستگی جدید: `Pillow`. نسخه ← `0.6.0`.
 - **`run.bat`:** تغییری لازم نبود (worker/سرویس جدیدی نیامد). فقط `Pillow` باید نصب شود (`requirements.txt` در zip این نوبت نبود؛ `Pillow>=10` را خودتان به آن اضافه کنید).
 - تست: طبق دستور، هیچ تستی نوشته/اجرا نشد (فقط compile).
->>>>>>> answer_generation
+
+### 0.6.1 (بازبینی ارتباط سرور ↔ افزونه)
+- **باگ بحرانی:** `app/__init__.py` علامت‌های تعارض merge گیت (`<<<<<<< HEAD`) داشت ← `SyntaxError` و بالا نیامدن کل سرور. نسخه یکی شد (`0.6.1`). همین علامت‌ها در همین سند هم بود؛ ادغام شد (بخش‌های 0.4.0 و 0.6.0 هر دو نگه داشته شد).
+- فایل مرده و ناسازگار `api/v1/knowledge_files.py` (در 0.4.0 حذف‌شده اعلام شده بود ولی در zip مانده بود و به نمادهای ناموجود import می‌کرد) حذف شد.
+- افزونه (0.5.24) دو API سمت سایت را طبق `docs/LIVE_TOOLS_API.md` پیاده کرد: `POST /wp-json/paia/v1/live/products` و `/live/tool`؛ همراه هر پیام `live_product_datas`، `tools[]`، `page.id` و `notes` را می‌فرستد.
+- گزارش محدودیت‌ها: افزونه هنوز `GET {api_url}/subscription` (Bearer) می‌زند که در سرور وجود ندارد؛ حذف پیام/پاک‌کردن گفتگو در افزونه به سرور نمی‌رسد.
