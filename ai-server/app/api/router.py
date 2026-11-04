@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api.deps import require_signed_request
-from app.api.v1 import health, jobs, knowledge, logs, messaging, storage, system
+from app.api.v1 import health, jobs, knowledge, logs, messaging, monitoring, storage, system
 
 api_router = APIRouter()
 
@@ -19,5 +19,6 @@ v1_router.include_router(knowledge.router)
 v1_router.include_router(jobs.router)
 v1_router.include_router(messaging.router)
 v1_router.include_router(logs.router)
+v1_router.include_router(monitoring.router)
 v1_router.include_router(storage.router)
 api_router.include_router(v1_router)
