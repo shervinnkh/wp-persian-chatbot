@@ -153,9 +153,36 @@ class MessagingService:
             )
         return conv, created, msg, status
 
-    async def _answer(self, req: SendMessageRequest, conv_id: int, msg: Message, cb) -> AiAnswerResult:
+    @staticmethod
+    def _wants_answer(req: SendMessageRequest) -> bool:
+        return bool(req.generate_ai_answer and req.role.value == "user")
+
+    def _emit_message(
+        self,
+        req: SendMessageRequest,
+        conv,
+        msg: Message,
+        created: bool,
+        status: AttachmentStatus,
+        *,
+        wants_answer: bool,
+        cb,
+    ) -> None:
+        """One `chat.message` monitoring event per saved message."""
+        mode = ("async" if cb is not None else "sync") if wants_answer else None
+        emit(
+            "chat.message", role=req.role.value, conversation_id=conv.id, message_id=msg.id,
+            created_conversation=created, logged_in=bool(conv.wp_user_id),
+            attachment_type=req.attachment_type.value if req.attachment_type else None,
+            attachment_status=status if req.attachment_url else None,
+            chars=len(req.content or ""), wants_answer=wants_answer, mode=mode,
+        )  # fmt: skip
+
+    async def _answer(
+        self, req: SendMessageRequest, conv_id: int, msg: Message, cb
+    ) -> AiAnswerResult:
         """Answer the saved message when the request asks for it (async with `cb`, else inline)."""
-        if not (req.generate_ai_answer and req.role.value == "user"):
+        if not self._wants_answer(req):
             return AiAnswerResult()
         ctx = PromptContext.from_request(req, self.settings)
         if cb is not None:  # async: queued now, POSTed to the callback when ready
@@ -169,6 +196,8 @@ class MessagingService:
         await self.ensure_ready()
         cb = await self._validated_cb(req)
         conv, created, msg, status = await self._save(req)
+        wants_answer = self._wants_answer(req)
+        self._emit_message(req, conv, msg, created, status, wants_answer=wants_answer, cb=cb)
         ai = await self._answer(req, conv.id, msg, cb)
         return SendResult(conv.id, created, status, msg, ai)
 
@@ -193,6 +222,7 @@ class MessagingService:
             cb = validate_callback(
                 self.settings, batch.callback, locked_site=await self.answers.ingest.locked_site()
             )
+
         saved: list[tuple] = []  # (conversation, created, message, attachment_status)
         error: str | None = None
         for i, req in enumerate(reqs):
@@ -213,30 +243,38 @@ class MessagingService:
             saved.append(one)
 
         conv = saved[0][0]
+
+        # One monitoring event per saved message. Only the LAST message of the batch can carry the
+        # answer request (and only when every message of the batch was saved).
+        last_index = len(reqs) - 1
+        for k, (req, (c, created, msg, status)) in enumerate(zip(reqs, saved)):
+            self._emit_message(
+                req, c, msg, created, status,
+                wants_answer=(k == last_index and self._wants_answer(req)),
+                cb=cb,
+            )  # fmt: skip
+
+        # Webhook 1: "these messages are saved" - before any answer is generated.
         saved_queued = False
         if cb is not None:
             saved_queued = await self._notify_saved(batch, cb, conv, saved, error)
 
-        mode = ("async" if cb is not None else "sync") if wants_answer else None
-        emit(
-            "chat.message", role=req.role.value, conversation_id=conv.id, message_id=msg.id,
-            created_conversation=created, logged_in=bool(conv.wp_user_id),
-            attachment_type=req.attachment_type.value if req.attachment_type else None,
-            attachment_status=status if req.attachment_url else None,
-            chars=len(req.content or ""), wants_answer=wants_answer, mode=mode,
-        )  # fmt: skip
+        # Webhook 2 / inline answer: only when the whole list was saved.
         ai = AiAnswerResult()
         if len(saved) == len(reqs):
-            last = saved[-1]
-            ai = await self._answer(reqs[-1], conv.id, last[2], cb if batch.generate_ai_answer else None)
+            ai = await self._answer(reqs[-1], conv.id, saved[-1][2], cb)
+
         logger.info(
             "messaging.batch_saved conversation_id=%s received=%d total=%d ai_status=%s",
             conv.id, len(saved), len(reqs), ai.status,
         )  # fmt: skip
         items = [
-            SendResult(conv.id, created, status, msg, ai if k == len(saved) - 1 else AiAnswerResult())
+            SendResult(
+                conv.id, created, status, msg,
+                ai if k == len(saved) - 1 else AiAnswerResult(),
+            )
             for k, (_c, created, msg, status) in enumerate(saved)
-        ]
+        ]  # fmt: skip
         return BatchResult(
             conversation_id=conv.id,
             created_conversation=saved[0][1],
