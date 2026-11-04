@@ -17,6 +17,7 @@ from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import setup_logging
+from app.core.monitoring import shutdown_monitoring, start_snapshots, stop_snapshots
 from app.core.middleware import (
     BodySizeLimitMiddleware,
     HTTPSOnlyMiddleware,
@@ -133,7 +134,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         answer_task = asyncio.create_task(
             messaging.answers.run_loop(answer_stop), name="answer-loop"
         )
+    snap_stop = asyncio.Event()
+    snap_task = start_snapshots(
+        settings, db=messaging.db if messaging is not None else None, stop=snap_stop
+    )
     yield
+    await stop_snapshots(snap_task, snap_stop)
     if answer_task is not None:
         answer_stop.set()
         messaging.answers.notify()
@@ -161,6 +167,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if queue is not None:
         await queue.close()
     logger.info("Shutting down")
+    shutdown_monitoring()
 
 
 def create_app(

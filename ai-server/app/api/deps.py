@@ -10,6 +10,7 @@ from fastapi import Request
 
 from app.core.config import Settings
 from app.core.errors import AuthError, ForbiddenError
+from app.core.monitoring import emit
 from app.core.security import HEADER_SIGNATURE, HEADER_TIMESTAMP, verify_signature
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ def _check_ip_allowed(settings: Settings, ip: str | None) -> None:
         addr = None
     if addr is None or not any(addr in net for net in networks):
         logger.warning("IP not allowed: ip=%s", ip)
+        emit("auth.rejected", kind="ip", reason="ip_not_allowed", ip=ip)
         raise ForbiddenError("IP address is not allowed")
 
 
@@ -57,5 +59,10 @@ async def require_signed_request(request: Request) -> SignedRequest:
         logger.warning(
             "Auth failed: reason=%s ip=%s %s %s", exc.reason, ip, request.method, request.url.path
         )
+        route = getattr(request.scope.get("route"), "path", None)
+        emit(
+            "auth.rejected", kind="signature", reason=str(exc.reason), ip=ip,
+            method=request.method, route=route,
+        )  # fmt: skip
         raise
     return SignedRequest(body=body, timestamp=ts, client_ip=ip)

@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.config import Settings
+from app.core.monitoring import emit
 from app.services.ingestion.delivery import H_SIGNATURE, H_TIMESTAMP, sign
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ class SiteToolClient:
 
     async def _post(self, path: str, payload: dict) -> dict:
         url = self._url(path)
+        kind = "products" if path == self.s.TOOLS_PRODUCTS_PATH else "dynamic"
         request_id = secrets.token_hex(8)
         body = json.dumps(
             {"request_id": request_id, **payload}, ensure_ascii=False, separators=(",", ":")
@@ -109,26 +111,43 @@ class SiteToolClient:
                 "tools.site_unreachable path=%s error=%s ms=%d",
                 path, type(exc).__name__, (time.monotonic() - t0) * 1000,
             )  # fmt: skip
+            emit(
+                "tool.site_request", kind=kind, outcome="unreachable",
+                error_type=type(exc).__name__, ms=(time.monotonic() - t0) * 1000,
+            )  # fmt: skip
             raise ToolCallError("the website did not answer in time") from exc
         finally:
             if self._http is None:
                 await client.aclose()
 
         ms = int((time.monotonic() - t0) * 1000)
+
+        def seen(outcome: str) -> None:
+            emit(
+                "tool.site_request", kind=kind, outcome=outcome, http_status=resp.status_code,
+                ms=ms, bytes=len(resp.content),
+            )  # fmt: skip
+
         if resp.status_code != 200:
             logger.warning("tools.site_status path=%s status=%d ms=%d", path, resp.status_code, ms)
+            seen("http_error")
             raise ToolCallError(f"the website answered with an error (HTTP {resp.status_code})")
         if len(resp.content) > _MAX_RESPONSE_BYTES:
+            seen("too_large")
             raise ToolCallError("the website's answer was too large")
         try:
             data = resp.json()
         except ValueError as exc:
+            seen("bad_json")
             raise ToolCallError("the website's answer was not valid JSON") from exc
         if not isinstance(data, dict):
+            seen("bad_shape")
             raise ToolCallError("the website's answer has an unexpected shape")
         if data.get("ok") is False:
+            seen("site_error")
             reason = data.get("error")
             reason = reason.strip()[:200] if isinstance(reason, str) and reason.strip() else None
             raise ToolCallError(reason or "the website could not provide this information")
+        seen("ok")
         logger.info("tools.site_ok path=%s ms=%d", path, ms)
         return data

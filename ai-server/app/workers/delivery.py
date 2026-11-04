@@ -14,6 +14,7 @@ import signal
 
 from app.core.config import Settings, get_settings
 from app.core.logging import setup_logging
+from app.core.monitoring import shutdown_monitoring, start_snapshots, stop_snapshots
 from app.db.base import Database
 from app.db.ingest_repository import IngestRepository
 from app.services.ingestion.delivery import DeliveryService, Transport
@@ -44,7 +45,7 @@ async def run(
 
 def main() -> None:
     settings = get_settings()
-    setup_logging(settings)
+    setup_logging(settings, service="delivery")
 
     async def _runner() -> None:
         stop = asyncio.Event()
@@ -55,12 +56,18 @@ def main() -> None:
             except NotImplementedError:  # Windows: Ctrl+C raises KeyboardInterrupt instead
                 pass
         logger.info("delivery worker started")
-        await run(settings, stop=stop)
+        snap = start_snapshots(settings, stop=stop)
+        try:
+            await run(settings, stop=stop)
+        finally:
+            await stop_snapshots(snap, stop)
 
     try:
         asyncio.run(_runner())
     except KeyboardInterrupt:
         pass
+    finally:
+        shutdown_monitoring()
 
 
 if __name__ == "__main__":

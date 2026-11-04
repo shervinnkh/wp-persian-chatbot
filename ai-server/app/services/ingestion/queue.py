@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
 from app.core.errors import FileProcessingError, ServiceUnavailableError, UnprocessableRecordError
+from app.core.monitoring import emit
 from app.db.base import Database
 from app.db.ingest_repository import IngestRepository, NewJob, SiteUpsert
 from app.schemas.ingest import (
@@ -77,6 +78,14 @@ class IngestQueueService:
         logger.info(
             "ingest.enqueued jobs=%d superseded=%d callback=%s first_job=%s",
             len(rows), superseded, "yes" if cb else "no", rows[0].job_id,
+        )  # fmt: skip
+        kinds: dict[str, int] = {}
+        for r in rows:
+            k = r.record_id.split(":", 1)[0]
+            kinds[k] = kinds.get(k, 0) + 1
+        emit(
+            "ingest.enqueued", jobs=len(rows), superseded=superseded, callback=bool(cb),
+            kinds=kinds, action=jobs[0].action if jobs else None,
         )  # fmt: skip
         return EnqueueResponse(
             job_id=rows[0].job_id,

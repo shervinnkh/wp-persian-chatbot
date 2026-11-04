@@ -11,8 +11,10 @@ import logging
 import time
 
 from app.core.config import Settings
+from app.core.monitoring import emit
 from app.db.ingest_models import IngestJob
-from app.db.ingest_repository import DeliverySpec, IngestRepository
+from app.db.ingest_repository import DeliverySpec, IngestRepository, aware
+from app.db.messaging_models import utcnow
 from app.services.ingestion.content import ContentService
 from app.services.ingestion.service import KnowledgeService
 
@@ -46,6 +48,10 @@ class IngestProcessor:
         if job is None:
             return False
         started = time.monotonic()
+        created = aware(job.created_at)
+        job_wait_ms = (
+            (utcnow() - created).total_seconds() * 1000 if created and job.attempts <= 1 else None
+        )
         try:
             if job.attempts > self.settings.INGEST_MAX_ATTEMPTS:
                 # Claimed again and again but never finished: the worker kept dying on it.
@@ -59,6 +65,15 @@ class IngestProcessor:
             await self._failed(job, f"Internal error: {type(exc).__name__}", True, "internal_error")
             return True
         await self._done(job, outcome, result)
+        emit(
+            "ingest.job", phase="done", job_id=job.job_id, record_id=job.record_id,
+            kind=job.record_id.split(":", 1)[0], action=job.action, outcome=outcome,
+            status=result.get("status"), attempt=job.attempts, queue_wait_ms=job_wait_ms,
+            ms=(time.monotonic() - started) * 1000, chunks=result.get("chunks"),
+            embedded_chunks=result.get("embedded_chunks"),
+            reused_chunks=result.get("reused_chunks"), tokens=result.get("tokens"),
+            embedding_tokens=result.get("embedding_tokens"),
+        )  # fmt: skip
         logger.info(
             "ingest.job_done job=%s id=%s action=%s outcome=%s attempts=%d duration_ms=%d",
             job.job_id, job.record_id, job.action, outcome, job.attempts,
@@ -120,6 +135,11 @@ class IngestProcessor:
         if retryable and job.attempts < self.settings.INGEST_MAX_ATTEMPTS:
             delay = self.settings.INGEST_RETRY_DELAY_SECONDS * job.attempts
             await self.repo.retry_job(job.id, error=message, delay_seconds=delay)
+            emit(
+                "ingest.job", phase="retry", job_id=job.job_id, record_id=job.record_id,
+                kind=job.record_id.split(":", 1)[0], action=job.action, attempt=job.attempts,
+                delay_s=delay, code=code, error=message[:200],
+            )  # fmt: skip
             logger.warning(
                 "ingest.job_retry job=%s id=%s attempt=%d delay_s=%d code=%s error=%s",
                 job.job_id, job.record_id, job.attempts, delay, code, message,
@@ -136,6 +156,11 @@ class IngestProcessor:
             record_id=job.record_id,
             batch_window_seconds=self.settings.CALLBACK_BATCH_WINDOW_SECONDS,
         )
+        emit(
+            "ingest.job", phase="failed", job_id=job.job_id, record_id=job.record_id,
+            kind=job.record_id.split(":", 1)[0], action=job.action, attempt=job.attempts,
+            code=code, error=message[:200],
+        )  # fmt: skip
         logger.error(
             "ingest.job_failed job=%s id=%s attempts=%d code=%s error=%s",
             job.job_id, job.record_id, job.attempts, code, message,

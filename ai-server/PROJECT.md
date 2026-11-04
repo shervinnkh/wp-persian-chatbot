@@ -5,7 +5,7 @@
 
 | مورد | مقدار |
 |---|---|
-| نسخهٔ فعلی | `0.6.1` (0.6.0 + رفع تعارض merge در `__init__.py`؛ حلقهٔ حداکثر K فراخوانی AI با ابزارهای داده زنده [محصولات + ابزارهای داینامیک سایت]، ورودی ویس [STT] و تصویر [vision]؛ روی 0.5.0: RAG + پرامپت پویا + JSON `{text, suggestions}`) |
+| نسخهٔ فعلی | `0.7.0` (مانیتورینگ JSONL: `MONITORING.md`؛ قبلی: 0.6.1 — 0.6.0 + رفع تعارض merge در `__init__.py`؛ حلقهٔ حداکثر K فراخوانی AI با ابزارهای داده زنده [محصولات + ابزارهای داینامیک سایت]، ورودی ویس [STT] و تصویر [vision]؛ روی 0.5.0: RAG + پرامپت پویا + JSON `{text, suggestions}`) |
 | زبان/فریم‌ورک | Python 3.10+، FastAPI، Uvicorn، Pydantic v2 |
 | دیتابیس برداری | Qdrant (از قبل موجود؛ باید روشن باشد) |
 | دیتابیس متنی | SQLAlchemy async — پیش‌فرض SQLite (`data/app.db`)، قابل‌تعویض با PostgreSQL از `DATABASE_URL` |
@@ -79,7 +79,9 @@ persian-ai-backend/
 │  ├─ main.py              create_app(): middlewareها، routerها، lifespan
 │  ├─ core/
 │  │  ├─ config.py         Settings (pydantic-settings) + اعتبارسنجی راز/HTTPS/IP
-│  │  ├─ logging.py        dictConfig، request-id، فرمت متنی/JSON، فایل چرخشی
+│  │  ├─ logging.py        dictConfig، request-id، فرمت متنی/JSON، فایل چرخشی (+ راه‌انداز مانیتورینگ)
+│  │  ├─ monitoring.py     مانیتورینگ JSONL: emit() غیرمسدودکننده، writer با صف محدود، نگهداری (rollup/gzip/retention)، snapshotها — 0.7.0
+│  │  ├─ monitor_report.py خواندن/تجمیع/خروجی JSONL (روزانه/ماهانه/سالانه، شمسی، CSV) — بدون وابستگی — 0.7.0
 │  │  ├─ security.py       compute_signature / verify_signature (HMAC)
 │  │  ├─ errors.py         AppError ها + هندلرهای فرمت یکنواخت خطا
 │  │  └─ middleware.py     RequestContext(+access log)، HTTPSOnly، BodySizeLimit
@@ -116,6 +118,8 @@ persian-ai-backend/
 │  ├─ inspect_db.py        خواندن مستقیم SQLite (رکوردها و متن چانک‌ها)؛ `_client.py` کمکی
 │  ├─ generate_secret.py   ساخت راز (`--write` داخل .env می‌نویسد)
 │  └─ sign_request.py      کلاینت مرجع برای تست دستی با امضا
+├─ MONITORING.md           شرح فیلدهای هر رکورد JSONL + راهنمای گزارش — 0.7.0
+├─ requirements-monitoring.txt  اختیاری: psutil (RSS دقیق روی ویندوز)
 ├─ docs/
 │  └─ LIVE_TOOLS_API.md    راهنمای فنی پیاده‌سازی دو API سمت سایت (محصولات + ابزارهای داینامیک) — 0.6.0
 ├─ deploy/                 nginx.conf.example، firewall-ufw.sh، ai-backend.service
@@ -166,6 +170,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - `LOG_JSON=true` ← هر خط یک JSON (برای ابزارهای جمع‌آوری لاگ).
 - لاگر `app.access`: یک خط برای هر درخواست (متد، مسیر بدون query، وضعیت، مدت، IP). `/health` در سطح DEBUG. بدنهٔ درخواست‌ها هرگز لاگ نمی‌شود.
 - نکته (ویندوز): با `WORKERS>1` چرخش فایل بین چند پردازش ممکن است خطای قفل بدهد؛ روی ویندوز `WORKERS=1` بماند (روی لینوکس مشکلی نیست).
+- **مانیتورینگ JSONL (0.7.0):** جدا از لاگ متنی؛ بخش «مانیتورینگ JSONL» پایین‌تر و `MONITORING.md`. همان `LOG_DIR`/`LOG_MAX_MB`/`LOG_BACKUP_COUNT` حافظهٔ آن را محدود می‌کند.
 - آینده: ارسال رویدادهای مهم به «لاگ سرور» افزونه (`LogStore::add`) — بخش ۹.
 
 ## ۵. تنظیمات `.env`
@@ -300,7 +305,28 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 وابستگی جدید: **`Pillow`** (کوچک‌سازی عکس) — `pip install Pillow` و در `requirements.txt` اضافه شود. (برای ویس‌های amr/aac اختیاری: ffmpeg روی سرور.)
 
+**جدید در 0.7.0** (مانیتورینگ JSONL؛ همه پیش‌فرض دارند، تغییر `.env` اجباری نیست):
+
+| کلید | پیش‌فرض | توضیح |
+|---|---|---|
+| `MONITOR_ENABLED` | `true` | خاموش‌کردن کل مانیتورینگ |
+| `MONITOR_DIR` | خالی ← `<LOG_DIR>/monitoring` | پوشهٔ فایل‌ها |
+| `MONITOR_UTC_OFFSET` | `+00:00` | مرز «روز» فایل‌ها/rollupها؛ برای ایران `+03:30` |
+| `MONITOR_MAX_MB` / `MONITOR_MAX_PARTS` | خالی ← `LOG_MAX_MB` / `LOG_BACKUP_COUNT` | اندازهٔ هر بخش فایل / حداکثر بخش در روز برای هر پروسه (سقف روزانه = حاصل‌ضرب) |
+| `MONITOR_MAX_TOTAL_MB` | `2048` | سقف کل پوشه؛ قدیمی‌ترین روزهای خام پاک می‌شوند (rollup می‌ماند) |
+| `MONITOR_RETENTION_DAYS` | `400` | نگهداری خط‌های خام |
+| `MONITOR_COMPRESS` | `true` | gzip روزهای قدیمی‌تر از دیروز |
+| `MONITOR_QUEUE_SIZE` / `MONITOR_FLUSH_SECONDS` | `20000` / `1` | صف حافظه (پر ← دورریختن + شمارش) / فاصلهٔ نوشتن |
+| `MONITOR_SNAPSHOT_SECONDS` / `MONITOR_STORAGE_SNAPSHOT_SECONDS` | `60` / `600` | نمونه‌برداری سیستم+صف‌ها / دیسک و اندازه جدول‌ها (۰ = خاموش) |
+| `MONITOR_LOG_IP` | `true` | IP در رویدادهای HTTP/احراز هویت |
+
 مرحلهٔ بعد (فعلاً کامنت در `.env.example`): `UPLOADS_MAX_TOTAL_MB=200`.
+
+### مانیتورینگ JSONL (0.7.0)
+- `emit("event", **fields)` از `app/core/monitoring.py` از هر جای کد؛ غیرمسدودکننده و بدون خطا. یک thread نویسنده برای هر پروسه؛ فایل `<روز>.<svc>.jsonl` (svc = api/ingestion/delivery/summarizer). `setup_logging(settings, service=...)` آن را راه می‌اندازد (workerها نام خودشان را می‌دهند).
+- رویدادها: `http.request`، `auth.rejected`، `log.problem` (آینهٔ لاگ WARNING+)، `llm.chat`، `embedding.request`، `rag.retrieval`، `stt.transcribe`، `tool.call`، `tool.site_request`، `chat.message`، `chat.answer` (مجموع توکن/ابزار/RAG هر پاسخ با `answer_stats`)، `chat.delete`، `answer.job`، `summary.job`، `ingest.enqueued`، `ingest.job`، `callback.send`، `callback.site_state`، `system.snapshot`، `queue.snapshot`، `storage.snapshot`، `app.start/stop`. شرح فیلدها: **`MONITORING.md`**.
+- نگهداری هر ساعت در API: rollup روزانه (`rollups/`) ← gzip ← retention/سقف کل. گزارش: `run.bat report --period day|month|year [--date ..] [--calendar jalali] [--raw] [--price ..]`.
+- افزودن رویداد جدید: `emit` در محل مناسب + یک handler در `Aggregator` (`monitor_report.py`) اگر در گزارش لازم است + ردیف در `MONITORING.md`.
 
 ## ۶. فرمت یکنواخت خطا
 
@@ -346,7 +372,8 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 - [x] **0.4.0** — متن‌های دستی و فایل‌ها از صف: ✅ `text:*` (چانک‌های افزونه)، ✅ `file:*` (لینک امضادار ← دانلود ← PDF/DOCX/TXT ← چانک)، ✅ سقف ۲۰۰MB + `/v1/storage`، ✅ حذف فایل دانلودشده هنگام حذف رکورد. (`.doc` قدیمی پشتیبانی نمی‌شود)
 - [x] **0.5.0** — ✅ پیاده‌شده (بخش «تولید پاسخ واقعی»؛ هنوز بدون tools/ویس/تصویر). متن قبلی: تولید پاسخ (سازوکار `model`/`tone`/`site`/`page`/پاسخ غیرهمزمان و `PromptContext` از 0.3.7 آماده است؛ فقط LLM واقعی مانده): RAG + تاریخچهٔ خلاصه + پرامپت + LLM (جای `FixedAnswerGenerator` در `answer.py`؛ ورودی آماده است: `PreparedHistory`)
 - [x] **0.6.0** — ✅ ابزارهای داده زنده (محصولات + داینامیک سایت) داخل حلقهٔ حداکثر K فراخوانی AI؛ API سمت سایت: `docs/LIVE_TOOLS_API.md`
-- [~] **0.7.0** — ویس: ✅ STT ورودی (whisper-1، فارسی) در 0.6.0؛ ⏳ TTS برای پاسخ
+- [x] **0.7.0 (مانیتورینگ)** — ✅ JSONL + گزارش روزانه/ماهانه/سالانه؛ شمارهٔ `0.7.0` قبلاً برای TTS رزرو بود؛ آن کار الان زیر «TTS» می‌ماند.
+- [~] **TTS/ویس** — ویس: ✅ STT ورودی (whisper-1، فارسی) در 0.6.0؛ ⏳ TTS برای پاسخ
 - [~] **0.8.0** — تصویر: ✅ عکس ورودی (کوچک‌سازی ≤ ۱MB + ارسال به مدل) در 0.6.0؛ ⏳ ارسال عکس به‌عنوان پیوست پاسخ
 
 ## ۹. طراحی مراحل بعد (پیشنهاد معماری — پیش از پیاده‌سازی هر مرحله باید تأیید شود)
@@ -753,3 +780,12 @@ for دور in 1..K:
 - فایل مرده و ناسازگار `api/v1/knowledge_files.py` (در 0.4.0 حذف‌شده اعلام شده بود ولی در zip مانده بود و به نمادهای ناموجود import می‌کرد) حذف شد.
 - افزونه (0.5.24) دو API سمت سایت را طبق `docs/LIVE_TOOLS_API.md` پیاده کرد: `POST /wp-json/paia/v1/live/products` و `/live/tool`؛ همراه هر پیام `live_product_datas`، `tools[]`، `page.id` و `notes` را می‌فرستد.
 - گزارش محدودیت‌ها: افزونه هنوز `GET {api_url}/subscription` (Bearer) می‌زند که در سرور وجود ندارد؛ حذف پیام/پاک‌کردن گفتگو در افزونه به سرور نمی‌رسد.
+
+### 0.7.0 (مانیتورینگ JSONL)
+- **جدید:** `app/core/monitoring.py` (writer غیرمسدودکننده با صف محدود، فایل روزانهٔ هر پروسه، سقف حجم با همان `LOG_MAX_MB`/`LOG_BACKUP_COUNT`، نگهداری: rollup + gzip + retention + سقف کل)، `app/core/monitor_report.py` (تجمیع قابل‌ادغام، هیستوگرام تأخیر، تقویم شمسی، CSV)، `scripts/monitor_export.py`، `MONITORING.md`، `requirements-monitoring.txt` (psutil اختیاری).
+- **hookها:** middleware (`http.request`)، `deps.py` (`auth.rejected`)، `llm_answer.py`/`summarizer.py` (`llm.chat`)، `openai_embedder.py`، `retrieval.py` (`rag.retrieval`)، `transcriber.py`، `tools/catalog.py` + `client.py`، `messaging/service.py` (`chat.*`)، `messaging/answers.py`، `summary_service.py`، `ingestion/queue.py`/`processor.py`/`delivery.py`، `main.py` و workerها (snapshot + shutdown).
+- تنظیمات جدید `MONITOR_*` (جدول بخش ۵). `setup_logging` پارامتر `service` گرفت. نسخه ← `0.7.0`.
+- **`run.bat` تغییر کرد:** دستور `run.bat report ...`؛ `run.bat install` در صورت وجود `requirements-monitoring.txt` آن را هم نصب می‌کند. worker/سرویس جدیدی نیامد.
+- فایل مرده `app/api/v1/knowledge_files.py` دوباره در zip بود؛ حذف شد (import نمی‌شود).
+- zip این نوبت `requirements.txt`، `.env.example`، `scripts/` (به‌جز جدید)، `tests/`، `docs/` و `deploy/` نداشت؛ آن‌ها دست‌نخورده‌اند.
+- تست: طبق دستور هیچ تستی نوشته نشد؛ فقط compile و یک اجرای یک‌بارمصرف (حذف‌شده) از writer/rollup/گزارش. اجرا نشده: اجرای کامل سرور و workerها، ویندوز (`run.bat report`)، PostgreSQL برای `queue.snapshot`.

@@ -31,6 +31,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from app.core.config import Settings
+from app.core.monitoring import emit
 from app.db.ingest_models import CallbackDelivery, CallbackSite
 from app.db.ingest_repository import IngestRepository, aware
 from app.db.messaging_models import utcnow
@@ -354,6 +355,14 @@ class DeliveryService:
             result = await self._call(site, "POST", rows[0].callback_url, body, delivery_id)
             verdict = classify(result)
 
+        answers = sum(1 for r in rows if r.kind == "answer")
+        emit(
+            "callback.send", kind="results", site=site.host,
+            outcome=verdict.kind if verdict.kind != "transient" else "transient",
+            http_status=result.status, ms=result.elapsed_ms, results=len(rows),
+            answers=answers, records=len(rows) - answers, batch_limit=site.batch_limit,
+            error=None if verdict.kind == "ok" else (verdict.detail or result.error),
+        )  # fmt: skip
         await self._apply(site, rows, ids, verdict, result)
 
     async def _split(self, site: CallbackSite, rows: list[CallbackDelivery]) -> None:
@@ -414,6 +423,7 @@ class DeliveryService:
                 last_error=error,
                 next_ping_at=now + timedelta(seconds=s.CALLBACK_PING_INTERVAL_SECONDS),
             )
+            emit("callback.site_state", site=host, state=state, error=error)
             logger.error(
                 "callback.site_stopped site=%s state=%s error=%s (only pings until it answers)",
                 host, state, error,
@@ -449,8 +459,14 @@ class DeliveryService:
         }
         if failures >= s.CALLBACK_BREAKER_FAILURES:
             values["state"] = "unhealthy"
+            emit("callback.site_state", site=host, state="unhealthy", error=error)
             values["next_ping_at"] = now + timedelta(seconds=s.CALLBACK_PING_INTERVAL_SECONDS)
         await self.repo.update_site(host, **values)
+        emit(
+            "callback.send", kind="retry", site=host, outcome="retry_scheduled",
+            failures=failures, retrying=retrying, dead=dead, retry_in_s=int(delay),
+            circuit_open="state" in values,
+        )  # fmt: skip
         logger.warning(
             "callback.failed site=%s error=%s failures=%d retry_in_s=%d retrying=%d dead=%d%s",
             host, error, failures, int(delay), retrying, dead,
@@ -486,6 +502,8 @@ class DeliveryService:
                 last_ping_ms=result.elapsed_ms,
                 last_error=None,
             )
+            emit("callback.site_state", site=host, state="recovered")
+            emit("callback.send", kind="ping", site=host, outcome="ok", ms=result.elapsed_ms)
             logger.info("callback.site_recovered site=%s ping_ms=%d", host, result.elapsed_ms)
             return
         await self.repo.update_site(
@@ -494,4 +512,8 @@ class DeliveryService:
             last_ping_ms=result.elapsed_ms or None,
             last_error=verdict.detail,
         )
+        emit(
+            "callback.send", kind="ping", site=host, outcome="failed", ms=result.elapsed_ms,
+            http_status=result.status, error=verdict.detail,
+        )  # fmt: skip
         logger.info("callback.ping_failed site=%s error=%s", host, verdict.detail)

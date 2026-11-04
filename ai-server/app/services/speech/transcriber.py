@@ -10,12 +10,14 @@ import asyncio
 import logging
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from openai import AsyncOpenAI
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
+from app.core.monitoring import emit
 
 logger = logging.getLogger(__name__)
 
@@ -50,20 +52,40 @@ class Transcriber:
         """Audio file -> text ('' when nothing was said). Raises UnusableAudioError for a file
         the API rejects, UpstreamError for temporary failures (the answer job is retried)."""
         ext = path.suffix.lower().lstrip(".")
-        data, name = await asyncio.to_thread(self._read, path, ext)
+        t0 = time.perf_counter()
+        try:
+            data, name = await asyncio.to_thread(self._read, path, ext)
+        except UnusableAudioError as exc:
+            emit(
+                "stt.transcribe", model=self.s.STT_MODEL, status="rejected", ext=ext,
+                error_type="UnusableAudio", error=str(exc)[:120],
+                ms=(time.perf_counter() - t0) * 1000,
+            )  # fmt: skip
+            raise
         kwargs: dict = {"model": self.s.STT_MODEL, "file": (name, data)}
         if self.s.STT_LANGUAGE.strip():
             kwargs["language"] = self.s.STT_LANGUAGE.strip()
         try:
             result = await self._get_client().audio.transcriptions.create(**kwargs)
         except Exception as exc:  # noqa: BLE001 - SDK errors differ per version
-            if getattr(exc, "status_code", None) in (400, 413, 415, 422):
+            rejected = getattr(exc, "status_code", None) in (400, 413, 415, 422)
+            emit(
+                "stt.transcribe", model=self.s.STT_MODEL,
+                status="rejected" if rejected else "error", ext=ext, bytes=len(data),
+                error_type=type(exc).__name__, http_status=getattr(exc, "status_code", None),
+                ms=(time.perf_counter() - t0) * 1000,
+            )  # fmt: skip
+            if rejected:
                 raise UnusableAudioError(f"{type(exc).__name__}") from exc
             raise UpstreamError(f"Transcription failed ({type(exc).__name__}: {exc})") from exc
         text = getattr(result, "text", None)
         if text is None and isinstance(result, str):
             text = result
         text = " ".join((text or "").split())
+        emit(
+            "stt.transcribe", model=self.s.STT_MODEL, status="ok", ext=ext, bytes=len(data),
+            chars=len(text), ms=(time.perf_counter() - t0) * 1000,
+        )  # fmt: skip
         logger.info("stt.done model=%s bytes=%d chars=%d", self.s.STT_MODEL, len(data), len(text))
         return text
 

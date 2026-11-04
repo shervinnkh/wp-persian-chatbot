@@ -8,6 +8,11 @@ rem    run.bat test       install dev requirements and run the tests
 rem    (Qdrant: a running server at QDRANT_URL, or QDRANT_PATH = embedded mode; with embedded
 rem     Qdrant the ingestion loop runs inside the API, so no ingestion window is opened)
 rem    run.bat secret     print a new random API secret
+rem    run.bat report ... monitoring report from the JSONL files, e.g.
+rem                         run.bat report --period day --date 2026-11-03
+rem                         run.bat report --period month --date 2026-11
+rem                         run.bat report --period year --date 2026 --calendar jalali
+rem                       (all options: python scripts\monitor_export.py --help; see MONITORING.md)
 rem
 rem  Each service opens in its own cmd window (with the venv activated).
 rem  To add a worker: see the WORKERS section below + PROJECT.md.
@@ -28,6 +33,7 @@ if /i "%~1"=="api"     goto :role_api
 if /i "%~1"=="install" goto :cmd_install
 if /i "%~1"=="test"    goto :cmd_test
 if /i "%~1"=="secret"  goto :cmd_secret
+if /i "%~1"=="report"  goto :cmd_report
 if /i "%~1"=="worker_summarizer" goto :role_worker_summarizer
 if /i "%~1"=="worker_ingestion" goto :role_worker_ingestion
 if /i "%~1"=="worker_delivery" goto :role_worker_delivery
@@ -105,6 +111,23 @@ if errorlevel 1 exit /b 1
 call "%AIB_VENV%\Scripts\activate.bat"
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+rem optional: exact memory numbers (RSS) in the monitoring snapshots on Windows
+if exist requirements-monitoring.txt pip install -r requirements-monitoring.txt
+exit /b %errorlevel%
+
+:cmd_report
+call :ensure_venv
+if errorlevel 1 exit /b 1
+call "%AIB_VENV%\Scripts\activate.bat"
+set "AIB_ARGS="
+shift
+:report_args
+if "%~1"=="" goto :report_run
+set "AIB_ARGS=%AIB_ARGS% %1"
+shift
+goto :report_args
+:report_run
+python scripts\monitor_export.py %AIB_ARGS%
 exit /b %errorlevel%
 
 :cmd_test

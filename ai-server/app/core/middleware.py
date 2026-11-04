@@ -13,9 +13,23 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.errors import error_response
 from app.core.logging import request_id_var
+from app.core.monitoring import emit
 
 access_logger = logging.getLogger("app.access")
 _RID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+_NUM_SEGMENT = re.compile(r"/\d+")
+
+
+def _route_name(scope: Scope, status: int) -> str:
+    """Route template (`/v1/conversations/{conversation_id}/messages`), never the raw path: ids
+    and scanner garbage must not create endless distinct values in the monitoring data."""
+    route = scope.get("route")
+    path = getattr(route, "path", None)
+    if path:
+        return path
+    if status == 404:
+        return "(unmatched)"
+    return _NUM_SEGMENT.sub("/{id}", scope.get("path", ""))[:120]
 
 
 class RequestContextMiddleware:
@@ -35,14 +49,17 @@ class RequestContextMiddleware:
         token = request_id_var.set(rid)
         started = time.perf_counter()
         status = 500
+        bytes_out = 0
 
         async def send_wrapper(message: Message) -> None:
-            nonlocal status
+            nonlocal status, bytes_out
             if message["type"] == "http.response.start":
                 status = message["status"]
                 headers = list(message.get("headers", []))
                 headers.append((b"x-request-id", rid.encode("ascii")))
                 message["headers"] = headers
+            elif message["type"] == "http.response.body":
+                bytes_out += len(message.get("body", b""))
             await send(message)
 
         try:
@@ -65,6 +82,18 @@ class RequestContextMiddleware:
                 ip,
                 extra={"http_status": status, "duration_ms": round(duration_ms, 1), "ip": ip},
             )
+            if path not in self.quiet_paths:  # /health is polled constantly: not worth a line
+                declared = Headers(scope=scope).get("content-length", "")
+                emit(
+                    "http.request",
+                    method=scope.get("method", "-"),
+                    route=_route_name(scope, status),
+                    status=status,
+                    ms=round(duration_ms, 1),
+                    bytes_in=int(declared) if declared.isdigit() else None,
+                    bytes_out=bytes_out,
+                    ip=ip if ip != "-" else None,
+                )
             request_id_var.reset(token)
 
 

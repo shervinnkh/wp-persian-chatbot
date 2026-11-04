@@ -27,9 +27,10 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, select, update
 
+from app.core.monitoring import emit
 from app.db.answer_models import AnswerJob
 from app.db.ingest_models import CallbackDelivery
-from app.db.ingest_repository import IngestRepository, SiteUpsert
+from app.db.ingest_repository import IngestRepository, SiteUpsert, aware
 from app.db.messaging_models import Conversation, Message, utcnow
 from app.services.conversation.answer import AiAnswerResult
 from app.services.conversation.prompt import PromptContext
@@ -100,8 +101,16 @@ class AnswerQueue:
             "answer.queued job=%s conversation_id=%s message_id=%s model=%s",
             job_id, conversation_id, question_id, ctx.model,
         )  # fmt: skip
+        emit(
+            "answer.job", phase="queued", job_id=job_id, conversation_id=conversation_id,
+            message_id=question_id, model=ctx.model,
+        )  # fmt: skip
         self.notify()
         return job_id
+
+    def _age_ms(self, job: AnswerJob) -> float | None:
+        created = aware(job.created_at)
+        return (utcnow() - created).total_seconds() * 1000 if created else None
 
     # ------------------------------------------------------------------ loop
     async def run_loop(self, stop: asyncio.Event) -> None:
@@ -185,6 +194,8 @@ class AnswerQueue:
     # ------------------------------------------------------------------ one answer
     async def _run(self, job: AnswerJob) -> None:
         repo = self.service.repo
+        # time spent waiting in the queue (first attempt only: later ones include the back-off)
+        wait_ms = self._age_ms(job) if job.attempts <= 1 else None
         try:
             conv = await repo.get_conversation(job.conversation_id)
             question = (
@@ -196,7 +207,9 @@ class AnswerQueue:
                 await self._close(job, "failed", "conversation or message no longer exists")
                 return
             ctx = PromptContext(**job.ctx)
-            ai = await self.service._generate_answer(conv.id, question, ctx)  # noqa: SLF001
+            ai = await self.service._generate_answer(  # noqa: SLF001
+                conv.id, question, ctx, mode="async", job_id=job.job_id, attempt=job.attempts
+            )
         except Exception as exc:  # noqa: BLE001
             logger.exception("answer.crashed job=%s", job.job_id)
             conv, ai = None, AiAnswerResult(status="failed")
@@ -207,6 +220,11 @@ class AnswerQueue:
 
         if ai.status == "generated" and ai.message is not None and conv is not None:
             await self._finish_ok(job, conv, ai, ctx)
+            emit(
+                "answer.job", phase="done", job_id=job.job_id, conversation_id=conv.id,
+                model=ctx.model, attempt=job.attempts, queue_wait_ms=wait_ms,
+                total_ms=self._age_ms(job),
+            )  # fmt: skip
             if ai.summarize_upto_message_id is not None:
                 await self.service.enqueue_summary(conv.id, ai.summarize_upto_message_id)
             return
@@ -219,6 +237,10 @@ class AnswerQueue:
             logger.warning(
                 "answer.retry job=%s attempt=%d delay_s=%d error=%s",
                 job.job_id, job.attempts, delay, error,
+            )  # fmt: skip
+            emit(
+                "answer.job", phase="retry", job_id=job.job_id, attempt=job.attempts,
+                delay_s=delay, queue_wait_ms=wait_ms, error=error,
             )  # fmt: skip
             return
         await self._close(job, "failed", error, conv=conv)
@@ -305,6 +327,10 @@ class AnswerQueue:
                 s.add(self._delivery(job, item, "failed", error))
             await s.commit()
         logger.error("answer.failed job=%s error=%s", job.job_id, error)
+        emit(
+            "answer.job", phase="failed", job_id=job.job_id, attempt=job.attempts,
+            conversation_id=job.conversation_id, total_ms=self._age_ms(job), error=error,
+        )  # fmt: skip
 
     # ------------------------------------------------------------------ housekeeping
     async def _housekeeping(self) -> None:
@@ -336,3 +362,4 @@ class AnswerQueue:
             await s.commit()
         if expired.rowcount:
             logger.warning("answer.delivery_expired count=%d", expired.rowcount)
+            emit("answer.job", phase="expired", count=expired.rowcount)

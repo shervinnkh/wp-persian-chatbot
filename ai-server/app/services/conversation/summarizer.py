@@ -6,12 +6,14 @@ The worker calls `Summarizer.summarize(previous_summary, messages)`; tests injec
 from __future__ import annotations
 
 import logging
+import time
 from typing import Protocol
 
 from openai import AsyncOpenAI
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
+from app.core.monitoring import emit
 from app.services.conversation.history import HistoryMessage
 
 logger = logging.getLogger(__name__)
@@ -103,6 +105,7 @@ class OpenAISummarizer:
 
     async def summarize(self, previous_summary: str | None, messages: list[HistoryMessage]) -> str:
         client = self._get_client()
+        t0 = time.perf_counter()
         try:
             response = await client.chat.completions.create(
                 model=self.model,
@@ -113,13 +116,31 @@ class OpenAISummarizer:
                 ],
             )
         except Exception as exc:  # noqa: BLE001 - SDK errors differ per version
+            emit(
+                "llm.chat", purpose="summary", model=self.model, status="error",
+                error_type=type(exc).__name__, http_status=getattr(exc, "status_code", None),
+                ms=(time.perf_counter() - t0) * 1000, error=str(exc)[:200],
+                messages=len(messages),
+            )  # fmt: skip
             raise UpstreamError(
                 f"Summarization request failed ({type(exc).__name__}: {exc})"
             ) from exc
         text = (response.choices[0].message.content or "").strip() if response.choices else ""
+        usage = getattr(response, "usage", None)
+        pd = getattr(usage, "prompt_tokens_details", None)
+        cd = getattr(usage, "completion_tokens_details", None)
+        emit(
+            "llm.chat", purpose="summary", model=self.model,
+            status="ok" if text else "error", error_type=None if text else "EmptyText",
+            ms=(time.perf_counter() - t0) * 1000, messages=len(messages), chars_out=len(text),
+            prompt_tokens=getattr(usage, "prompt_tokens", None),
+            completion_tokens=getattr(usage, "completion_tokens", None),
+            total_tokens=getattr(usage, "total_tokens", None),
+            cached_tokens=getattr(pd, "cached_tokens", None),
+            reasoning_tokens=getattr(cd, "reasoning_tokens", None),
+        )  # fmt: skip
         if not text:
             raise UpstreamError("Summarization returned an empty text")
-        usage = getattr(response, "usage", None)
         logger.info(
             "summarizer.request model=%s prompt_tokens=%s completion_tokens=%s",
             self.model,

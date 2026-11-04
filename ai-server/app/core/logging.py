@@ -10,6 +10,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 
 from app.core.config import Settings
+from app.core.monitoring import init_monitoring, set_request_id_getter
 
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
@@ -50,7 +51,9 @@ def _force_utf8_streams() -> None:
                 pass
 
 
-def setup_logging(settings: Settings) -> None:
+def setup_logging(settings: Settings, service: str = "api") -> None:
+    """Text/JSON logs + the JSONL monitoring of this process (`service`: api | ingestion |
+    delivery | summarizer; it becomes part of the monitoring file name)."""
     _force_utf8_streams()
     formatter = "json" if settings.LOG_JSON else "text"
 
@@ -114,3 +117,5 @@ def setup_logging(settings: Settings) -> None:
             },
         }
     )
+    set_request_id_getter(request_id_var.get)
+    init_monitoring(settings, service)

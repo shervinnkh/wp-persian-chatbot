@@ -14,6 +14,9 @@ import logging
 import time
 
 from app.core.config import Settings
+from app.core.monitoring import emit
+from app.db.ingest_repository import aware
+from app.db.messaging_models import utcnow
 from app.db.messaging_repository import MessagingRepository
 from app.services.conversation.history import HistoryMessage
 from app.services.conversation.summarizer import Summarizer
@@ -42,10 +45,15 @@ class SummaryService:
                 "summary.enqueue_skipped conversation_id=%s (already queued or covered)",
                 conversation_id,
             )
+            emit("summary.job", phase="skipped", conversation_id=conversation_id)
             return False
         logger.info(
             "summary.enqueued request_id=%s conversation_id=%s upto_message_id=%s",
             req.id, conversation_id, upto_message_id,
+        )  # fmt: skip
+        emit(
+            "summary.job", phase="enqueued", request_id=req.id, conversation_id=conversation_id,
+            upto_message_id=upto_message_id,
         )  # fmt: skip
         return True
 
@@ -58,12 +66,21 @@ class SummaryService:
         if req is None:
             return False
         started = time.monotonic()
+        created = aware(getattr(req, "created_at", None))
+        wait_ms = (utcnow() - created).total_seconds() * 1000 if created else None
+        if req.attempts > 1:
+            wait_ms = None  # the first attempt's wait is what shows queue pressure
         try:
             outcome = await self._summarize(req.conversation_id, req.upto_message_id)
         except Exception as exc:  # noqa: BLE001 - one bad request must not stop the worker
-            await self._fail(req.id, req.attempts, exc)
+            await self._fail(req.id, req.attempts, exc, req.conversation_id)
             return True
         await self.repo.finish_summary_request(req.id, ok=True)
+        emit(
+            "summary.job", phase="done", request_id=req.id, conversation_id=req.conversation_id,
+            outcome=outcome, attempt=req.attempts, queue_wait_ms=wait_ms,
+            ms=(time.monotonic() - started) * 1000,
+        )  # fmt: skip
         logger.info(
             "summary.done request_id=%s conversation_id=%s outcome=%s duration_ms=%d",
             req.id, req.conversation_id, outcome, int((time.monotonic() - started) * 1000),
@@ -97,9 +114,17 @@ class SummaryService:
         saved = await self.repo.set_summary(conversation_id, text, rows[-1].id)
         return "saved" if saved else "discarded_newer_summary_exists"
 
-    async def _fail(self, request_id: int, attempts: int, exc: Exception) -> None:
+    async def _fail(
+        self, request_id: int, attempts: int, exc: Exception, conversation_id: int | None = None
+    ) -> None:
         error = f"{type(exc).__name__}: {exc}"[:500]
-        if attempts >= self.settings.SUMMARY_MAX_ATTEMPTS:
+        final = attempts >= self.settings.SUMMARY_MAX_ATTEMPTS
+        emit(
+            "summary.job", phase="failed" if final else "retry", request_id=request_id,
+            conversation_id=conversation_id, attempt=attempts, error_type=type(exc).__name__,
+            error=error[:200],
+        )  # fmt: skip
+        if final:
             await self.repo.finish_summary_request(request_id, ok=False, error=error)
             logger.error(
                 "summary.failed request_id=%s attempts=%s error=%s", request_id, attempts, error

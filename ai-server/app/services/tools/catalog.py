@@ -23,6 +23,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.core.config import Settings
+from app.core.monitoring import emit
 from app.services.tools.client import SiteToolClient, ToolCallError
 
 logger = logging.getLogger(__name__)
@@ -208,6 +209,13 @@ class ToolKit:
         logger.info(
             "tools.call name=%s status=%s chars=%d ms=%d",
             name, status, len(text), (time.monotonic() - t0) * 1000,
+        )  # fmt: skip
+        is_product = name == PRODUCT_TOOL_NAME
+        emit(
+            "tool.call", tool=name, status=status, chars=len(text),
+            kind="product" if is_product else "dynamic",
+            tool_id=None if is_product else name.removeprefix(DYNAMIC_TOOL_PREFIX),
+            ms=(time.monotonic() - t0) * 1000,
         )  # fmt: skip
         return text
 

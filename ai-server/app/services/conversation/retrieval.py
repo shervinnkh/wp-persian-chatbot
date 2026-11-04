@@ -13,6 +13,7 @@ import re
 import time
 from dataclasses import dataclass
 
+from app.core.monitoring import emit, op_var
 from app.db.repository import KnowledgeRepository, RetrievedChunk
 from app.services.chunking.normalize import normalize_text
 from app.services.conversation.history import PreparedHistory
@@ -73,7 +74,11 @@ class KnowledgeRetriever:
         if not text:
             return []
         t0 = time.perf_counter()
-        embedded = await self.embedder.embed([text])
+        token = op_var.set("query")  # the embedding event says it was a visitor question
+        try:
+            embedded = await self.embedder.embed([text])
+        finally:
+            op_var.reset(token)
         found = await self.vectorstore.search(
             embedded.vectors[0], limit=self.top_k, min_score=self.min_score
         )
@@ -84,6 +89,14 @@ class KnowledgeRetriever:
             "rag.retrieved found=%d loaded=%d scores=%s ids=%s ms=%d",
             len(found), len(hits), [round(h.score, 3) for h in hits],
             [h.chunk.chunk_id for h in hits], (time.perf_counter() - t0) * 1000,
+        )  # fmt: skip
+        emit(
+            "rag.retrieval", query_chars=len(text), top_k=self.top_k, found=len(found),
+            loaded=len(hits), missing=len(found) - len(hits),
+            top_score=max((h.score for h in hits), default=None),
+            scores=[round(h.score, 3) for h in hits],
+            record_ids=[h.chunk.record_id for h in hits if h.chunk.record_id],
+            ms=(time.perf_counter() - t0) * 1000,
         )  # fmt: skip
         if len(hits) < len(found):
             logger.warning("rag.out_of_sync missing_in_db=%d", len(found) - len(hits))

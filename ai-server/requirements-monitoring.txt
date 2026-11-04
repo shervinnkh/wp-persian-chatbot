@@ -1,0 +1,2 @@
+# Optional: exact memory (RSS) numbers in system.snapshot on Windows. Without it RSS is null there.
+psutil>=5.9

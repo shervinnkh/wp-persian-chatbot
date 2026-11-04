@@ -12,6 +12,7 @@ from openai import AsyncOpenAI
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
+from app.core.monitoring import emit, op_var
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,12 @@ class OpenAIEmbedder:
                     model=self.model, input=batch, dimensions=self.dimensions
                 )
             except openai.OpenAIError as exc:
+                emit(
+                    "embedding.request", model=self.model, op=op_var.get(), status="error",
+                    error_type=type(exc).__name__, inputs=len(batch),
+                    http_status=getattr(exc, "status_code", None),
+                    ms=(time.perf_counter() - t0) * 1000,
+                )  # fmt: skip
                 logger.error(
                     "embedding.request_failed batch=%d inputs=%d error=%s: %s",
                     start // self._batch + 1,
@@ -92,6 +99,11 @@ class OpenAIEmbedder:
             result.prompt_tokens += prompt
             result.total_tokens += total
             result.requests += 1
+            emit(
+                "embedding.request", model=self.model, op=op_var.get(), status="ok",
+                inputs=len(batch), prompt_tokens=prompt, total_tokens=total,
+                ms=(time.perf_counter() - t0) * 1000,
+            )  # fmt: skip
             logger.info(
                 "embedding.request model=%s inputs=%d prompt_tokens=%d total_tokens=%d ms=%d",
                 self.model,

@@ -22,11 +22,13 @@ A failing TOOL never raises: the model just receives an "unavailable" text.
 from __future__ import annotations
 
 import logging
+import time
 
 from openai import AsyncOpenAI
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
+from app.core.monitoring import emit, note_answer_error
 from app.services.conversation.history import PreparedHistory
 from app.services.conversation.history import HistoryMessage
 from app.services.conversation.prompt import FINAL_ROUND_NOTICE, KnowledgeSnippet, PromptContext
@@ -100,12 +102,35 @@ class LLMAnswerGenerator:
             },
         ]
 
-    async def _complete(self, kwargs: dict):
+    async def _complete(self, kwargs: dict, meta: dict):
+        """One chat-completion call; every call (ok or not) is one `llm.chat` monitoring event."""
         client = self._get_client()
+        t0 = time.perf_counter()
         try:
-            return await client.chat.completions.create(**kwargs)
+            response = await client.chat.completions.create(**kwargs)
         except Exception as exc:  # noqa: BLE001 - SDK errors differ per version
+            emit(
+                "llm.chat", **meta, status="error", error_type=type(exc).__name__,
+                http_status=getattr(exc, "status_code", None),
+                ms=(time.perf_counter() - t0) * 1000, error=str(exc)[:200],
+            )  # fmt: skip
+            note_answer_error(exc)
             raise UpstreamError(f"Answer request failed ({type(exc).__name__}: {exc})") from exc
+        choice = response.choices[0] if response.choices else None
+        usage = getattr(response, "usage", None)
+        pd = getattr(usage, "prompt_tokens_details", None)
+        cd = getattr(usage, "completion_tokens_details", None)
+        emit(
+            "llm.chat", **meta, status="ok", ms=(time.perf_counter() - t0) * 1000,
+            prompt_tokens=getattr(usage, "prompt_tokens", None),
+            completion_tokens=getattr(usage, "completion_tokens", None),
+            total_tokens=getattr(usage, "total_tokens", None),
+            cached_tokens=getattr(pd, "cached_tokens", None),
+            reasoning_tokens=getattr(cd, "reasoning_tokens", None),
+            finish=getattr(choice, "finish_reason", None),
+            tool_calls=len(getattr(getattr(choice, "message", None), "tool_calls", None) or []),
+        )  # fmt: skip
+        return response
 
     async def generate(
         self, history: PreparedHistory, ctx: PromptContext | None = None
@@ -162,7 +187,13 @@ class LLMAnswerGenerator:
             if final and round_no > 1:  # tools were used: force the answer now
                 kwargs["messages"] = [*messages, {"role": "system", "content": FINAL_ROUND_NOTICE}]
 
-            response = await self._complete(kwargs)
+            response = await self._complete(
+                kwargs,
+                {
+                    "purpose": "answer", "model": ctx.model, "round": round_no, "rounds": rounds,
+                    "has_image": history.question.attachment_type == "image",
+                },
+            )  # fmt: skip
             choice = response.choices[0] if response.choices else None
             message = choice.message if choice is not None else None
             usage = getattr(response, "usage", None)

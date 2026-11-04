@@ -231,16 +231,48 @@ class Settings(BaseSettings):
     CALLBACK_PING_INTERVAL_SECONDS: int = Field(300, ge=10, le=86400)
     CALLBACK_WORKER_POLL_SECONDS: float = Field(2.0, ge=0.2, le=300)
 
+    # --- Monitoring (JSON Lines; see MONITORING.md) ---
+    # One JSON object per line in <MONITOR_DIR>/<YYYY>/<MM>/<day>.<process>.jsonl. Storage is
+    # bounded by the SAME knobs as the text logs: a file part is at most LOG_MAX_MB and one
+    # process writes at most LOG_BACKUP_COUNT parts per day (MONITOR_MAX_MB / MONITOR_MAX_PARTS
+    # override them); old days are compressed, summarized into a tiny daily roll-up (kept for
+    # monthly/yearly reports) and their raw lines are deleted after MONITOR_RETENTION_DAYS or when
+    # MONITOR_MAX_TOTAL_MB is exceeded. Memory is bounded by MONITOR_QUEUE_SIZE.
+    MONITOR_ENABLED: bool = True
+    MONITOR_DIR: str = ""  # empty = <LOG_DIR>/monitoring
+    MONITOR_UTC_OFFSET: str = "+00:00"  # day boundary of files/roll-ups, e.g. +03:30 (Tehran)
+    MONITOR_MAX_MB: int | None = Field(None, ge=1, le=10_000)  # empty = LOG_MAX_MB
+    MONITOR_MAX_PARTS: int | None = Field(None, ge=1, le=1000)  # empty = LOG_BACKUP_COUNT
+    MONITOR_MAX_TOTAL_MB: int = Field(2048, ge=10, le=10_000_000)  # raw + compressed, all days
+    MONITOR_RETENTION_DAYS: int = Field(400, ge=2, le=36500)  # raw lines; roll-ups are kept
+    MONITOR_COMPRESS: bool = True  # gzip raw files of days older than yesterday
+    MONITOR_QUEUE_SIZE: int = Field(20_000, ge=100, le=1_000_000)  # events waiting for the writer
+    MONITOR_FLUSH_SECONDS: float = Field(1.0, ge=0.1, le=60)
+    MONITOR_SNAPSHOT_SECONDS: int = Field(60, ge=0, le=3600)  # system/queue gauges; 0 = off
+    MONITOR_STORAGE_SNAPSHOT_SECONDS: int = Field(600, ge=0, le=86400)  # disk/db sizes; 0 = off
+    MONITOR_LOG_IP: bool = True  # client IP in http.request / auth.rejected events
+
     # ---------- validators ----------
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod
     def _upper_level(cls, v):
         return v.upper() if isinstance(v, str) else v
 
-    @field_validator("INGEST_RUN_IN_API", "ENABLE_DOCS", mode="before")
+    @field_validator(
+        "INGEST_RUN_IN_API", "ENABLE_DOCS", "MONITOR_MAX_MB", "MONITOR_MAX_PARTS", mode="before"
+    )
     @classmethod
     def _empty_is_auto(cls, v):
         return None if isinstance(v, str) and not v.strip() else v
+
+    @field_validator("MONITOR_UTC_OFFSET")
+    @classmethod
+    def _check_offset(cls, v: str) -> str:
+        v = (v or "+00:00").strip()
+        m = re.fullmatch(r"([+-])(\d{1,2}):?(\d{2})", v)
+        if not m or int(m.group(2)) > 14 or int(m.group(3)) > 59:
+            raise ValueError("MONITOR_UTC_OFFSET must look like +03:30, -05:00 or +00:00")
+        return f"{m.group(1)}{int(m.group(2)):02d}:{m.group(3)}"
 
     @field_validator("API_SHARED_SECRET")
     @classmethod
@@ -365,6 +397,26 @@ class Settings(BaseSettings):
     @staticmethod
     def _abs(p: Path) -> Path:
         return p if p.is_absolute() else BASE_DIR / p
+
+    @property
+    def monitor_dir(self) -> Path:
+        if self.MONITOR_DIR.strip():
+            return self._abs(Path(self.MONITOR_DIR))
+        return self._abs(self.LOG_DIR / "monitoring")
+
+    @property
+    def monitor_utc_offset_minutes(self) -> int:
+        sign = -1 if self.MONITOR_UTC_OFFSET.startswith("-") else 1
+        hh, mm = self.MONITOR_UTC_OFFSET[1:].split(":")
+        return sign * (int(hh) * 60 + int(mm))
+
+    @property
+    def monitor_part_bytes(self) -> int:
+        return (self.MONITOR_MAX_MB or self.LOG_MAX_MB) * 1024 * 1024
+
+    @property
+    def monitor_max_parts(self) -> int:
+        return self.MONITOR_MAX_PARTS or self.LOG_BACKUP_COUNT
 
     @property
     def log_dir(self) -> Path:

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.core.config import Settings
+from app.core.monitoring import answer_stats, emit, note_answer_error
 from app.db.base import Database
 from app.db.messaging_models import Message
 from app.db.messaging_repository import MessagingRepository
@@ -133,6 +134,14 @@ class MessagingService:
                 msg, req.attachment_url, req.attachment_type.value
             )
 
+        mode = ("async" if cb is not None else "sync") if wants_answer else None
+        emit(
+            "chat.message", role=req.role.value, conversation_id=conv.id, message_id=msg.id,
+            created_conversation=created, logged_in=bool(conv.wp_user_id),
+            attachment_type=req.attachment_type.value if req.attachment_type else None,
+            attachment_status=status if req.attachment_url else None,
+            chars=len(req.content or ""), wants_answer=wants_answer, mode=mode,
+        )  # fmt: skip
         ai = AiAnswerResult()
         if wants_answer:
             ctx = PromptContext.from_request(req, self.settings)
@@ -157,6 +166,36 @@ class MessagingService:
         return await self.summaries.enqueue(conversation_id, upto_message_id)
 
     async def _generate_answer(
+        self,
+        conversation_id: int,
+        question: Message,
+        ctx: PromptContext,
+        *,
+        mode: str = "sync",
+        job_id: str | None = None,
+        attempt: int | None = None,
+    ) -> AiAnswerResult:
+        """One `chat.answer` monitoring event per call: outcome, time and the totals of every AI /
+        tool / search call made for it (see `answer_stats`)."""
+        t0 = time.monotonic()
+        with answer_stats() as st:
+            result = await self._generate_answer_inner(conversation_id, question, ctx)
+        msg = result.message
+        emit(
+            "chat.answer", status=result.status, mode=mode, job_id=job_id, attempt=attempt,
+            model=ctx.model, tone=ctx.tone, ms=(time.monotonic() - t0) * 1000,
+            conversation_id=conversation_id, question_message_id=question.id,
+            answer_message_id=msg.id if msg is not None else None,
+            question_type=question.attachment_type or "text",
+            answer_chars=len(msg.content or "") if msg is not None else None,
+            suggestions=len(msg.suggestions or []) if msg is not None else None,
+            history_tokens=result.full_history_tokens, context_tokens=result.context_tokens,
+            summary_scheduled=result.summarization_scheduled, page_type=ctx.page_type or None,
+            **st,
+        )  # fmt: skip
+        return result
+
+    async def _generate_answer_inner(
         self, conversation_id: int, question: Message, ctx: PromptContext
     ) -> AiAnswerResult:
         """History -> answer (text + suggestions) -> saved as `assistant`. Never raises: the user
@@ -187,7 +226,8 @@ class MessagingService:
                 content=answer.text,
                 suggestions=answer.suggestions or None,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            note_answer_error(exc)
             logger.exception(
                 "messaging.answer_failed conversation_id=%s message_id=%s",
                 conversation_id, question.id,
@@ -275,6 +315,7 @@ class MessagingService:
         if not found:
             raise MessageNotFoundError("Message not found")
         await asyncio.to_thread(storage.delete_files, self.settings, [path])
+        emit("chat.delete", scope="message", count=1, conversation_id=conversation_id)
         logger.info(
             "messaging.message_deleted conversation_id=%s message_id=%s",
             conversation_id, message_id,
@@ -286,6 +327,7 @@ class MessagingService:
             raise ConversationNotFoundError("Conversation not found")
         count, paths = await self.repo.delete_all_messages(conversation_id)
         await asyncio.to_thread(storage.delete_files, self.settings, list(paths))
+        emit("chat.delete", scope="conversation", count=count, conversation_id=conversation_id)
         logger.info(
             "messaging.messages_cleared conversation_id=%s count=%d", conversation_id, count
         )
