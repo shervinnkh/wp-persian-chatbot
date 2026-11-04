@@ -45,6 +45,11 @@ final class ReplyEngine {
 		} elseif ( ! is_array( $reply ) || empty( $reply['text'] ) ) {
 			$reply = $this->remote( $ctx );
 		}
+		if ( is_array( $reply ) && isset( $reply['text'] ) && AiMark::is_mark_reply( $reply['text'] ) ) {
+			// هوش مصنوعی نمی‌تواند جواب بدهد: پیامی ساخته نمی‌شود و فقط گفتگو مارک می‌شود.
+			AiMark::mark( (string) ( $ctx['visitor_uid'] ?? '' ) );
+			return null;
+		}
 		if ( ! is_array( $reply ) || empty( $reply['text'] ) ) {
 			// سرویس پاسخی نداد: ساکت می‌مانیم. «پاسخ پیش‌فرض به پیام اول» را Responder می‌فرستد، نه اینجا.
 			return null;
@@ -234,6 +239,8 @@ final class ReplyEngine {
 		if ( $generate ) {
 			$payload['generate_ai_answer'] = true;
 			// فقط همراه درخواست پاسخ: مدل، لحن، اطلاعات سایت و صفحهٔ جاری (برای پراپمت).
+			// مارک کردن چت توسط هوش مصنوعی (تنظیمات ← عمومی): true = اگر نمی‌تواند جواب بدهد دقیقاً «Mark-Chat» برگرداند.
+			$payload['mark-the-conversation'] = (bool) ChatSettings::get( 'ai_mark', 0 );
 			$payload['model'] = (string) ChatSettings::get( 'ai_service', 'gpt-5-4' );
 			$payload['tone']  = 'friendly' === ChatSettings::get( 'tone', 'formal' ) ? 'friendly' : 'formal';
 			$payload['site']  = array_filter(

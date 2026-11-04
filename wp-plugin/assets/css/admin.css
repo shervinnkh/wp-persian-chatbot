@@ -1264,6 +1264,7 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
    ========================================================================== */
 .paia-app .paia-chatset__hint{color:var(--paia-muted);font-size:12.5px;line-height:1.8}
 .paia-app .paia-tab__badge{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-inline-start:8px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:1}
+.paia-app .paia-tab__badge--marked{margin-inline-start:4px;background:#facc15;color:#1f1a00}
 
 .paia-app .paia-cm [hidden]{display:none!important}
 /* ظرف: همان کلاس .paia-chat اما داخل صفحه (نه شناور) */

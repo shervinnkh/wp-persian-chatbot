@@ -55,6 +55,8 @@ final class ChatSettings {
 			'ai_service'          => 'gpt-5-4',
 			'tone'                => 'formal', // formal | friendly
 			'important_notes'     => '',
+			// مارک کردن چت توسط هوش مصنوعی (از ۰.۵.۲۶): روشن = اگر هوش مصنوعی نتواند جواب بدهد، پاسخی نمی‌فرستد و فقط گفتگو را مارک می‌کند.
+			'ai_mark'             => 0,
 			// قدیمی: فرم دیگر نشانشان نمی‌دهد ولی ReplyEngine هنوز می‌خواندشان؛ مقدارشان هنگام ذخیره حفظ می‌شود.
 			'api_url'             => '',
 			'api_key'             => '',
@@ -310,6 +312,8 @@ final class ChatSettings {
 		$out['ai_service']    = array_key_exists( $service, self::ai_services() ) ? $service : $def['ai_service'];
 		$tone                 = isset( $in['tone'] ) ? (string) $in['tone'] : '';
 		$out['tone']          = array_key_exists( $tone, self::tones() ) ? $tone : $def['tone'];
+
+		$out['ai_mark'] = empty( $in['ai_mark'] ) ? 0 : 1;
 
 		$notes                  = isset( $in['important_notes'] ) ? sanitize_textarea_field( (string) $in['important_notes'] ) : '';
 		$out['important_notes'] = self::cut( $notes, self::NOTES_MAX );

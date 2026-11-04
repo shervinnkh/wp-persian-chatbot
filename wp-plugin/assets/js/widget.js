@@ -608,10 +608,10 @@
 		row.classList.add('is-sending');
 		clearPending();
 		state.stick = true;
-		// تأخیر هوش مصنوعی: پیام جمع می‌شود و «در حال تایپِ هوش مصنوعی» فقط وقتی نشان داده می‌شود که تأخیر تمام شود و هوش مصنوعی واقعاً شروع کند.
-		// بدون تأخیر (۰ ثانیه) هوش مصنوعی همان لحظه شروع می‌کند، پس نقطه‌ها فوراً می‌آیند.
+		// «در حال تایپِ هوش مصنوعی» فقط بعد از اینکه سرور دریافت پیام را تأیید کرد و هوش مصنوعی روشن بود نشان داده می‌شود
+		// (پاسخ سرور: thinking = true)؛ پیش از آن هیچ نقطه‌ای نیست.
 		window.clearTimeout(state.typeT);
-		if (cfg.aiDelay > 0) { hideTyping(); } else { showTyping(); }
+		hideTyping();
 
 		var fd = new FormData();
 		fd.append('text', text);
@@ -707,22 +707,17 @@
 	}
 
 	/* نشانگر «در حال تایپِ هوش مصنوعی»:
-	 *  - thinking = سرور واقعاً در حال ساخت پاسخ است ← نقطه‌ها نشان داده می‌شوند (مگر کاربر همان لحظه تایپ می‌کند).
-	 *  - pending ولی نه thinking = پیام‌ها هنوز در تأخیر هوش مصنوعی جمع می‌شوند ← نقطه‌ها نیستند؛ فقط با تمام شدن wait ثانیه می‌آیند. */
+	 *  فقط وقتی thinking = true است (سرور دریافت پیام را تأیید کرده، پاسخ در حال ساخت است و هوش مصنوعی برای این گفتگو روشن است)
+	 *  و کاربر همان لحظه تایپ نمی‌کند. در بقیهٔ حالت‌ها (انتظار تأخیر هوش مصنوعی، ارسال به سرور، خاموش بودن AI) نقطه‌ای نیست. */
 	function applyThinking(d, force) {
 		window.clearTimeout(state.typeT);
 		state.pendingBot = !!d.pending;
-		// force = پاسخِ خودِ درخواست ارسال/آغاز (busy هنوز true است)؛ در polling وسط ارسال چیزی پنهان نمی‌شود.
-		if (!d.pending) { if (force || !state.busy) { hideTyping(); } return; }
-		if (d.thinking) {
+		if (d.pending && d.thinking) {
 			if (Date.now() - state.lastInput < 2500) { hideTyping(); } else { showTyping(); }
 			return;
 		}
-		if (cfg.aiDelay > 0) { hideTyping(); }
-		var left = Math.max(0, parseInt(d.wait, 10) || 0);
-		state.typeT = window.setTimeout(function () {
-			if (state.pendingBot && Date.now() - state.lastInput >= 2500) { showTyping(); }
-		}, left * 1000 + 150);
+		// force = پاسخِ خودِ درخواست ارسال/آغاز (busy هنوز true است)؛ در polling وسط ارسال چیزی پنهان نمی‌شود.
+		if (force || !state.busy) { hideTyping(); }
 	}
 
 	function applyPoll(d) {
@@ -880,7 +875,8 @@
 		Promise.resolve(state.initP).then(function () {
 			return api('chat/profile', { method: 'POST', body: body });
 		}).then(applyInit).catch(function (e) {
-			profileFail(e && e.message);
+			// خطای شبکه (بدون کد HTTP) = «اتصال برقرار نشد»؛ خطای اعتبارسنجی سرور پیام خودش را دارد.
+			profileFail(e && e.status ? e.message : t.loadError);
 		}).then(function () { profileBusy(false); });
 	}
 	profForm.addEventListener('submit', function (e) { e.preventDefault(); submitProfile(false); });

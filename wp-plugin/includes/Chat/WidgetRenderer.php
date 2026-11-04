@@ -98,6 +98,8 @@ final class WidgetRenderer {
 				'badFile'      => __( 'فقط فایل تصویر قابل ارسال است.', 'persian-ai-assistant' ),
 				'recording'    => __( 'در حال ضبط...', 'persian-ai-assistant' ),
 				'image'        => __( 'تصویر', 'persian-ai-assistant' ),
+				'nameRequired'   => __( 'نام خود را وارد کنید.', 'persian-ai-assistant' ),
+				'contactInvalid' => __( 'ایمیل یا شماره تماس معتبر وارد کنید.', 'persian-ai-assistant' ),
 				'starting'     => __( 'در حال شروع...', 'persian-ai-assistant' ),
 				'loadingMsgs'  => __( 'در حال بارگذاری پیام‌ها', 'persian-ai-assistant' ),
 				'loadingOlder' => __( 'در حال بارگذاری پیام‌های قبلی', 'persian-ai-assistant' ),

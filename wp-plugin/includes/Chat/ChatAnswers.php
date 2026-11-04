@@ -92,6 +92,15 @@ final class ChatAnswers {
 
 			$msg  = isset( $item['message'] ) && is_array( $item['message'] ) ? $item['message'] : array();
 			$text = isset( $msg['content'] ) && is_string( $msg['content'] ) ? trim( $msg['content'] ) : '';
+			if ( AiMark::is_mark_reply( $text ) ) {
+				// «Mark-Chat»: هیچ پیامی ذخیره نمی‌شود؛ فقط گفتگو مارک می‌شود.
+				AiMark::mark( (string) $uid );
+				if ( '' !== $job ) {
+					set_transient( $dedupe, 1, DAY_IN_SECONDS );
+				}
+				++$out['saved'];
+				continue;
+			}
 			if ( '' === $text ) {
 				++$out['ignored'];
 				continue;

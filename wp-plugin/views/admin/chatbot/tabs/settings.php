@@ -66,6 +66,11 @@ $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-u
 							<?php endforeach; ?>
 						</select>
 					</label>
+					<label class="paia-check paia-chatset__wide">
+						<input type="checkbox" class="paia-tick" name="<?php echo esc_attr( $paia_name( 'ai_mark' ) ); ?>" value="1" <?php checked( ! empty( $paia_s['ai_mark'] ) ); ?>>
+						<span><?php esc_html_e( 'مارک کردن چت توسط هوش مصنوعی', 'persian-ai-assistant' ); ?></span>
+					</label>
+					<small class="paia-chatset__hint paia-chatset__hint--under paia-chatset__wide"><?php esc_html_e( 'اگر فعال باشد، اگر هوش مصنوعی نتواند جوابی درباره پرسش کاربر بدهد هیچ جوابی نمی‌دهد و فقط صفحه چت را مارک می‌کند تا پشتیبانان آن را جواب بدهند.', 'persian-ai-assistant' ); ?></small>
 					<label class="paia-chatset__f paia-chatset__wide">
 						<span><?php esc_html_e( 'توضیحات مهم', 'persian-ai-assistant' ); ?></span>
 						<textarea class="paia-chatset__notes" rows="6" maxlength="<?php echo esc_attr( (string) ChatSettings::NOTES_MAX ); ?>" name="<?php echo esc_attr( $paia_name( 'important_notes' ) ); ?>"><?php echo esc_textarea( $paia_s['important_notes'] ); ?></textarea>
