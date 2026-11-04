@@ -60,6 +60,7 @@ final class WidgetRenderer {
 			'images'   => (bool) ChatSettings::get( 'allow_images' ),
 			'voice'    => (bool) ChatSettings::get( 'allow_voice' ),
 			'botName'  => (string) ChatSettings::get( 'bot_name' ),
+			'botLogo'  => esc_url( (string) ChatSettings::get( 'bot_logo', '' ) ), // لوگوی هدر چت؛ خالی = آیکن پیش‌فرض
 			'online'   => ChatSettings::is_online(),
 			'dark'     => (bool) ChatSettings::get( 'dark_enabled' ), // تم دارک هوشمند (تشخیص در widget.js)
 			'onlineText'  => (string) ChatSettings::get( 'online_text' ),
@@ -98,8 +99,6 @@ final class WidgetRenderer {
 				'badFile'      => __( 'فقط فایل تصویر قابل ارسال است.', 'persian-ai-assistant' ),
 				'recording'    => __( 'در حال ضبط...', 'persian-ai-assistant' ),
 				'image'        => __( 'تصویر', 'persian-ai-assistant' ),
-				'nameRequired'   => __( 'نام خود را وارد کنید.', 'persian-ai-assistant' ),
-				'contactInvalid' => __( 'ایمیل یا شماره تماس معتبر وارد کنید.', 'persian-ai-assistant' ),
 				'starting'     => __( 'در حال شروع...', 'persian-ai-assistant' ),
 				'loadingMsgs'  => __( 'در حال بارگذاری پیام‌ها', 'persian-ai-assistant' ),
 				'loadingOlder' => __( 'در حال بارگذاری پیام‌های قبلی', 'persian-ai-assistant' ),

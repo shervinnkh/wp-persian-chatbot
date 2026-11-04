@@ -21,6 +21,7 @@ final class ChatSettings {
 			'enabled'             => 1,
 			'position'            => 'right',
 			'bot_name'            => __( 'دستیار هوشمند', 'persian-ai-assistant' ),
+			'bot_logo'            => '', // آدرس لوگوی بالای چت سایت (از کتابخانهٔ رسانه)؛ خالی = آیکن پیش‌فرض
 			'teaser_title'        => __( 'هر سوالی دارید بپرسید.', 'persian-ai-assistant' ),
 			'teaser_text'         => __( 'پاسخگوی شما هستیم.', 'persian-ai-assistant' ),
 			'profile_intro'       => __( 'درود، خوش آمدید.', 'persian-ai-assistant' ),
@@ -55,8 +56,6 @@ final class ChatSettings {
 			'ai_service'          => 'gpt-5-4',
 			'tone'                => 'formal', // formal | friendly
 			'important_notes'     => '',
-			// مارک کردن چت توسط هوش مصنوعی (از ۰.۵.۲۶): روشن = اگر هوش مصنوعی نتواند جواب بدهد، پاسخی نمی‌فرستد و فقط گفتگو را مارک می‌کند.
-			'ai_mark'             => 0,
 			// قدیمی: فرم دیگر نشانشان نمی‌دهد ولی ReplyEngine هنوز می‌خواندشان؛ مقدارشان هنگام ذخیره حفظ می‌شود.
 			'api_url'             => '',
 			'api_key'             => '',
@@ -283,6 +282,10 @@ final class ChatSettings {
 			$out[ $key ] = $color ? $color : $def[ $key ];
 		}
 
+		// لوگوی بالای چت: فقط آدرس http(s)؛ خالی = آیکن پیش‌فرض.
+		$logo            = isset( $in['bot_logo'] ) ? esc_url_raw( trim( (string) $in['bot_logo'] ), array( 'http', 'https' ) ) : '';
+		$out['bot_logo'] = $logo;
+
 		$out['max_upload_mb'] = isset( $in['max_upload_mb'] ) ? max( 1, min( 20, (int) $in['max_upload_mb'] ) ) : $def['max_upload_mb'];
 		$out['optimize']      = ( isset( $in['optimize'] ) && 'optimized' === $in['optimize'] ) ? 'optimized' : 'advanced';
 
@@ -312,8 +315,6 @@ final class ChatSettings {
 		$out['ai_service']    = array_key_exists( $service, self::ai_services() ) ? $service : $def['ai_service'];
 		$tone                 = isset( $in['tone'] ) ? (string) $in['tone'] : '';
 		$out['tone']          = array_key_exists( $tone, self::tones() ) ? $tone : $def['tone'];
-
-		$out['ai_mark'] = empty( $in['ai_mark'] ) ? 0 : 1;
 
 		$notes                  = isset( $in['important_notes'] ) ? sanitize_textarea_field( (string) $in['important_notes'] ) : '';
 		$out['important_notes'] = self::cut( $notes, self::NOTES_MAX );

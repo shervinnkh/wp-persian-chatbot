@@ -3952,6 +3952,59 @@
 
 	/* ------------------------------------------------------------------ */
 
+	/* ------------------------------------------------------------------ */
+	/* لوگوی بالای چت (تنظیمات ← مدیریت چت): انتخاب از کتابخانهٔ رسانهٔ وردپرس */
+
+	function initLogoPicker() {
+		var box = document.querySelector( '[data-paia-logo]' );
+		if ( ! box ) {
+			return;
+		}
+		var input = box.querySelector( 'input[type="hidden"]' );
+		var img = box.querySelector( '.paia-botlogo__img' );
+		var empty = box.querySelector( '.paia-botlogo__empty' );
+		var pick = box.querySelector( '[data-logo-pick]' );
+		var clear = box.querySelector( '[data-logo-clear]' );
+		var frame = null;
+
+		function paint( url ) {
+			input.value = url || '';
+			if ( url ) {
+				img.src = url;
+			} else {
+				img.removeAttribute( 'src' );
+			}
+			img.hidden = ! url;
+			empty.hidden = !! url;
+			clear.hidden = ! url;
+		}
+
+		pick.addEventListener( 'click', function () {
+			if ( ! window.wp || ! window.wp.media ) {
+				return;
+			}
+			if ( ! frame ) {
+				frame = window.wp.media( {
+					title: box.getAttribute( 'data-title' ) || '',
+					button: { text: box.getAttribute( 'data-button' ) || '' },
+					library: { type: 'image' },
+					multiple: false
+				} );
+				frame.on( 'select', function () {
+					var file = frame.state().get( 'selection' ).first();
+					if ( file ) {
+						paint( file.toJSON().url );
+					}
+				} );
+			}
+			frame.open();
+		} );
+
+		clear.addEventListener( 'click', function () {
+			paint( '' );
+		} );
+	}
+
 	document.addEventListener( 'DOMContentLoaded', function () {
 		var root = document.getElementById( 'paia-app' );
 		if ( ! root ) {
@@ -3967,6 +4020,7 @@
 		}
 
 		initSettingsNav();
+		initLogoPicker();
 		initDarkGroup();
 		initAutoSync();
 		initExtraction( root );

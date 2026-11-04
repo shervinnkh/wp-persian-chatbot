@@ -6,6 +6,8 @@
  * با وب‌هوک امضادارِ معمول (POST /paia/v1/ai/results) در قالب آیتمی با kind = "chat_answer" می‌فرستد و اینجا به‌صورت پیام
  * «assistant» در دیتابیس ذخیره می‌شود؛ ویجت با polling عادی آن را می‌بیند.
  *
+ * وب‌هوک اولِ هر درخواست (kind = "chat_messages_saved"، قبل از تولید پاسخ) فقط می‌گوید پیام‌ها در سرور ثبت شده‌اند: apply_saved.
+ *
  * تا رسیدن پاسخ، یک transient کوتاه «در انتظار پاسخ» نگه داشته می‌شود تا ویجت نقطه‌های تایپ را نشان دهد؛
  * اگر وب‌هوک هرگز نرسد خودش بعد از چند دقیقه منقضی می‌شود (ویجت دیگر منتظر نمی‌ماند).
  *
@@ -92,15 +94,6 @@ final class ChatAnswers {
 
 			$msg  = isset( $item['message'] ) && is_array( $item['message'] ) ? $item['message'] : array();
 			$text = isset( $msg['content'] ) && is_string( $msg['content'] ) ? trim( $msg['content'] ) : '';
-			if ( AiMark::is_mark_reply( $text ) ) {
-				// «Mark-Chat»: هیچ پیامی ذخیره نمی‌شود؛ فقط گفتگو مارک می‌شود.
-				AiMark::mark( (string) $uid );
-				if ( '' !== $job ) {
-					set_transient( $dedupe, 1, DAY_IN_SECONDS );
-				}
-				++$out['saved'];
-				continue;
-			}
 			if ( '' === $text ) {
 				++$out['ignored'];
 				continue;
@@ -126,6 +119,32 @@ final class ChatAnswers {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * وب‌هوک اول: سرور پیام‌ها را در دیتابیس خودش ذخیره کرده (قبل از تولید پاسخ) و می‌گوید کدام‌ها ثبت شدند.
+	 * پیام‌های ثبت‌شده ai_sent = 1 می‌گیرند تا حتی اگر پاسخ HTTP درخواست گم شده باشد (timeout) یا تولید پاسخ شکست بخورد،
+	 * دوباره به سرور فرستاده نشوند. تکرارِ همین وب‌هوک بی‌ضرر است.
+	 *
+	 * @param array<int, array<string, mixed>> $items آیتم‌های kind = chat_messages_saved.
+	 * @return array{marked:int}
+	 */
+	public static function apply_saved( array $items ): array {
+		$ids = array();
+		foreach ( $items as $item ) {
+			$list = isset( $item['messages'] ) && is_array( $item['messages'] ) ? $item['messages'] : array();
+			foreach ( $list as $m ) {
+				// external_id = شناسهٔ ردیف پیام در سایت که خودمان فرستاده بودیم.
+				if ( is_array( $m ) && isset( $m['external_id'] ) && is_scalar( $m['external_id'] ) && ctype_digit( (string) $m['external_id'] ) ) {
+					$ids[] = (int) $m['external_id'];
+				}
+			}
+		}
+		if ( $ids ) {
+			( new ChatStore() )->mark_sent( $ids );
+		}
+
+		return array( 'marked' => count( $ids ) );
 	}
 
 	/**

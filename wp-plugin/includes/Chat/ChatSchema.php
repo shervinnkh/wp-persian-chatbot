@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class ChatSchema {
 
-	public const VERSION = '1.2.0';
+	public const VERSION = '1.3.0';
 	public const OPTION  = 'paia_chat_db_version';
 
 	public static function visitors_table(): string {
@@ -76,9 +76,11 @@ final class ChatSchema {
   suggestions text NULL,
   admin_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
   admin_name varchar(190) NOT NULL DEFAULT '',
+  ai_sent tinyint(1) NOT NULL DEFAULT 0,
   created_at datetime NOT NULL,
   PRIMARY KEY  (id),
   KEY visitor_uid (visitor_uid,id),
+  KEY ai_sent (visitor_uid,ai_sent),
   KEY wp_user_id (wp_user_id)
 ) {$charset};"
 		);
@@ -98,6 +100,12 @@ final class ChatSchema {
 		if ( $prev && version_compare( (string) $prev, '1.2.0', '<' ) ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 			$wpdb->query( "UPDATE {$visitors} v SET v.ai_done_id = COALESCE((SELECT MAX(m.id) FROM {$messages} m WHERE m.visitor_uid = v.uid), 0)" );
+		}
+
+		// ارتقا به ۱.۳.۰ (ستون ai_sent): همهٔ پیام‌های قبلی در سیستم قدیمی به سرور رسیده بودند؛ دوباره فرستاده نشوند.
+		if ( $prev && version_compare( (string) $prev, '1.3.0', '<' ) ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+			$wpdb->query( "UPDATE {$messages} SET ai_sent = 1" );
 		}
 
 		update_option( self::OPTION, self::VERSION, false );

@@ -129,6 +129,9 @@ final class ChatStore {
 				'suggestions'     => $sugg ? wp_json_encode( array_values( $sugg ), JSON_UNESCAPED_UNICODE ) : '',
 				'admin_user_id'   => (int) ( $d['admin_user_id'] ?? 0 ),
 				'admin_name'      => (string) ( $d['admin_name'] ?? '' ),
+				// ai_sent: ۰ = هنوز به سرور هوش مصنوعی نرفته. پیام‌های assistant یا از خود سرور آمده‌اند یا پاسخ پیش‌فرض محلی‌اند
+				// (به سرور نمی‌روند) پس از همان ابتدا ۱ هستند؛ پیام کاربر و پشتیبان با ۰ شروع می‌شوند.
+				'ai_sent'         => isset( $d['ai_sent'] ) ? ( $d['ai_sent'] ? 1 : 0 ) : ( 'assistant' === ( $d['role'] ?? 'user' ) ? 1 : 0 ),
 				'created_at'      => self::now(),
 			)
 		);
@@ -373,6 +376,40 @@ final class ChatStore {
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 		$n = $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET ai_done_id = %d WHERE uid = %s AND ai_done_id < %d", $upto_id, $uid, $upto_id ) );
 		return (int) $n > 0;
+	}
+
+	/**
+	 * پیام‌های کاربر/پشتیبان که هنوز به سرور هوش مصنوعی فرستاده نشده‌اند (ai_sent = 0)، قدیمی‌ترین ← جدیدترین.
+	 * ترتیب ارسال همین ترتیب شناسه است (زمان سایت/سرور مهم نیست).
+	 *
+	 * @param int $upto_id 0 = بدون سقف؛ در غیر این صورت فقط پیام‌هایی با شناسهٔ کوچک‌تر یا مساوی.
+	 * @return object[]
+	 */
+	public function unsent_rows( string $uid, int $user_id, int $upto_id = 0 ): array {
+		global $wpdb;
+		$table = ChatSchema::messages_table();
+		$where = self::thread_where( 'm', $uid, $user_id );
+		if ( $upto_id > 0 ) {
+			$where .= $wpdb->prepare( ' AND m.id <= %d', $upto_id ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+		return (array) $wpdb->get_results( "SELECT m.* FROM {$table} m WHERE {$where} AND m.role IN ('user','admin') AND m.ai_sent = 0 ORDER BY m.id ASC" );
+	}
+
+	/**
+	 * پیام‌هایی که سرور هوش مصنوعی «دریافت شد» گفته است را ai_sent = 1 می‌کند.
+	 *
+	 * @param int[] $ids شناسهٔ پیام‌ها.
+	 */
+	public function mark_sent( array $ids ): void {
+		global $wpdb;
+		$ids = array_values( array_filter( array_map( 'intval', $ids ) ) );
+		if ( ! $ids ) {
+			return;
+		}
+		$table = ChatSchema::messages_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( "UPDATE {$table} SET ai_sent = 1 WHERE id IN (" . implode( ',', $ids ) . ')' );
 	}
 
 	/** آخرین زمان (unix) که کاربر «در حال تایپ» اعلام شده است. */

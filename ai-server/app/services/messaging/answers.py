@@ -108,9 +108,72 @@ class AnswerQueue:
         self.notify()
         return job_id
 
+
     def _age_ms(self, job: AnswerJob) -> float | None:
         created = aware(job.created_at)
         return (utcnow() - created).total_seconds() * 1000 if created else None
+
+    async def enqueue_saved(
+        self,
+        *,
+        cb: ValidatedCallback,
+        conversation: Conversation,
+        request_id: str | None,
+        total_count: int,
+        messages: list[dict],
+        error: str | None,
+    ) -> None:
+        """Outbox row "these messages are saved" (callback item kind "chat_messages_saved").
+
+        Queued right after the messages are committed and before an answer is generated, and sent
+        by the same delivery worker/backoff as answers. `messages` = [{index, message_id,
+        external_id}] for the messages saved from the START of the request's list.
+        """
+        await self.ingest.ensure_site(
+            SiteUpsert(
+                host=cb.site_key,
+                callback_url=cb.url,
+                ping_url=cb.ping_url,
+                site_url=cb.site_url,
+                max_results=cb.max_results,
+            ),
+            initial_batch_size=self.settings.CALLBACK_INITIAL_BATCH_SIZE,
+        )
+        job_id = "s_" + secrets.token_hex(6)
+        item = {
+            "kind": "chat_messages_saved",
+            "id": f"saved:{job_id}",
+            "status": "saved",
+            "job_id": job_id,
+            "request_id": request_id,
+            "conversation_id": conversation.id,
+            "visitor_uid": conversation.visitor_uid,
+            "wp_user_id": conversation.wp_user_id or 0,
+            "received_count": len(messages),
+            "total_count": total_count,
+            "messages": messages,
+        }
+        if error:
+            item["error"] = error
+        async with self.db.session() as s:
+            s.add(
+                CallbackDelivery(
+                    site_key=cb.site_key,
+                    callback_url=cb.url,
+                    job_id=job_id,
+                    record_id=item["id"],
+                    result_status="trained",  # table check constraint: trained = ok
+                    kind="answer",  # same outbox rules as answers (ready-made payload, short TTL)
+                    payload=json.dumps(item, ensure_ascii=False, separators=(",", ":")),
+                    available_at=utcnow(),  # sent right away
+                )
+            )
+            await s.commit()
+        logger.info(
+            "messaging.saved_queued job=%s conversation_id=%s received=%d/%d",
+            job_id, conversation.id, len(messages), total_count,
+        )  # fmt: skip
+        # delivery worker polls on its own; nothing to notify here
 
     # ------------------------------------------------------------------ loop
     async def run_loop(self, stop: asyncio.Event) -> None:

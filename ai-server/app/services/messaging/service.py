@@ -20,7 +20,7 @@ from app.core.monitoring import answer_stats, emit, note_answer_error
 from app.db.base import Database
 from app.db.messaging_models import Message
 from app.db.messaging_repository import MessagingRepository
-from app.schemas.messaging import SendMessageRequest
+from app.schemas.messaging import SendMessageRequest, SendMessagesBatchRequest
 from app.services.chunking.tokens import TokenCounter
 from app.services.conversation.answer import (
     AiAnswerResult,
@@ -49,6 +49,21 @@ class SendResult:
     attachment_status: AttachmentStatus
     message: Message
     ai: AiAnswerResult
+
+
+@dataclass
+class BatchResult:
+    conversation_id: int
+    created_conversation: bool
+    total_count: int
+    items: list[SendResult]  # the messages that were saved, in request order
+    ai: AiAnswerResult
+    error: str | None = None
+    saved_callback_queued: bool = False  # the "messages saved" callback item was queued
+
+    @property
+    def received_count(self) -> int:
+        return len(self.items)
 
 
 class MessagingService:
@@ -92,15 +107,18 @@ class MessagingService:
         await self.db.dispose()
 
     # ------------------------------------------------------------------ send
-    async def send(self, req: SendMessageRequest) -> SendResult:
-        await self.ensure_ready()
-        wants_answer = req.generate_ai_answer and req.role.value == "user"
-        cb = None
-        if wants_answer and req.callback is not None:
+    async def _validated_cb(self, req: SendMessageRequest):
+        """The validated callback of a request that wants an async answer (else None)."""
+        if req.generate_ai_answer and req.role.value == "user" and req.callback is not None:
             # Validated BEFORE anything is saved: a bad callback must not leave a message behind.
-            cb = validate_callback(
+            return validate_callback(
                 self.settings, req.callback, locked_site=await self.answers.ingest.locked_site()
             )
+        return None
+
+    async def _save(self, req: SendMessageRequest):
+        """Find/create the conversation, save the message (+ its attachment).
+        -> (conversation, created, message, attachment_status)"""
         if req.conversation_id is not None:
             conv = await self.repo.get_conversation(req.conversation_id)
             if conv is None:
@@ -133,6 +151,71 @@ class MessagingService:
             msg, status = await self._fetch_attachment(
                 msg, req.attachment_url, req.attachment_type.value
             )
+        return conv, created, msg, status
+
+    async def _answer(self, req: SendMessageRequest, conv_id: int, msg: Message, cb) -> AiAnswerResult:
+        """Answer the saved message when the request asks for it (async with `cb`, else inline)."""
+        if not (req.generate_ai_answer and req.role.value == "user"):
+            return AiAnswerResult()
+        ctx = PromptContext.from_request(req, self.settings)
+        if cb is not None:  # async: queued now, POSTed to the callback when ready
+            job_id = await self.answers.enqueue(
+                conversation_id=conv_id, question_id=msg.id, cb=cb, ctx=ctx
+            )
+            return AiAnswerResult(status="queued", job_id=job_id, model=ctx.model)
+        return await self._generate_answer(conv_id, msg, ctx)
+
+    async def send(self, req: SendMessageRequest) -> SendResult:
+        await self.ensure_ready()
+        cb = await self._validated_cb(req)
+        conv, created, msg, status = await self._save(req)
+        ai = await self._answer(req, conv.id, msg, cb)
+        return SendResult(conv.id, created, status, msg, ai)
+
+    async def send_batch(self, batch: SendMessagesBatchRequest) -> BatchResult:
+        """Save a list of messages in order (oldest first); the last one may also get an AI answer.
+
+        Each message is committed on its own (so the order of ids == the order of the list). The
+        list stops at the first failure: the result says how many messages from the start were
+        saved (`received_count`) so the client can retry only the rest. If the very first message
+        fails the error is raised as usual (nothing was saved).
+
+        With a `callback` the site is told FIRST (item kind "chat_messages_saved", queued as soon as
+        the messages are in the database and BEFORE any answer is generated) which messages were
+        saved; the answer follows later as kind "chat_answer". So even when the HTTP response of
+        this request is lost or the answer fails, the site knows what the server already has.
+        """
+        await self.ensure_ready()
+        reqs = batch.requests
+        cb = None
+        if batch.callback is not None:
+            # Validated BEFORE anything is saved: a bad callback must not leave messages behind.
+            cb = validate_callback(
+                self.settings, batch.callback, locked_site=await self.answers.ingest.locked_site()
+            )
+        saved: list[tuple] = []  # (conversation, created, message, attachment_status)
+        error: str | None = None
+        for i, req in enumerate(reqs):
+            try:
+                one = await self._save(req)
+            except Exception as exc:  # noqa: BLE001
+                if not saved:
+                    raise
+                logger.exception(
+                    "messaging.batch_stopped index=%d saved=%d total=%d", i, len(saved), len(reqs)
+                )
+                error = f"message {i} could not be saved ({type(exc).__name__})"
+                break
+            # Conversation lookup by uid only once: later messages go to the same conversation.
+            if i == 0:
+                for later in reqs[1:]:
+                    later.conversation_id = one[0].id
+            saved.append(one)
+
+        conv = saved[0][0]
+        saved_queued = False
+        if cb is not None:
+            saved_queued = await self._notify_saved(batch, cb, conv, saved, error)
 
         mode = ("async" if cb is not None else "sync") if wants_answer else None
         emit(
@@ -143,16 +226,50 @@ class MessagingService:
             chars=len(req.content or ""), wants_answer=wants_answer, mode=mode,
         )  # fmt: skip
         ai = AiAnswerResult()
-        if wants_answer:
-            ctx = PromptContext.from_request(req, self.settings)
-            if cb is not None:  # async: queued now, POSTed to the callback when ready
-                job_id = await self.answers.enqueue(
-                    conversation_id=conv.id, question_id=msg.id, cb=cb, ctx=ctx
-                )
-                ai = AiAnswerResult(status="queued", job_id=job_id, model=ctx.model)
-            else:
-                ai = await self._generate_answer(conv.id, msg, ctx)
-        return SendResult(conv.id, created, status, msg, ai)
+        if len(saved) == len(reqs):
+            last = saved[-1]
+            ai = await self._answer(reqs[-1], conv.id, last[2], cb if batch.generate_ai_answer else None)
+        logger.info(
+            "messaging.batch_saved conversation_id=%s received=%d total=%d ai_status=%s",
+            conv.id, len(saved), len(reqs), ai.status,
+        )  # fmt: skip
+        items = [
+            SendResult(conv.id, created, status, msg, ai if k == len(saved) - 1 else AiAnswerResult())
+            for k, (_c, created, msg, status) in enumerate(saved)
+        ]
+        return BatchResult(
+            conversation_id=conv.id,
+            created_conversation=saved[0][1],
+            total_count=len(reqs),
+            items=items,
+            ai=ai,
+            error=error,
+            saved_callback_queued=saved_queued,
+        )
+
+    async def _notify_saved(self, batch, cb, conv, saved: list[tuple], error: str | None) -> bool:
+        """Queue the "messages saved" callback item. Never raises: a failure here must not hide
+        the fact that the messages are saved (the HTTP response still says it)."""
+        try:
+            await self.answers.enqueue_saved(
+                cb=cb,
+                conversation=conv,
+                request_id=batch.request_id,
+                total_count=len(batch.messages),
+                messages=[
+                    {
+                        "index": i,
+                        "message_id": msg.id,
+                        "external_id": batch.messages[i].external_id,
+                    }
+                    for i, (_c, _created, msg, _status) in enumerate(saved)
+                ],
+                error=error,
+            )
+            return True
+        except Exception:  # noqa: BLE001
+            logger.exception("messaging.saved_callback_failed conversation_id=%s", conv.id)
+            return False
 
     # ------------------------------------------------------------------ AI answer
     @property

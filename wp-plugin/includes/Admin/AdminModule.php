@@ -98,6 +98,7 @@ final class AdminModule implements Module {
 
 		wp_enqueue_style( 'paia-admin', PAIA_URL . 'assets/css/admin.css', array(), PAIA_VERSION );
 
+
 		// پنل مانیتورینگ: اسکریپت و داده‌ٔ جدا (admin.js و کوئری‌های سنگین تب‌های چت‌بات لازم نیست).
 		if ( MonitoringPage::SLUG === $page->slug() ) {
 			wp_enqueue_script( 'paia-monitoring', PAIA_URL . 'assets/js/monitoring.js', array(), PAIA_VERSION, true );
@@ -114,6 +115,11 @@ final class AdminModule implements Module {
 			);
 
 			return;
+		}
+
+		if ( ChatbotPage::SLUG === $page->slug() ) {
+			wp_enqueue_media(); // انتخاب لوگوی چت از کتابخانهٔ رسانه (تنظیمات ← مدیریت چت)
+
 		}
 
 		wp_enqueue_script( 'paia-admin', PAIA_URL . 'assets/js/admin.js', array(), PAIA_VERSION, true );

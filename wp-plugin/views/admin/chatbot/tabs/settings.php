@@ -66,11 +66,6 @@ $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-u
 							<?php endforeach; ?>
 						</select>
 					</label>
-					<label class="paia-check paia-chatset__wide">
-						<input type="checkbox" class="paia-tick" name="<?php echo esc_attr( $paia_name( 'ai_mark' ) ); ?>" value="1" <?php checked( ! empty( $paia_s['ai_mark'] ) ); ?>>
-						<span><?php esc_html_e( 'مارک کردن چت توسط هوش مصنوعی', 'persian-ai-assistant' ); ?></span>
-					</label>
-					<small class="paia-chatset__hint paia-chatset__hint--under paia-chatset__wide"><?php esc_html_e( 'اگر فعال باشد، اگر هوش مصنوعی نتواند جوابی درباره پرسش کاربر بدهد هیچ جوابی نمی‌دهد و فقط صفحه چت را مارک می‌کند تا پشتیبانان آن را جواب بدهند.', 'persian-ai-assistant' ); ?></small>
 					<label class="paia-chatset__f paia-chatset__wide">
 						<span><?php esc_html_e( 'توضیحات مهم', 'persian-ai-assistant' ); ?></span>
 						<textarea class="paia-chatset__notes" rows="6" maxlength="<?php echo esc_attr( (string) ChatSettings::NOTES_MAX ); ?>" name="<?php echo esc_attr( $paia_name( 'important_notes' ) ); ?>"><?php echo esc_textarea( $paia_s['important_notes'] ); ?></textarea>
@@ -122,6 +117,19 @@ $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-u
 						<span><?php esc_html_e( 'نام دستیار', 'persian-ai-assistant' ); ?></span>
 						<input type="text" name="<?php echo esc_attr( $paia_name( 'bot_name' ) ); ?>" value="<?php echo esc_attr( $paia_s['bot_name'] ); ?>">
 					</label>
+					<div class="paia-chatset__f paia-chatset__wide paia-botlogo" data-paia-logo data-title="<?php esc_attr_e( 'انتخاب لوگوی چت', 'persian-ai-assistant' ); ?>" data-button="<?php esc_attr_e( 'استفاده به عنوان لوگو', 'persian-ai-assistant' ); ?>">
+						<span><?php esc_html_e( 'لوگوی بالای چت', 'persian-ai-assistant' ); ?></span>
+						<div class="paia-botlogo__row">
+							<div class="paia-botlogo__preview">
+								<img class="paia-botlogo__img" alt="" <?php echo ! empty( $paia_s['bot_logo'] ) ? 'src="' . esc_url( $paia_s['bot_logo'] ) . '"' : 'hidden'; ?>>
+								<em class="paia-botlogo__empty" <?php echo ! empty( $paia_s['bot_logo'] ) ? 'hidden' : ''; ?>><?php esc_html_e( 'پیش‌فرض', 'persian-ai-assistant' ); ?></em>
+							</div>
+							<button type="button" class="paia-btn paia-btn--ghost" data-logo-pick><span class="paia-btn__label"><?php esc_html_e( 'انتخاب / تغییر لوگو', 'persian-ai-assistant' ); ?></span></button>
+							<button type="button" class="paia-btn paia-btn--ghost" data-logo-clear <?php echo empty( $paia_s['bot_logo'] ) ? 'hidden' : ''; ?>><span class="paia-btn__label"><?php esc_html_e( 'حذف لوگو', 'persian-ai-assistant' ); ?></span></button>
+						</div>
+						<input type="hidden" name="<?php echo esc_attr( $paia_name( 'bot_logo' ) ); ?>" value="<?php echo esc_attr( (string) $paia_s['bot_logo'] ); ?>">
+						<small class="paia-chatset__hint"><?php esc_html_e( 'تصویر کوچکِ بالای پنجرهٔ چت در صفحه‌های سایت. اگر لوگویی انتخاب نشود، آیکن پیش‌فرض نمایش داده می‌شود. با دکمهٔ «ذخیرهٔ تغییرات» اعمال می‌شود.', 'persian-ai-assistant' ); ?></small>
+					</div>
 					<label class="paia-chatset__f">
 						<span><?php esc_html_e( 'متن بالای آیکن (تیتر)', 'persian-ai-assistant' ); ?></span>
 						<input type="text" name="<?php echo esc_attr( $paia_name( 'teaser_title' ) ); ?>" value="<?php echo esc_attr( $paia_s['teaser_title'] ); ?>">

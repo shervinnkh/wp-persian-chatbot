@@ -11,6 +11,8 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
+    ValidationError,
     field_validator,
     model_validator,
 )
@@ -21,6 +23,7 @@ from app.schemas.ingest import CallbackIn
 _UID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,64}$")
 MAX_SUGGESTIONS = 4
 MAX_NOTES_CHARS = 1500
+MAX_BATCH_MESSAGES = 100  # one batch request; the plugin sends bigger backlogs in several requests
 MAX_REQUEST_TOOLS = 100  # hard schema limit; TOOLS_MAX_DYNAMIC (.env) is the working limit
 LIVE_PRODUCT_FIELDS = ("price", "stock")  # live product data the site may allow
 _TOOL_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,40}$")
@@ -221,6 +224,93 @@ class SendMessageRequest(BaseModel):
         return self
 
 
+class BatchMessageIn(BaseModel):
+    """One message of a batch (same fields/rules as the single-message body, role user|admin)."""
+
+    role: MessageRole
+    content: str = Field("", max_length=20000)
+    attachment_type: AttachmentType | None = None
+    attachment_url: str | None = Field(None, max_length=2048)
+    suggestions: list[str] | None = None
+    admin_user_id: int | None = Field(None, ge=1)
+    admin_name: str | None = Field(None, max_length=120)
+    # The client's own id for this message (e.g. its row id). Not stored: it is only echoed back
+    # in the response and in the "chat_messages_saved" callback so the client can match them.
+    external_id: str | None = Field(None, max_length=64)
+
+
+class SendMessagesBatchRequest(BaseModel):
+    """Several messages saved IN THE GIVEN ORDER (oldest first), optionally ending in an AI answer.
+
+    Used by the plugin: messages exchanged while the AI was off (or while a human answered) are not
+    sent one by one; they go together with the next user message that needs an AI answer.
+    Server time vs. site time does not matter: only the order of the list is kept (messages get
+    increasing ids as they are saved one after another).
+    """
+
+    conversation_id: int | None = Field(None, ge=1)
+    visitor_uid: str | None = Field(None, max_length=64)
+    wp_user_id: int | None = Field(None, ge=0)
+
+    messages: list[BatchMessageIn] = Field(..., min_length=1, max_length=MAX_BATCH_MESSAGES)
+    request_id: str | None = Field(None, max_length=64)  # echoed in the "messages saved" callback
+
+    # true -> the LAST message (must be role=user) also gets an AI answer; every field below is
+    # then used exactly like in POST /v1/chat/messages. false (default) -> everything is only saved.
+    generate_ai_answer: bool = False
+    model: str | None = Field(None, max_length=64)
+    tone: Literal["formal", "friendly"] | None = None
+    site: ChatSite | None = None
+    page: ChatPage | None = None
+    notes: str | None = None
+    live_product_datas: list[str] | None = None
+    tools: list[ChatDynamicTool] | None = Field(None, max_length=MAX_REQUEST_TOOLS)
+    # With a callback the site is first told which messages were saved (item kind
+    # "chat_messages_saved", before any answer is generated), then - if generate_ai_answer -
+    # gets the answer (kind "chat_answer"). Without it the answer (if any) is generated inline.
+    callback: CallbackIn | None = None
+
+    _requests: list[SendMessageRequest] = PrivateAttr(default_factory=list)
+
+    @model_validator(mode="after")
+    def _build(self) -> SendMessagesBatchRequest:
+        if self.generate_ai_answer and self.messages[-1].role != MessageRole.user:
+            raise ValueError("the last message must have role=user when generate_ai_answer is true")
+        last = len(self.messages) - 1
+        requests: list[SendMessageRequest] = []
+        for i, m in enumerate(self.messages):
+            data: dict = {
+                "conversation_id": self.conversation_id,
+                "visitor_uid": self.visitor_uid,
+                "wp_user_id": self.wp_user_id,
+                **m.model_dump(exclude={"external_id"}),
+            }
+            if self.generate_ai_answer and i == last:
+                data.update(
+                    generate_ai_answer=True,
+                    model=self.model,
+                    tone=self.tone,
+                    site=self.site,
+                    page=self.page,
+                    notes=self.notes,
+                    live_product_datas=self.live_product_datas,
+                    tools=self.tools,
+                    callback=self.callback,
+                )
+            try:
+                requests.append(SendMessageRequest(**data))
+            except ValidationError as exc:
+                detail = "; ".join(str(e.get("msg", "")) for e in exc.errors())
+                raise ValueError(f"messages[{i}]: {detail}") from None
+        self._requests = requests
+        return self
+
+    @property
+    def requests(self) -> list[SendMessageRequest]:
+        """The validated single-message requests, in order (the last one may ask for an answer)."""
+        return self._requests
+
+
 class MessageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -265,6 +355,27 @@ class SendMessageResponse(BaseModel):
     # none = no attachment | stored = downloaded | failed = message saved, download failed
     attachment_status: Literal["none", "stored", "failed"]
     message: MessageOut
+    ai_answer: AiAnswerOut
+
+
+class BatchItemOut(BaseModel):
+    index: int  # position in the request's `messages`
+    external_id: str | None = None  # echo of the request item's external_id
+    attachment_status: Literal["none", "stored", "failed"]
+    message: MessageOut
+
+
+class SendMessagesBatchResponse(BaseModel):
+    conversation_id: int
+    created_conversation: bool
+    total_count: int  # messages in the request
+    # Messages saved from the START of the list (the list is processed in order and stops at the
+    # first failure). received_count == total_count means everything was received.
+    received_count: int
+    error: str | None = None  # set when received_count < total_count (details in the server log)
+    # true = a "chat_messages_saved" callback item was queued (only when the request had a callback)
+    saved_callback_queued: bool = False
+    messages: list[BatchItemOut]
     ai_answer: AiAnswerOut
 
 
