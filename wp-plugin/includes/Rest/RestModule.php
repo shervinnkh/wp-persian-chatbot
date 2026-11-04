@@ -16,8 +16,10 @@ final class RestModule implements Module {
 	}
 
 	public function register_routes(): void {
-		// کلید وضعیت چت‌بات همیشه ثبت می‌شود؛ بقیه فقط وقتی چت‌بات روشن است.
+		// کلید وضعیت چت‌بات و مانیتورینگ همیشه ثبت می‌شوند؛ بقیه فقط وقتی چت‌بات روشن است.
 		( new StatusController() )->register_routes();
+		// پنل مانیتورینگ سرور: مستقل از کلید چت‌بات.
+		( new MonitoringController() )->register_routes();
 
 		if ( ! Status::is_enabled() ) {
 			return;

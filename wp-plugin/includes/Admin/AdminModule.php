@@ -98,6 +98,24 @@ final class AdminModule implements Module {
 
 		wp_enqueue_style( 'paia-admin', PAIA_URL . 'assets/css/admin.css', array(), PAIA_VERSION );
 
+		// پنل مانیتورینگ: اسکریپت و داده‌ٔ جدا (admin.js و کوئری‌های سنگین تب‌های چت‌بات لازم نیست).
+		if ( MonitoringPage::SLUG === $page->slug() ) {
+			wp_enqueue_script( 'paia-monitoring', PAIA_URL . 'assets/js/monitoring.js', array(), PAIA_VERSION, true );
+			wp_add_inline_script(
+				'paia-monitoring',
+				'window.PAIA_MONITOR = ' . wp_json_encode(
+					array(
+						'restUrl'    => esc_url_raw( rest_url( 'paia/v1/' ) ),
+						'nonce'      => wp_create_nonce( 'wp_rest' ),
+						'configured' => \PersianAIAssistant\Apis\Client::is_configured(),
+					)
+				) . ';',
+				'before'
+			);
+
+			return;
+		}
+
 		wp_enqueue_script( 'paia-admin', PAIA_URL . 'assets/js/admin.js', array(), PAIA_VERSION, true );
 		wp_add_inline_script(
 			'paia-admin',

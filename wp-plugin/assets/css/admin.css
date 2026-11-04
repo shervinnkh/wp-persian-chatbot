@@ -1264,7 +1264,6 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
    ========================================================================== */
 .paia-app .paia-chatset__hint{color:var(--paia-muted);font-size:12.5px;line-height:1.8}
 .paia-app .paia-tab__badge{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-inline-start:8px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:1}
-.paia-app .paia-tab__badge--marked{margin-inline-start:4px;background:#facc15;color:#1f1a00}
 
 .paia-app .paia-cm [hidden]{display:none!important}
 /* ظرف: همان کلاس .paia-chat اما داخل صفحه (نه شناور) */
@@ -1717,3 +1716,119 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
 .paia-app .paia-ai-del.is-loading{pointer-events:none;position:relative;color:transparent}
 .paia-app .paia-ai-del.is-loading::after{content:"";position:absolute;inset:0;margin:auto;width:14px;height:14px;border-radius:50%;border:2px solid rgba(148,163,184,.4);border-top-color:var(--paia-muted);animation:paia-spin .7s linear infinite}
 .paia-app .paia-removed__row.is-deleting{opacity:.75}
+
+/* ==========================================================================
+   پنل مانیتورینگ (views/admin/monitoring.php + assets/js/monitoring.js)
+   همان پوسته، کارت‌ها و دکمه‌های صفحه‌های چت‌بات و تنظیمات؛ فقط چیدمان داشبورد اضافه شده است.
+   ========================================================================== */
+
+.paia-app .paia-content--wide{max-width:1360px}
+.paia-mon{--paia-mon-ok:#34d399;--paia-mon-warn:#fbbf24;--paia-mon-bad:#f87171}
+
+/* نوار ابزار: بازه، جابه‌جایی، تقویم، به‌روزرسانی */
+.paia-mon__bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:6px 32px 14px}
+.paia-mon__seg{display:inline-flex;padding:3px;border:1px solid var(--paia-border-strong);border-radius:12px;background:var(--paia-surface)}
+.paia-app .paia-mon__segbtn{min-width:64px;padding:6px 16px;border:0;border-radius:9px;background:transparent;color:var(--paia-muted);font-size:13.5px;font-weight:500;cursor:pointer;transition:color .15s,background-color .15s}
+.paia-app .paia-mon__segbtn:hover:not(:disabled){color:var(--paia-text)}
+.paia-app .paia-mon__segbtn.is-active{background:var(--paia-gradient);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(109,40,217,.35)}
+.paia-app .paia-mon__segbtn:disabled{cursor:wait;opacity:.7}
+.paia-mon__nav{display:inline-flex;align-items:center;gap:8px}
+.paia-app .paia-mon__navbtn{width:34px;height:34px;padding:0 0 3px;border:1px solid var(--paia-border-strong);border-radius:10px;background:transparent;color:var(--paia-text);font-size:22px;line-height:1;cursor:pointer}
+.paia-app .paia-mon__navbtn:hover:not(:disabled){background:rgba(148,163,184,.12)}
+.paia-app .paia-mon__navbtn:disabled{opacity:.3;cursor:not-allowed}
+.paia-app .paia-mon__label{min-width:150px;text-align:center;font-size:15px;color:var(--paia-text)}
+.paia-app .paia-mon__today{padding:5px 14px;font-size:13px}
+.paia-app .paia-mon__today:disabled{opacity:.4;cursor:not-allowed}
+.paia-app .paia-mon__refresh{margin-inline-start:auto}
+.paia-app .paia-mon__refresh .paia-spinner{border-color:rgba(148,163,184,.4);border-top-color:var(--paia-accent)}
+.paia-app .paia-mon__refresh:disabled{cursor:wait}
+
+/* فهرست پرش به بخش‌ها (همه در یک صفحه‌اند) */
+.paia-mon__jump{display:flex;gap:6px;padding:0 32px 12px;overflow-x:auto;scrollbar-width:none}
+.paia-mon__jump::-webkit-scrollbar{display:none}
+.paia-mon__jump[hidden]{display:none}
+.paia-app .paia-mon__jump a{flex:none;padding:3px 12px;border:1px solid var(--paia-border);border-radius:999px;color:var(--paia-muted);font-size:12.5px;white-space:nowrap;transition:color .15s,border-color .15s}
+.paia-app .paia-mon__jump a:hover{color:var(--paia-text);border-color:var(--paia-accent)}
+
+/* لودینگ */
+.paia-mon__loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:110px 20px;color:var(--paia-muted)}
+.paia-mon__loading[hidden]{display:none}
+.paia-mon__loading p{margin:0}
+.paia-mon__bigspin{width:46px;height:46px;border:4px solid rgba(148,163,184,.25);border-top-color:var(--paia-accent);border-radius:50%;animation:paia-spin .8s linear infinite}
+.paia-mon__body[hidden]{display:none}
+.paia-mon .paia-content>.paia-notice{margin:0 0 20px}
+.paia-app .paia-mon__retry{margin-top:10px}
+
+/* بخش‌ها */
+.paia-mon__sec{scroll-margin-top:190px}
+.paia-mon__secbody{display:grid;gap:22px;min-width:0}
+.paia-mon__sub{min-width:0}
+.paia-app .paia-mon__subtitle{margin:0 0 12px;font-size:14px;font-weight:700;color:var(--paia-text)}
+.paia-mon__cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px 28px;min-width:0}
+.paia-mon__kpis{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.paia-mon__kpis .paia-stat__value{font-size:26px}
+.paia-mon__kpis .paia-stat__hint{margin-top:2px;line-height:1.7}
+.paia-app .paia-stat--warn{border-color:rgba(251,191,36,.55)}
+.paia-app .paia-stat--warn .paia-stat__value{background:none;-webkit-text-fill-color:#fbbf24;color:#fbbf24}
+.paia-mon__ltr{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;color:#cbd5e1}
+
+/* وضعیت کلی */
+.paia-mon__health{border-inline-start:4px solid var(--paia-mon-ok)}
+.paia-mon__health.is-warn{border-inline-start-color:var(--paia-mon-warn)}
+.paia-mon__health.is-bad{border-inline-start-color:var(--paia-mon-bad)}
+.paia-mon__healthhead{display:flex;align-items:center;gap:12px}
+.paia-mon__dot{width:12px;height:12px;border-radius:50%;background:var(--paia-mon-ok);box-shadow:0 0 0 5px rgba(52,211,153,.18)}
+.paia-mon__health.is-warn .paia-mon__dot{background:var(--paia-mon-warn);box-shadow:0 0 0 5px rgba(251,191,36,.18)}
+.paia-mon__health.is-bad .paia-mon__dot{background:var(--paia-mon-bad);box-shadow:0 0 0 5px rgba(248,113,113,.2)}
+.paia-mon__issues{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:6px}
+.paia-mon__issues li{position:relative;padding:8px 14px;padding-inline-start:30px;border-radius:10px;background:var(--paia-bg);font-size:13.5px}
+.paia-mon__issues li::before{content:"";position:absolute;inset-inline-start:12px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--paia-mon-warn)}
+.paia-mon__issues li.is-bad::before{background:var(--paia-mon-bad)}
+.paia-mon__meta{margin:14px 0 0;color:var(--paia-muted);font-size:13px}
+.paia-mon__meta span{opacity:.5;margin-inline:4px}
+.paia-mon__meta strong{color:var(--paia-text)}
+.paia-mon__meta--warn{margin-top:8px;color:#fcd34d}
+
+/* نمودارها */
+.paia-mon__charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px}
+.paia-mon__chartcard{min-width:0;padding:16px 16px 10px;border:1px solid var(--paia-border);border-radius:var(--paia-radius-md);background:var(--paia-bg)}
+.paia-mon__chart{min-width:0;direction:ltr}
+.paia-mon__chart .paia-note{direction:rtl;margin:24px 0;text-align:center}
+.paia-mon__legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-bottom:6px;color:var(--paia-muted);font-size:12px;direction:rtl}
+.paia-mon__legend i,.paia-mon__tip i{display:inline-block;width:9px;height:9px;margin-inline-end:6px;border-radius:3px}
+.paia-mon__plot{position:relative}
+.paia-mon__svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.paia-mon__grid{stroke:rgba(148,163,184,.16);stroke-width:1}
+.paia-mon__axis{fill:#94a3b8;font-size:13px;font-family:var(--paia-font)}
+.paia-mon__hit:hover{fill:rgba(148,163,184,.10)}
+.paia-mon__tip{position:absolute;top:6px;z-index:3;min-width:150px;padding:9px 12px;border:1px solid var(--paia-border-strong);border-radius:10px;background:#0b1222;box-shadow:0 10px 24px rgba(0,0,0,.4);font-size:12.5px;line-height:1.8;pointer-events:none;direction:rtl;transform:translateX(12px)}
+.paia-mon__tip.is-right{transform:translateX(calc(-100% - 12px))}
+.paia-mon__tip[hidden]{display:none}
+.paia-mon__tip strong{display:block;margin-bottom:2px;color:var(--paia-text)}
+
+/* نوار افقی */
+.paia-mon__hbars{display:grid;gap:9px}
+.paia-mon__hrow{display:grid;grid-template-columns:minmax(90px,38%) minmax(0,1fr) auto;align-items:center;gap:12px;font-size:13px}
+.paia-mon__hlabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--paia-text)}
+.paia-mon__htrack{height:9px;border-radius:99px;background:rgba(148,163,184,.14);overflow:hidden}
+.paia-mon__htrack i{display:block;height:100%;border-radius:99px}
+.paia-mon__hval{min-width:42px;text-align:end;color:var(--paia-text);font-variant-numeric:tabular-nums}
+.paia-mon__hval small{color:var(--paia-muted);font-size:11.5px}
+
+/* جدول */
+.paia-mon__tablewrap{max-width:100%;overflow-x:auto;border:1px solid var(--paia-border);border-radius:var(--paia-radius-md)}
+.paia-mon__table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+.paia-mon__table th,.paia-mon__table td{padding:9px 14px;text-align:start;border-block-end:1px solid var(--paia-border)}
+.paia-mon__table th{background:rgba(148,163,184,.07);color:var(--paia-muted);font-weight:500;font-size:12.5px}
+.paia-mon__table tbody tr:last-child td{border-block-end:0}
+.paia-mon__table tbody tr:hover td{background:rgba(148,163,184,.05)}
+.paia-mon__table .is-num{text-align:end;font-variant-numeric:tabular-nums}
+
+@media (max-width:782px){
+	.paia-mon__bar,.paia-mon__jump{padding-inline:16px}
+	.paia-app .paia-mon__refresh{margin-inline-start:0}
+	.paia-mon__charts{grid-template-columns:minmax(0,1fr)}
+	.paia-mon__sec{scroll-margin-top:260px}
+	.paia-mon__hrow{grid-template-columns:minmax(70px,34%) minmax(0,1fr) auto}
+}
+@media (max-width:782px){.paia-mon .paia-topbar{position:static}}
