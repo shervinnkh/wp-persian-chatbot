@@ -1,4 +1,4 @@
-"""Messaging endpoints: save a chat message, delete one message, clear a conversation."""
+"""Messaging endpoints: save a chat message (or an ordered batch), delete one message, clear a conversation."""
 
 from __future__ import annotations
 
@@ -9,11 +9,14 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Path, Request
 from app.schemas.common import ErrorResponse
 from app.schemas.messaging import (
     AiAnswerOut,
+    BatchItemOut,
     ClearMessagesResponse,
     DeleteMessageResponse,
     MessageOut,
     SendMessageRequest,
     SendMessageResponse,
+    SendMessagesBatchRequest,
+    SendMessagesBatchResponse,
 )
 from app.services.conversation.answer import AiAnswerResult
 from app.services.messaging import MessagingService
@@ -73,6 +76,42 @@ async def send_message(
         created_conversation=result.created_conversation,
         attachment_status=result.attachment_status,
         message=MessageOut.model_validate(result.message),
+        ai_answer=_ai_out(ai),
+    )
+
+
+@router.post(
+    "/chat/messages/batch",
+    response_model=SendMessagesBatchResponse,
+    responses=_RESPONSES,
+    summary="Save a LIST of messages in order (oldest first); generate_ai_answer=true also answers "
+    "the last one (must be a user message). `received_count` = messages saved from the start of the list",
+)
+async def send_messages_batch(
+    body: SendMessagesBatchRequest, service: Service, background: BackgroundTasks
+) -> SendMessagesBatchResponse:
+    result = await service.send_batch(body)
+    ai = result.ai
+    if ai.summarize_upto_message_id is not None:
+        background.add_task(
+            service.enqueue_summary, result.conversation_id, ai.summarize_upto_message_id
+        )
+    return SendMessagesBatchResponse(
+        conversation_id=result.conversation_id,
+        created_conversation=result.created_conversation,
+        total_count=result.total_count,
+        received_count=result.received_count,
+        error=result.error,
+        saved_callback_queued=result.saved_callback_queued,
+        messages=[
+            BatchItemOut(
+                index=i,
+                external_id=body.messages[i].external_id,
+                attachment_status=item.attachment_status,
+                message=MessageOut.model_validate(item.message),
+            )
+            for i, item in enumerate(result.items)
+        ],
         ai_answer=_ai_out(ai),
     )
 
