@@ -43,13 +43,14 @@ final class ChatAnswers {
 
 	/**
 	 * @param array<int, array<string, mixed>> $items آیتم‌های kind = chat_answer.
-	 * @return array{saved:int, failed:int, ignored:int}
+	 * @return array{saved:int, failed:int, ignored:int, marked:int} marked = پاسخ‌های «Mark-Chat» (فقط گفتگو مارک شد)
 	 */
 	public static function apply( array $items ): array {
 		$out   = array(
 			'saved'   => 0,
 			'failed'  => 0,
 			'ignored' => 0,
+			'marked'  => 0,
 		);
 		$store = new ChatStore();
 
@@ -99,6 +100,16 @@ final class ChatAnswers {
 				continue;
 			}
 
+			// پاسخ دقیقاً «Mark-Chat»: هیچ پیامی ذخیره/نمایش داده نمی‌شود، فقط گفتگو مارک می‌شود (سرور هم آن را در تاریخچهٔ خودش نگه نمی‌دارد).
+			if ( AiMark::is_mark_reply( $text ) ) {
+				AiMark::handle( (string) $uid );
+				if ( '' !== $job ) {
+					set_transient( $dedupe, 1, DAY_IN_SECONDS );
+				}
+				++$out['marked'];
+				continue;
+			}
+
 			$saved = $store->add_message(
 				(string) $uid,
 				(int) ( $item['wp_user_id'] ?? 0 ),
@@ -106,6 +117,8 @@ final class ChatAnswers {
 					'role'        => 'assistant',
 					'content'     => $text,
 					'suggestions' => self::suggestions( $msg['suggestions'] ?? array() ),
+					// ارجاع‌ها (محصول/مقاله/صفحهٔ سایت که پاسخ دربارهٔ آن‌هاست): هنگام نمایش از دیتابیس خوانده و کارت می‌شوند.
+					'references'  => MessageLinks::clean_references( $msg['references'] ?? array() ),
 				)
 			);
 			if ( $saved ) {

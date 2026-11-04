@@ -108,12 +108,13 @@ final class ChatStore {
 	}
 
 	/**
-	 * @param array<string,mixed> $d role, content, attachment{type,url,path}, suggestions[].
+	 * @param array<string,mixed> $d role, content, attachment{type,url,path}, suggestions[], references[{type,id,url}].
 	 */
 	public function add_message( string $uid, int $user_id, array $d ): ?array {
 		global $wpdb;
 		$attach = isset( $d['attachment'] ) && is_array( $d['attachment'] ) ? $d['attachment'] : array();
 		$sugg   = isset( $d['suggestions'] ) && is_array( $d['suggestions'] ) ? $d['suggestions'] : array();
+		$refs   = isset( $d['references'] ) && is_array( $d['references'] ) ? MessageLinks::clean_references( $d['references'] ) : array();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$ok = $wpdb->insert(
@@ -127,6 +128,7 @@ final class ChatStore {
 				'attachment_url'  => (string) ( $attach['url'] ?? '' ),
 				'attachment_path' => (string) ( $attach['path'] ?? '' ),
 				'suggestions'     => $sugg ? wp_json_encode( array_values( $sugg ), JSON_UNESCAPED_UNICODE ) : '',
+				'refs'            => $refs ? wp_json_encode( array_values( $refs ), JSON_UNESCAPED_UNICODE ) : '',
 				'admin_user_id'   => (int) ( $d['admin_user_id'] ?? 0 ),
 				'admin_name'      => (string) ( $d['admin_name'] ?? '' ),
 				// ai_sent: ۰ = هنوز به سرور هوش مصنوعی نرفته. پیام‌های assistant یا از خود سرور آمده‌اند یا پاسخ پیش‌فرض محلی‌اند
@@ -201,6 +203,7 @@ final class ChatStore {
 	public function format( object $row, bool $resolve_links = true ): array {
 		$text  = (string) $row->content;
 		$links = array();
+		// قدیمی (تا ۰.۵.۲۷): نشانگرهای [product-link:…] داخل متن. هنوز برای پیام‌های قبلی کار می‌کنند.
 		if ( 'assistant' === $row->role && MessageLinks::has_markers( $text ) ) {
 			if ( $resolve_links ) {
 				$parsed = MessageLinks::parse( $text );
@@ -209,6 +212,13 @@ final class ChatStore {
 			} else {
 				$stripped = MessageLinks::strip( $text );
 				$text     = '' !== $stripped['text'] ? $stripped['text'] : '🔗';
+			}
+		}
+		// جدید: لیست ارجاع‌ها که هوش مصنوعی بیرون از متن می‌دهد؛ هر کدام با شناسه (یا آدرس) از دیتابیس سایت خوانده و کارت می‌شود.
+		if ( $resolve_links && 'assistant' === $row->role && ! empty( $row->refs ) ) {
+			$decoded = json_decode( (string) $row->refs, true );
+			if ( is_array( $decoded ) && $decoded ) {
+				$links = MessageLinks::merge( $links, MessageLinks::from_references( $decoded ) );
 			}
 		}
 

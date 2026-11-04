@@ -7,7 +7,7 @@ only used when no OPENAI_API_KEY is configured (and in tests).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
 from app.db.messaging_models import Message
@@ -50,3 +50,7 @@ class AiAnswerResult:
     model: str | None = None
     # filled when a summarization must be queued AFTER the response reached the client
     summarize_upto_message_id: int | None = None
+    # the site's products / blog posts / pages the answer talks about: [{type, id, url}]
+    references: list[dict] = field(default_factory=list)
+    # true = the answer is exactly "Mark-Chat": `message` is NOT saved (id 0, not in the history)
+    marked: bool = False

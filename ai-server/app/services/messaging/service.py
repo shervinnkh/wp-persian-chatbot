@@ -18,7 +18,7 @@ from typing import Literal
 from app.core.config import Settings
 from app.core.monitoring import answer_stats, emit, note_answer_error
 from app.db.base import Database
-from app.db.messaging_models import Message
+from app.db.messaging_models import Message, utcnow
 from app.db.messaging_repository import MessagingRepository
 from app.schemas.messaging import SendMessageRequest, SendMessagesBatchRequest
 from app.services.chunking.tokens import TokenCounter
@@ -30,6 +30,7 @@ from app.services.conversation.answer import (
 )
 from app.services.conversation.history import HistoryBuilder
 from app.services.conversation.prompt import PromptContext
+from app.services.conversation.reply_format import MARK_CHAT
 from app.services.conversation.summary_service import SummaryService
 from app.services.ingestion.callback import validate_callback
 from app.services.messaging import storage
@@ -344,6 +345,7 @@ class MessagingService:
             question_type=question.attachment_type or "text",
             answer_chars=len(msg.content or "") if msg is not None else None,
             suggestions=len(msg.suggestions or []) if msg is not None else None,
+            references=len(result.references), marked=result.marked,
             history_tokens=result.full_history_tokens, context_tokens=result.context_tokens,
             summary_scheduled=result.summarization_scheduled, page_type=ctx.page_type or None,
             **st,
@@ -373,14 +375,32 @@ class MessagingService:
                 if isinstance(generated, GeneratedAnswer)
                 else GeneratedAnswer(text=str(generated))
             )
-            reply = await self.repo.add_message(
-                conversation_id,
-                visitor_uid=conv.visitor_uid,
-                wp_user_id=conv.wp_user_id,
-                role="assistant",
-                content=answer.text,
-                suggestions=answer.suggestions or None,
-            )
+            marked = answer.is_mark
+            if marked and not ctx.mark_the_conversation:
+                # The site did not allow marking: "Mark-Chat" must never reach the visitor.
+                raise ValueError("model returned Mark-Chat but mark-the-conversation is off")
+            if marked:
+                # NOT saved: the history must not contain it, or the model would see it in the next
+                # messages and might repeat it. id 0 = "not stored"; the site only marks the chat.
+                reply = Message(
+                    id=0,
+                    conversation_id=conversation_id,
+                    visitor_uid=conv.visitor_uid,
+                    wp_user_id=conv.wp_user_id,
+                    role="assistant",
+                    content=MARK_CHAT,
+                    suggestions=None,
+                    created_at=utcnow(),
+                )
+            else:
+                reply = await self.repo.add_message(
+                    conversation_id,
+                    visitor_uid=conv.visitor_uid,
+                    wp_user_id=conv.wp_user_id,
+                    role="assistant",
+                    content=answer.text,
+                    suggestions=answer.suggestions or None,
+                )
         except Exception as exc:  # noqa: BLE001
             note_answer_error(exc)
             logger.exception(
@@ -390,9 +410,10 @@ class MessagingService:
             return AiAnswerResult(status="failed")
 
         logger.info(
-            "messaging.answer_generated conversation_id=%s question_id=%s answer_id=%s "
-            "full_history_tokens=%d context_tokens=%d needs_summary=%s",
-            conversation_id, question.id, reply.id, history.full_history_tokens,
+            "messaging.answer_generated conversation_id=%s question_id=%s answer_id=%s marked=%s "
+            "references=%d full_history_tokens=%d context_tokens=%d needs_summary=%s",
+            conversation_id, question.id, reply.id if not marked else None, marked,
+            len(answer.references), history.full_history_tokens,
             history.context_tokens, history.needs_summary,
         )  # fmt: skip
         return AiAnswerResult(
@@ -402,8 +423,13 @@ class MessagingService:
             context_tokens=history.context_tokens,
             summarization_scheduled=history.needs_summary,
             # The summary also covers this answer; the request is queued after the response.
-            summarize_upto_message_id=reply.id if history.needs_summary else None,
+            # (A marked answer is not stored, so the summary reaches up to the question.)
+            summarize_upto_message_id=(
+                (question.id if marked else reply.id) if history.needs_summary else None
+            ),
             model=ctx.model,
+            references=[] if marked else list(answer.references),
+            marked=marked,
         )
 
     async def _ensure_transcript(self, msg: Message) -> Message:

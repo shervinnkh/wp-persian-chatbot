@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class ChatSchema {
 
-	public const VERSION = '1.3.0';
+	public const VERSION = '1.4.0'; // 1.4.0: ستون refs (ارجاع‌های پاسخ هوش مصنوعی) در جدول پیام‌ها
 	public const OPTION  = 'paia_chat_db_version';
 
 	public static function visitors_table(): string {
@@ -74,6 +74,7 @@ final class ChatSchema {
   attachment_url text NULL,
   attachment_path text NULL,
   suggestions text NULL,
+  refs text NULL,
   admin_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
   admin_name varchar(190) NOT NULL DEFAULT '',
   ai_sent tinyint(1) NOT NULL DEFAULT 0,

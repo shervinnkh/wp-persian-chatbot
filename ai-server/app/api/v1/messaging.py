@@ -13,6 +13,7 @@ from app.schemas.messaging import (
     ClearMessagesResponse,
     DeleteMessageResponse,
     MessageOut,
+    ReferenceOut,
     SendMessageRequest,
     SendMessageResponse,
     SendMessagesBatchRequest,
@@ -42,10 +43,19 @@ def get_messaging_service(request: Request) -> MessagingService:
 Service = Annotated[MessagingService, Depends(get_messaging_service)]
 
 
+def _ai_message_out(ai: AiAnswerResult) -> MessageOut | None:
+    if not ai.message:
+        return None
+    out = MessageOut.model_validate(ai.message)
+    out.references = [ReferenceOut(**r) for r in ai.references]
+    return out
+
+
 def _ai_out(ai: AiAnswerResult) -> AiAnswerOut:
     return AiAnswerOut(
         status=ai.status,
-        message=MessageOut.model_validate(ai.message) if ai.message else None,
+        marked=ai.marked,
+        message=_ai_message_out(ai),
         full_history_tokens=ai.full_history_tokens,
         context_tokens=ai.context_tokens,
         summarization_scheduled=ai.summarization_scheduled,

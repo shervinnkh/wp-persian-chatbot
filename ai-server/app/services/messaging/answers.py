@@ -45,11 +45,15 @@ _MAX_ERROR_CHARS = 500
 _HOUSEKEEPING_EVERY = 60.0
 
 
-def _message_dict(m: Message) -> dict:
+def _message_dict(m: Message, references: list[dict] | None = None, marked: bool = False) -> dict:
+    """The message of a `chat_answer` item. `references` = the site's products / posts / pages the
+    answer talks about ([{type, id, url}]). A marked answer ("Mark-Chat") was not stored: id null,
+    no suggestions, no references."""
     return {
-        "id": m.id,
+        "id": None if marked else m.id,
         "content": m.content,
-        "suggestions": list(m.suggestions or []),
+        "suggestions": [] if marked else list(m.suggestions or []),
+        "references": [] if marked else list(references or []),
         "created_at": m.created_at.isoformat() if m.created_at else None,
     }
 
@@ -345,7 +349,8 @@ class AnswerQueue:
             "wp_user_id": conv.wp_user_id or 0,
             "question_message_id": job.question_message_id,
             "model": ctx.model,
-            "message": _message_dict(msg),
+            "mark_the_conversation": ai.marked,
+            "message": _message_dict(msg, ai.references, ai.marked),
         }
         now = utcnow()
         async with self.db.session() as s:  # outbox: job done + delivery row, one transaction
@@ -353,14 +358,15 @@ class AnswerQueue:
                 update(AnswerJob)
                 .where(AnswerJob.id == job.id)
                 .values(
-                    status="done", answer_message_id=msg.id, error=None,
+                    status="done", answer_message_id=None if ai.marked else msg.id, error=None,
                     finished_at=now, updated_at=now,
                 )  # fmt: skip
             )
             s.add(self._delivery(job, item, "trained", None))
             await s.commit()
         logger.info(
-            "answer.done job=%s conversation_id=%s answer_id=%s", job.job_id, conv.id, msg.id
+            "answer.done job=%s conversation_id=%s answer_id=%s marked=%s",
+            job.job_id, conv.id, None if ai.marked else msg.id, ai.marked,
         )
 
     async def _close(

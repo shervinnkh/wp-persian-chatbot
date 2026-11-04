@@ -26,6 +26,9 @@ MAX_NOTES_CHARS = 1500
 MAX_BATCH_MESSAGES = 100  # one batch request; the plugin sends bigger backlogs in several requests
 MAX_REQUEST_TOOLS = 100  # hard schema limit; TOOLS_MAX_DYNAMIC (.env) is the working limit
 LIVE_PRODUCT_FIELDS = ("price", "stock")  # live product data the site may allow
+REFERENCE_TYPES = ("product", "blog", "page")  # site content an answer can point to
+MAX_REFERENCES = 8
+MARK_CHAT_REPLY = "Mark-Chat"  # the whole answer text when the AI hands the chat over to humans
 _TOOL_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,40}$")
 
 
@@ -90,7 +93,17 @@ class ChatDynamicTool(BaseModel):
         return v.strip() if isinstance(v, str) else v
 
 
+def _loose_bool(v):
+    """true/false, 1/0 or "true"/"false" -> bool; missing/null/unknown -> False (never an error)."""
+    if isinstance(v, str):
+        return v.strip().lower() in ("1", "true", "yes", "on")
+    return bool(v) if v is not None else False
+
+
 class SendMessageRequest(BaseModel):
+    # `mark-the-conversation` has dashes, so it is read through an alias (the field name works too).
+    model_config = ConfigDict(populate_by_name=True)
+
     # Conversation lookup: either conversation_id, or visitor_uid (+ wp_user_id when logged in)
     conversation_id: int | None = Field(None, ge=1)
     visitor_uid: str | None = Field(None, max_length=64)
@@ -128,6 +141,16 @@ class SendMessageRequest(BaseModel):
     # (ai_answer.status="queued") and the answer is POSTed to the callback URL when it is ready
     # (kind "chat_answer"). Without a callback the answer is generated inside the request.
     callback: CallbackIn | None = None
+    # `mark-the-conversation`: the site allows the AI to MARK the chat instead of answering.
+    # true  -> when the AI cannot answer the visitor it returns exactly "Mark-Chat" (the site then
+    #          marks the conversation for the support team; nothing is shown to the visitor)
+    # false / missing (default) -> the AI behaves as before. Only used with generate_ai_answer.
+    mark_the_conversation: bool = Field(False, alias="mark-the-conversation")
+
+    @field_validator("mark_the_conversation", mode="before")
+    @classmethod
+    def _mark_bool(cls, v):
+        return _loose_bool(v)
 
     @field_validator("notes")
     @classmethod
@@ -221,6 +244,7 @@ class SendMessageRequest(BaseModel):
             self.callback = None
             self.live_product_datas = None
             self.tools = None
+            self.mark_the_conversation = False
         return self
 
 
@@ -252,6 +276,8 @@ class SendMessagesBatchRequest(BaseModel):
     visitor_uid: str | None = Field(None, max_length=64)
     wp_user_id: int | None = Field(None, ge=0)
 
+    model_config = ConfigDict(populate_by_name=True)
+
     messages: list[BatchMessageIn] = Field(..., min_length=1, max_length=MAX_BATCH_MESSAGES)
     request_id: str | None = Field(None, max_length=64)  # echoed in the "messages saved" callback
 
@@ -265,12 +291,19 @@ class SendMessagesBatchRequest(BaseModel):
     notes: str | None = None
     live_product_datas: list[str] | None = None
     tools: list[ChatDynamicTool] | None = Field(None, max_length=MAX_REQUEST_TOOLS)
+    # Same meaning as in POST /v1/chat/messages (alias "mark-the-conversation").
+    mark_the_conversation: bool = Field(False, alias="mark-the-conversation")
     # With a callback the site is first told which messages were saved (item kind
     # "chat_messages_saved", before any answer is generated), then - if generate_ai_answer -
     # gets the answer (kind "chat_answer"). Without it the answer (if any) is generated inline.
     callback: CallbackIn | None = None
 
     _requests: list[SendMessageRequest] = PrivateAttr(default_factory=list)
+
+    @field_validator("mark_the_conversation", mode="before")
+    @classmethod
+    def _mark_bool(cls, v):
+        return _loose_bool(v)
 
     @model_validator(mode="after")
     def _build(self) -> SendMessagesBatchRequest:
@@ -295,6 +328,7 @@ class SendMessagesBatchRequest(BaseModel):
                     notes=self.notes,
                     live_product_datas=self.live_product_datas,
                     tools=self.tools,
+                    mark_the_conversation=self.mark_the_conversation,
                     callback=self.callback,
                 )
             try:
@@ -309,6 +343,17 @@ class SendMessagesBatchRequest(BaseModel):
     def requests(self) -> list[SendMessageRequest]:
         """The validated single-message requests, in order (the last one may ask for an answer)."""
         return self._requests
+
+
+class ReferenceOut(BaseModel):
+    """A product / blog post / page of the site that the answer talks about or recommends.
+
+    The AI lists them OUTSIDE the text; the site looks each one up (by id, else by url) and shows
+    it as a card under the message. `id` is the site's own id (for WordPress the post id)."""
+
+    type: Literal["product", "blog", "page"]
+    id: str | None = None
+    url: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -328,6 +373,8 @@ class MessageOut(BaseModel):
     admin_user_id: int | None
     admin_name: str | None
     transcript: str | None = None  # speech-to-text of a voice message (after the AI answered)
+    # AI answers only: site content the answer refers to (not stored; also sent in the webhook)
+    references: list[ReferenceOut] = Field(default_factory=list)
 
     @field_validator("created_at")
     @classmethod
@@ -347,6 +394,9 @@ class AiAnswerOut(BaseModel):
     context_tokens: int | None = None  # what the AI would receive (summary + last pairs + question)
     summarization_scheduled: bool = False  # queued right after this response was sent
     model: str | None = None  # the model that answered (after the allow-list was applied)
+    # true = the AI answered exactly "Mark-Chat": `message.content` is that text, it is NOT saved in
+    # the conversation history (message.id = 0), and the site should only mark the chat.
+    marked: bool = False
 
 
 class SendMessageResponse(BaseModel):

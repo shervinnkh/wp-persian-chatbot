@@ -177,6 +177,7 @@ final class Responder {
 						'role'        => 'assistant',
 						'content'     => $reply['text'],
 						'suggestions' => $reply['suggestions'],
+						'references'  => $reply['references'] ?? array(),
 					)
 				);
 				if ( $msg ) {

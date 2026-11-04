@@ -91,6 +91,8 @@ final class WidgetRenderer {
 				'suggestions'  => __( 'پیشنهاد پیام', 'persian-ai-assistant' ),
 				'nameLabel'    => __( 'نام شما', 'persian-ai-assistant' ),
 				'contactLabel' => __( 'ایمیل یا شماره تماس', 'persian-ai-assistant' ),
+				'nameRequired' => __( 'نام خود را وارد کنید.', 'persian-ai-assistant' ),
+				'contactInvalid' => __( 'ایمیل یا شماره تماس معتبر وارد کنید.', 'persian-ai-assistant' ),
 				'start'        => __( 'شروع گفتگو', 'persian-ai-assistant' ),
 				'guest'        => __( 'ادامه به عنوان مهمان', 'persian-ai-assistant' ),
 				'micDenied'    => __( 'اجازهٔ دسترسی به میکروفون داده نشد.', 'persian-ai-assistant' ),

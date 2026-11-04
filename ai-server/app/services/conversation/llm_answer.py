@@ -13,7 +13,10 @@ Steps of `generate` (one visitor message):
        round = K : tools are switched off (tool_choice=none) and a notice tells the model to
                    answer NOW from what it has - a final answer is always produced
        (a round without tool calls ends the loop at once: the common case is ONE call)
-  7. parse      -> GeneratedAnswer (broken JSON raises -> the answer queue retries)
+  7. parse      -> GeneratedAnswer: text + suggestions + references (the site's products / posts /
+                   pages the text talks about); text "Mark-Chat" = hand the chat over to humans
+                   (only when the request had mark-the-conversation: true).
+                   Broken JSON raises -> the answer queue retries
 Retrieval/LLM errors are raised on purpose: answering "I don't know" only because Qdrant or
 OpenAI was briefly down would be wrong, and the queue retries (ANSWER_MAX_ATTEMPTS).
 A failing TOOL never raises: the model just receives an "unavailable" text.
@@ -31,7 +34,12 @@ from app.core.errors import ServiceUnavailableError, UpstreamError
 from app.core.monitoring import emit, note_answer_error
 from app.services.conversation.history import PreparedHistory
 from app.services.conversation.history import HistoryMessage
-from app.services.conversation.prompt import FINAL_ROUND_NOTICE, KnowledgeSnippet, PromptContext
+from app.services.conversation.prompt import (
+    FINAL_ROUND_NOTICE,
+    FINAL_ROUND_NOTICE_MARK,
+    KnowledgeSnippet,
+    PromptContext,
+)
 from app.services.conversation.reply_format import (
     JSON_SCHEMA_FORMAT,
     GeneratedAnswer,
@@ -185,7 +193,10 @@ class LLMAnswerGenerator:
             if use_tools:
                 kwargs["tool_choice"] = "none" if final else "auto"
             if final and round_no > 1:  # tools were used: force the answer now
-                kwargs["messages"] = [*messages, {"role": "system", "content": FINAL_ROUND_NOTICE}]
+                notice = FINAL_ROUND_NOTICE + (
+                    FINAL_ROUND_NOTICE_MARK if ctx.mark_the_conversation else ""
+                )
+                kwargs["messages"] = [*messages, {"role": "system", "content": notice}]
 
             response = await self._complete(
                 kwargs,

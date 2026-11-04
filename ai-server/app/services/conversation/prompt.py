@@ -7,6 +7,7 @@ No per-site prompt exists. Everything site-specific comes in as data on each mes
   * the site owner's important notes      (optional, <= 1500 chars)
   * conversation summary                  (when the history was summarized)
   * the top RAG_TOP_K knowledge chunks    (retrieved for the visitor's latest message)
+  * mark-the-conversation                 (optional: the AI may answer exactly "Mark-Chat" when it cannot help)
 Every dynamic part is optional: missing data is simply left out, never an error.
 """
 
@@ -86,6 +87,12 @@ FINAL_ROUND_NOTICE = (
     "exists). Do not invent anything and do not ask to wait."
 )
 
+FINAL_ROUND_NOTICE_MARK = (
+    " If you still cannot answer the visitor's latest message, return exactly the "
+    '{"text": "Mark-Chat", "suggestions": [], "references": []} object instead of saying that '
+    "you do not have the information."
+)
+
 _LIVE_PRODUCT_TEXT = {
     "price": "price and sale/discount status",
     "stock": "stock status, stock quantity and pre-order (backorder) possibility",
@@ -143,11 +150,20 @@ def rules_live_data(product_fields: Sequence[str] = (), has_site_tools: bool = F
 
 
 RULES_LINKS = """\
-## Links
-- Share only URLs that appear verbatim in the knowledge or the current-page info. Never build, \
-guess, shorten or edit a URL.
-- Write the full URL in plain text after a short phrase. At most two links per message unless \
-the visitor asks for more."""
+## Links and references
+- Share only URLs that appear verbatim in the knowledge, the tool results or the current-page \
+info. Never build, guess, shorten or edit a URL.
+- A link that leads OUTSIDE this website (another site, a social network, a map, ...): write the \
+full URL in plain text inside "text", after a short phrase. At most two such links per message \
+unless the visitor asks for more.
+- NEVER write the URL of a product, blog post or page OF THIS WEBSITE inside "text". List it in \
+"references" instead (see the output format): the website shows every reference as a card with \
+the title and picture under your message, so refer to the item by its name in the text and do \
+not repeat its address.
+- Every product, blog post or page of this website that your message talks about, recommends or \
+points the visitor to must be in "references" (even when you only mention its name, and also \
+when the visitor asks about the page they are on). Never put in references something your \
+message does not talk about. At most 6, the most relevant first."""
 
 RULES_STYLE = """\
 ## Conversation style
@@ -206,12 +222,27 @@ knowledge says and recommend a qualified professional.
 if the visitor shares them, tell them not to. Ask for personal details only when truly needed.
 - Do not produce hateful, sexual, violent or otherwise harmful content."""
 
+RULES_MARK = """\
+## Handing the conversation to the support team (enabled for this chat)
+- If, using the knowledge, the conversation, the current page and the tools, you cannot answer the \
+visitor's latest message (the information is not available to you, or it is something only a \
+human can handle: an order, payment or account problem, a complaint, a request to speak to a \
+person), do NOT explain, do NOT apologise and do NOT suggest anything. Return exactly this JSON: \
+{"text": "Mark-Chat", "suggestions": [], "references": []}
+- "Mark-Chat" must be the whole text: no other word, quote, dot or space around it, never \
+translated. The website then marks the chat and a human support agent answers.
+- Use it only when you really cannot help. Greetings, thanks, small talk, a question you can \
+answer (even partly) and a clarifying question you need to ask are normal answers.
+- In this mode it replaces the instructions above that tell you to say you do not have the \
+information or to point to the support channel; in every other case keep following them."""
+
 RULES_OUTPUT = """\
 ## Output format (mandatory)
 Return ONLY one JSON object, with no Markdown fences and no text around it:
-{"text": "<your message to the visitor>", "suggestions": ["<quick reply>", ...]}
+{"text": "<your message to the visitor>", "suggestions": ["<quick reply>", ...], \
+"references": [{"type": "product", "id": "<id>", "url": "<url>"}, ...]}
 - "text": the message shown to the visitor, in the visitor's language, following all rules above. \
-Never put JSON, the suggestions or internal notes inside it.
+Never put JSON, the suggestions, the references or internal notes inside it.
 - "suggestions": 0 to 4 quick replies the VISITOR might tap in response to your message. Write \
 them from the visitor's point of view, in the visitor's language, each a short phrase of 1-5 \
 words (at most about 30 characters), with no explanation and no final punctuation, distinct from \
@@ -221,9 +252,21 @@ yes/no) or when there are obvious next steps.
   - Use [] when your message ends with an open question that needs free text (name, phone \
 number, order number, a description), when the conversation is naturally finished, or when you \
 could not help.
+- "references": the products, blog posts and pages OF THIS WEBSITE that your message talks about \
+or recommends (0 to 6, most relevant first; [] when the message mentions none). Each item is \
+{"type": "product" | "blog" | "page", "id": "<id>", "url": "<url>"}:
+  - take the values from the attributes of the <source> the item comes from: its id attribute \
+looks like "product:23" or "blog:45" or "page:7" -> type = the part before the colon, id = the \
+part after it ("23"); copy its url attribute exactly into "url". For the page the visitor is on, \
+use the id and url of the current-page info (type from its type; "post" means blog).
+  - use "" for a value you do not have, but give at least the id or the url. Never invent an id \
+or a url and never reference something that is not in the knowledge, the tool results or the \
+current-page info.
 Format illustration only (do not reuse its wording unless it fits):
 visitor: «گلدان می‌خوام»
-{"text": "گلدان را برای داخل خانه می‌خواهید یا فضای بیرون؟", "suggestions": ["داخل آپارتمان", "فضای باز"]}"""
+{"text": "گلدان را برای داخل خانه می‌خواهید یا فضای بیرون؟", "suggestions": ["داخل آپارتمان", "فضای باز"], "references": []}
+visitor: «گلدان سرامیکی دارید؟» (one matching product in the knowledge, id "product:23")
+{"text": "بله، گلدان سرامیکی کوچک مناسب فضای داخل است.", "suggestions": [], "references": [{"type": "product", "id": "23", "url": "https://example.com/product/ceramic-pot/"}]}"""
 
 
 def _one_line(v: str, limit: int = 300) -> str:
@@ -259,6 +302,8 @@ class PromptContext:
     # Live-data permissions sent by the site with each message (see SendMessageRequest):
     live_product_datas: list[str] = field(default_factory=list)  # "price", "stock"
     tools: list[dict] = field(default_factory=list)  # dynamic tools: {id, title, description}
+    # `mark-the-conversation` of the request: the AI may hand the chat over by answering "Mark-Chat"
+    mark_the_conversation: bool = False
 
     @classmethod
     def from_request(cls, req: SendMessageRequest, settings: Settings) -> PromptContext:
@@ -280,6 +325,7 @@ class PromptContext:
                 {"id": t.id, "title": t.title, "description": t.description}
                 for t in (req.tools or [])
             ],
+            mark_the_conversation=bool(req.mark_the_conversation),
         )
 
     @property
@@ -328,6 +374,7 @@ class PromptContext:
             RULES_PEOPLE,
             RULES_ATTACHMENTS,
             RULES_SAFETY,
+            *([RULES_MARK] if self.mark_the_conversation else []),
         ]
 
         if self.notes:

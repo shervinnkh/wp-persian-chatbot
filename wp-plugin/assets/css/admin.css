@@ -1268,6 +1268,7 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
    تب «مدیریت چت» — فهرست گفتگوها + پنجرهٔ چت (ظاهر چت از widget.css)
    ========================================================================== */
 .paia-app .paia-chatset__hint{color:var(--paia-muted);font-size:12.5px;line-height:1.8}
+.paia-app .paia-tab__badge--marked{background:#facc15;color:#422006}
 .paia-app .paia-tab__badge{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-inline-start:8px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:1}
 
 .paia-app .paia-cm [hidden]{display:none!important}

@@ -56,6 +56,9 @@ final class ChatSettings {
 			'ai_service'          => 'gpt-5-4',
 			'tone'                => 'formal', // formal | friendly
 			'important_notes'     => '',
+			// مارک کردن چت توسط هوش مصنوعی (از ۰.۵.۲۸): روشن = با هر پیام `mark-the-conversation: true` به سرور می‌رود و اگر هوش مصنوعی
+			// نتواند جواب بدهد (پاسخ دقیقاً «Mark-Chat») هیچ پیامی نمایش داده نمی‌شود و فقط گفتگو مارک می‌شود.
+			'ai_mark'             => 0,
 			// قدیمی: فرم دیگر نشانشان نمی‌دهد ولی ReplyEngine هنوز می‌خواندشان؛ مقدارشان هنگام ذخیره حفظ می‌شود.
 			'api_url'             => '',
 			'api_key'             => '',
@@ -255,7 +258,7 @@ final class ChatSettings {
 		$def = self::defaults();
 		$out = array();
 
-		foreach ( array( 'enabled', 'allow_images', 'allow_voice', 'online_schedule' ) as $key ) {
+		foreach ( array( 'enabled', 'allow_images', 'allow_voice', 'online_schedule', 'ai_mark' ) as $key ) {
 			$out[ $key ] = empty( $in[ $key ] ) ? 0 : 1;
 		}
 

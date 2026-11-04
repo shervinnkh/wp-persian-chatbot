@@ -11,7 +11,7 @@
  *  3) (قدیمی) آدرس سرویس در تنظیمات ویجت بدون کلید (POST JSON) — فقط وقتی اتصال امضادار تنظیم نباشد
  *  (بدون سرویس/پاسخ: null؛ پاسخ پیش‌فرض به پیام اول در Responder است)
  *
- * خروجی: ['text' => string, 'suggestions' => string[]] یا null (یعنی هیچ پیامی ارسال نشود؛
+ * خروجی: ['text' => string, 'suggestions' => string[], 'references' => array] یا null (یعنی هیچ پیامی ارسال نشود؛
  * وقتی هیچ سرویسی پاسخ نداده و «پاسخ پیش‌فرض» در تنظیمات خالی است).
  *
  * @package PersianAIAssistant
@@ -31,7 +31,7 @@ final class ReplyEngine {
 
 	/**
 	 * @param array<string,mixed> $ctx visitor_uid, user_id, name, contact, message, attachment, history[].
-	 * @return array{text:string,suggestions:string[]}|null
+	 * @return array{text:string,suggestions:string[],references:array<int,array<string,string>>}|null
 	 */
 	public function generate( array $ctx ): ?array {
 		/**
@@ -52,9 +52,17 @@ final class ReplyEngine {
 			return null;
 		}
 
+		// پاسخ دقیقاً «Mark-Chat» یعنی هوش مصنوعی نمی‌تواند جواب بدهد: هیچ پیامی ذخیره/نمایش داده نمی‌شود و فقط گفتگو مارک می‌شود
+		// (اگر تنظیم «مارک کردن چت توسط هوش مصنوعی» خاموش باشد فقط نمایش داده نمی‌شود).
+		if ( AiMark::is_mark_reply( $reply['text'] ) ) {
+			AiMark::handle( (string) ( $ctx['visitor_uid'] ?? '' ) );
+			return null;
+		}
+
 		return array(
 			'text'        => (string) $reply['text'],
 			'suggestions' => $this->clean_suggestions( $reply['suggestions'] ?? array() ),
+			'references'  => MessageLinks::clean_references( $reply['references'] ?? array() ),
 		);
 	}
 
@@ -66,7 +74,7 @@ final class ReplyEngine {
 	 * و پاسخ آخرین پیام را می‌گیرد. (هر پیامی که سرور دریافتش را تأیید کرد ai_sent = 1 می‌شود.)
 	 *
 	 * @param array<string,mixed> $ctx زمینه؛ ctx['rows'] = ردیف‌های پیام کاربرِ این دسته (به ترتیب).
-	 * @return array{text:string,suggestions:array<int,string>}|null
+	 * @return array{text:string,suggestions:array<int,string>,references:array<int,array<string,string>>}|null
 	 */
 	private function via_server( array $ctx ): ?array {
 		$rows = isset( $ctx['rows'] ) && is_array( $ctx['rows'] ) ? array_values( $ctx['rows'] ) : array();
@@ -133,6 +141,7 @@ final class ReplyEngine {
 		return array(
 			'text'        => $text,
 			'suggestions' => isset( $msg['suggestions'] ) && is_array( $msg['suggestions'] ) ? $msg['suggestions'] : array(),
+			'references'  => isset( $msg['references'] ) && is_array( $msg['references'] ) ? $msg['references'] : array(),
 		);
 	}
 
@@ -233,6 +242,8 @@ final class ReplyEngine {
 			if ( $page ) {
 				$payload['page'] = $page;
 			}
+			// مارک کردن چت توسط هوش مصنوعی (تنظیمات ← عمومی ← سرویس هوش مصنوعی): true = اگر نتواند جواب بدهد دقیقاً «Mark-Chat» برمی‌گرداند.
+			$payload['mark-the-conversation'] = AiMark::enabled();
 			// «توضیحات مهم» مدیر سایت (تنظیمات ← عمومی) ← پرامپت.
 			$notes = trim( (string) ChatSettings::get( 'important_notes', '' ) );
 			if ( '' !== $notes ) {

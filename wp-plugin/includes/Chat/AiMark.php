@@ -27,6 +27,21 @@ final class AiMark {
 		return is_string( $text ) && 0 === strcasecmp( trim( $text ), self::REPLY );
 	}
 
+	/** آیا تنظیم «مارک کردن چت توسط هوش مصنوعی» روشن است؟ */
+	public static function enabled(): bool {
+		return (bool) ChatSettings::get( 'ai_mark', 0 );
+	}
+
+	/**
+	 * پاسخ «Mark-Chat» رسید: تنظیم روشن = گفتگو مارک می‌شود. در هر حال هیچ پیامی نمایش داده نمی‌شود
+	 * (اگر تنظیم خاموش باشد سرور اصلاً چنین پاسخی نمی‌دهد؛ این فقط محافظ است).
+	 */
+	public static function handle( string $uid ): void {
+		if ( self::enabled() ) {
+			self::mark( $uid );
+		}
+	}
+
 	/**
 	 * گفتگو را مارک می‌کند (هیچ پیامی اضافه نمی‌شود).
 	 */

@@ -1,6 +1,13 @@
 <?php
 /**
- * نشانگرهای لینک داخل پاسخ هوش مصنوعی:
+ * کارت‌های لینک زیر پیام هوش مصنوعی.
+ *
+ * روش جدید (از ۰.۵.۲۸): هوش مصنوعی لینک محصول/مقاله/صفحهٔ خود سایت را داخل متن نمی‌آورد؛ در پاسخ سرور (`message.references`)
+ * فهرست ارجاع‌ها را جدا می‌دهد: [{ "type": "product|blog|page", "id": "23", "url": "https://…" }, …]. `from_references()` هر ارجاع را
+ * اول با شناسه (id نوشتهٔ وردپرس) و اگر نشد با آدرس از دیتابیس می‌خواند و عنوان/عکس/قیمت را می‌گیرد. اگر رکوردی پیدا نشد
+ * (یا منتشر نشده بود) کارت بدون عکس با خودِ آدرس به‌جای عنوان ساخته می‌شود (در صورت نبودن آدرس، ارجاع نادیده گرفته می‌شود).
+ *
+ * روش قدیمی (تا ۰.۵.۲۷، هنوز برای پیام‌های قبلی کار می‌کند): نشانگرهای داخل متن
  *
  *   [product-link:https://site.com/product/x/]   ← لینک یک محصول
  *   [page-link:https://site.com/about/]          ← لینک یک برگه
@@ -101,6 +108,182 @@ final class MessageLinks {
 		);
 	}
 
+	/** حداکثر ارجاع در هر پیام. */
+	public const MAX_REFERENCES = 8;
+
+	/**
+	 * ارجاع‌های خام (از سرور) را پاک و استاندارد می‌کند: [{type: product|blog|page, id: digits|'', url: http(s)|''}].
+	 * ارجاعی که نه شناسه دارد نه آدرس معتبر حذف می‌شود.
+	 *
+	 * @param mixed $list ارجاع‌ها.
+	 * @return array<int, array{type:string,id:string,url:string}>
+	 */
+	public static function clean_references( $list ): array {
+		$out  = array();
+		$seen = array();
+		$map  = array(
+			'products' => 'product',
+			'post'     => 'blog',
+			'posts'    => 'blog',
+			'article'  => 'blog',
+			'pages'    => 'page',
+		);
+		foreach ( is_array( $list ) ? $list : array() as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			$type = isset( $item['type'] ) && is_scalar( $item['type'] ) ? strtolower( trim( (string) $item['type'] ) ) : '';
+			$type = $map[ $type ] ?? $type;
+			$id   = isset( $item['id'] ) && is_scalar( $item['id'] ) ? trim( (string) $item['id'] ) : '';
+			if ( false !== strpos( $id, ':' ) ) { // «product:23»
+				list( $prefix, $rest ) = array_pad( explode( ':', $id, 2 ), 2, '' );
+				$prefix                = strtolower( trim( $prefix ) );
+				$prefix                = $map[ $prefix ] ?? $prefix;
+				if ( in_array( $prefix, array( 'product', 'blog', 'page' ), true ) ) {
+					$type = $prefix;
+					$id   = trim( $rest );
+				}
+			}
+			$id  = ctype_digit( $id ) ? (string) (int) $id : ''; // شناسهٔ نوشتهٔ وردپرس فقط عدد است
+			$url = isset( $item['url'] ) && is_scalar( $item['url'] ) ? esc_url_raw( trim( (string) $item['url'] ), array( 'http', 'https' ) ) : '';
+			if ( ! in_array( $type, array( 'product', 'blog', 'page' ), true ) || ( '' === $id && '' === $url ) ) {
+				continue;
+			}
+			$key = $type . '|' . ( '' !== $id ? $id : $url );
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$out[]        = array(
+				'type' => $type,
+				'id'   => $id,
+				'url'  => function_exists( 'mb_substr' ) ? mb_substr( $url, 0, 2048 ) : substr( $url, 0, 2048 ),
+			);
+			if ( count( $out ) >= self::MAX_REFERENCES ) {
+				break;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * کارت‌های ارجاع‌ها. هر ارجاع: اول با شناسه از دیتابیس، بعد با آدرس؛ اگر رکوردی پیدا نشد کارت ساده با خودِ آدرس.
+	 *
+	 * @param array<int, array<string,string>> $refs خروجی clean_references.
+	 * @return array<int, array<string,string>> کارت‌ها (kind, url, title, image, meta, label)
+	 */
+	public static function from_references( array $refs ): array {
+		$cards = array();
+		$seen  = array();
+		foreach ( self::clean_references( $refs ) as $ref ) {
+			if ( count( $cards ) >= self::MAX_CARDS ) {
+				break;
+			}
+			$card = self::card_for_reference( $ref );
+			if ( null === $card || isset( $seen[ $card['url'] ] ) ) {
+				continue;
+			}
+			$seen[ $card['url'] ] = true;
+			$cards[]              = $card;
+		}
+
+		return $cards;
+	}
+
+	/**
+	 * کارت‌های دو منبع (نشانگرهای قدیمی + ارجاع‌ها) را بدون تکرار آدرس و با سقف MAX_CARDS یکی می‌کند.
+	 *
+	 * @param array<int, array<string,string>> $a کارت‌های اول.
+	 * @param array<int, array<string,string>> $b کارت‌های دوم.
+	 * @return array<int, array<string,string>>
+	 */
+	public static function merge( array $a, array $b ): array {
+		$out  = array();
+		$seen = array();
+		foreach ( array_merge( $a, $b ) as $card ) {
+			if ( ! is_array( $card ) || empty( $card['url'] ) || isset( $seen[ $card['url'] ] ) ) {
+				continue;
+			}
+			$seen[ $card['url'] ] = true;
+			$out[]                = $card;
+			if ( count( $out ) >= self::MAX_CARDS ) {
+				break;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param array{type:string,id:string,url:string} $ref ارجاع پاک‌شده.
+	 * @return array<string,string>|null
+	 */
+	private static function card_for_reference( array $ref ): ?array {
+		$kind = (string) $ref['type'];
+		$id   = (int) $ref['id'];
+		$url  = (string) $ref['url'];
+
+		// ۱) با شناسه
+		if ( $id > 0 ) {
+			$card = self::card_by_id( $id, $kind );
+			if ( null !== $card ) {
+				return $card;
+			}
+		}
+		// ۲) با آدرس (همان روش نشانگرهای قدیمی)
+		if ( '' !== $url ) {
+			$card = self::card( $kind, $url );
+			if ( null !== $card ) {
+				return $card;
+			}
+			// ۳) رکوردی پیدا نشد: کارت ساده، بدون عکس و با خودِ آدرس به‌جای عنوان.
+			$labels = self::labels();
+
+			return array(
+				'kind'  => $kind,
+				'url'   => $url,
+				'title' => $url,
+				'image' => '',
+				'meta'  => '',
+				'label' => $labels[ $kind ] ?? '',
+			);
+		}
+
+		return null; // نه رکورد پیدا شد نه آدرسی هست
+	}
+
+	/** برچسب نوع کارت. @return array<string,string> */
+	private static function labels(): array {
+		return array(
+			'product' => __( 'محصول', 'persian-ai-assistant' ),
+			'blog'    => __( 'مقاله', 'persian-ai-assistant' ),
+			'page'    => __( 'صفحه', 'persian-ai-assistant' ),
+		);
+	}
+
+	/**
+	 * کارت یک نوشتهٔ منتشرشده با شناسه؛ null اگر نباشد، منتشر نشده باشد یا محصول/وبلاگ/برگه نباشد.
+	 * (نوع واقعی از روی نوع نوشته تعیین می‌شود نه از روی گفتهٔ هوش مصنوعی.)
+	 *
+	 * @return array<string,string>|null
+	 */
+	private static function card_by_id( int $id, string $kind ): ?array {
+		$key = 'id|' . $id;
+		if ( array_key_exists( $key, self::$cache ) ) {
+			return self::$cache[ $key ];
+		}
+		self::$cache[ $key ] = null;
+
+		$post = get_post( $id );
+		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) {
+			return null;
+		}
+		self::$cache[ $key ] = self::build_card( $post );
+
+		return self::$cache[ $key ];
+	}
+
 	/**
 	 * کارت یک لینک؛ null اگر نوشتهٔ منتشرشدهٔ این سایت نباشد.
 	 *
@@ -120,6 +303,17 @@ final class MessageLinks {
 			return null;
 		}
 
+		self::$cache[ $key ] = self::build_card( $post );
+
+		return self::$cache[ $key ];
+	}
+
+	/**
+	 * کارت یک نوشتهٔ منتشرشده (عنوان، عکس شاخص، قیمت/تاریخ)؛ null اگر محصول/وبلاگ/برگه نباشد یا عنوان نداشته باشد.
+	 *
+	 * @return array<string,string>|null
+	 */
+	private static function build_card( \WP_Post $post ): ?array {
 		$role = PostTypes::role_of( (string) $post->post_type );
 		if ( '' === $role ) {
 			return null; // فقط محصول / وبلاگ / برگه
@@ -131,13 +325,9 @@ final class MessageLinks {
 			return null;
 		}
 
-		$labels = array(
-			'product' => __( 'محصول', 'persian-ai-assistant' ),
-			'blog'    => __( 'مقاله', 'persian-ai-assistant' ),
-			'page'    => __( 'صفحه', 'persian-ai-assistant' ),
-		);
+		$labels = self::labels();
 
-		self::$cache[ $key ] = array(
+		return array(
 			'kind'  => $real,
 			'url'   => (string) get_permalink( $post ),
 			'title' => $title,
@@ -145,8 +335,6 @@ final class MessageLinks {
 			'meta'  => self::meta( $post, $real ),
 			'label' => $labels[ $real ],
 		);
-
-		return self::$cache[ $key ];
 	}
 
 	/* ------------------------------------------------------------------ */
