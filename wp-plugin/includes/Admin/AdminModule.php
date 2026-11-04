@@ -98,6 +98,10 @@ final class AdminModule implements Module {
 
 		wp_enqueue_style( 'paia-admin', PAIA_URL . 'assets/css/admin.css', array(), PAIA_VERSION );
 
+		if ( ChatbotPage::SLUG === $page->slug() ) {
+			wp_enqueue_media(); // انتخاب لوگوی چت از کتابخانهٔ رسانه (تنظیمات ← مدیریت چت)
+		}
+
 		wp_enqueue_script( 'paia-admin', PAIA_URL . 'assets/js/admin.js', array(), PAIA_VERSION, true );
 		wp_add_inline_script(
 			'paia-admin',

@@ -257,8 +257,25 @@
 
 	var closeBtn = el('button', { class: 'pc-x', type: 'button', 'aria-label': t.close, html: icon('close') });
 
+	// لوگوی هدر: اگر مدیر در «تنظیمات ← مدیریت چت» لوگو گذاشته باشد همان، وگرنه آیکن پیش‌فرض.
+	function avatarNode() {
+		var av = el('div', { class: 'pc-avatar', html: (cfg.botLogo ? '' : icon('spark')) + '<i class="pc-online"></i>' });
+		if (cfg.botLogo) {
+			var img = el('img', { class: 'pc-avatar-img', alt: '', src: cfg.botLogo });
+			av.classList.add('has-logo');
+			av.insertBefore(img, av.firstChild);
+			// لوگو لود نشد: به آیکن پیش‌فرض برگرد.
+			img.addEventListener('error', function () {
+				av.classList.remove('has-logo');
+				img.remove();
+				av.insertAdjacentHTML('afterbegin', icon('spark'));
+			});
+		}
+		return av;
+	}
+
 	var header = el('header', { class: 'pc-head' }, [
-		el('div', { class: 'pc-avatar', html: icon('spark') + '<i class="pc-online"></i>' }),
+		avatarNode(),
 		el('div', { class: 'pc-title' }, [el('strong', { text: cfg.botName }), el('span', { text: cfg.online ? cfg.onlineText : cfg.offlineText })]),
 		closeBtn
 	]);
@@ -608,10 +625,10 @@
 		row.classList.add('is-sending');
 		clearPending();
 		state.stick = true;
-		// «در حال تایپِ هوش مصنوعی» فقط بعد از اینکه سرور دریافت پیام را تأیید کرد و هوش مصنوعی روشن بود نشان داده می‌شود
-		// (پاسخ سرور: thinking = true)؛ پیش از آن هیچ نقطه‌ای نیست.
+		// تأخیر هوش مصنوعی: پیام جمع می‌شود و «در حال تایپِ هوش مصنوعی» فقط وقتی نشان داده می‌شود که تأخیر تمام شود و هوش مصنوعی واقعاً شروع کند.
+		// بدون تأخیر (۰ ثانیه) هوش مصنوعی همان لحظه شروع می‌کند، پس نقطه‌ها فوراً می‌آیند.
 		window.clearTimeout(state.typeT);
-		hideTyping();
+		if (cfg.aiDelay > 0) { hideTyping(); } else { showTyping(); }
 
 		var fd = new FormData();
 		fd.append('text', text);
@@ -707,17 +724,22 @@
 	}
 
 	/* نشانگر «در حال تایپِ هوش مصنوعی»:
-	 *  فقط وقتی thinking = true است (سرور دریافت پیام را تأیید کرده، پاسخ در حال ساخت است و هوش مصنوعی برای این گفتگو روشن است)
-	 *  و کاربر همان لحظه تایپ نمی‌کند. در بقیهٔ حالت‌ها (انتظار تأخیر هوش مصنوعی، ارسال به سرور، خاموش بودن AI) نقطه‌ای نیست. */
+	 *  - thinking = سرور واقعاً در حال ساخت پاسخ است ← نقطه‌ها نشان داده می‌شوند (مگر کاربر همان لحظه تایپ می‌کند).
+	 *  - pending ولی نه thinking = پیام‌ها هنوز در تأخیر هوش مصنوعی جمع می‌شوند ← نقطه‌ها نیستند؛ فقط با تمام شدن wait ثانیه می‌آیند. */
 	function applyThinking(d, force) {
 		window.clearTimeout(state.typeT);
 		state.pendingBot = !!d.pending;
-		if (d.pending && d.thinking) {
+		// force = پاسخِ خودِ درخواست ارسال/آغاز (busy هنوز true است)؛ در polling وسط ارسال چیزی پنهان نمی‌شود.
+		if (!d.pending) { if (force || !state.busy) { hideTyping(); } return; }
+		if (d.thinking) {
 			if (Date.now() - state.lastInput < 2500) { hideTyping(); } else { showTyping(); }
 			return;
 		}
-		// force = پاسخِ خودِ درخواست ارسال/آغاز (busy هنوز true است)؛ در polling وسط ارسال چیزی پنهان نمی‌شود.
-		if (force || !state.busy) { hideTyping(); }
+		if (cfg.aiDelay > 0) { hideTyping(); }
+		var left = Math.max(0, parseInt(d.wait, 10) || 0);
+		state.typeT = window.setTimeout(function () {
+			if (state.pendingBot && Date.now() - state.lastInput >= 2500) { showTyping(); }
+		}, left * 1000 + 150);
 	}
 
 	function applyPoll(d) {
@@ -875,8 +897,7 @@
 		Promise.resolve(state.initP).then(function () {
 			return api('chat/profile', { method: 'POST', body: body });
 		}).then(applyInit).catch(function (e) {
-			// خطای شبکه (بدون کد HTTP) = «اتصال برقرار نشد»؛ خطای اعتبارسنجی سرور پیام خودش را دارد.
-			profileFail(e && e.status ? e.message : t.loadError);
+			profileFail(e && e.message);
 		}).then(function () { profileBusy(false); });
 	}
 	profForm.addEventListener('submit', function (e) { e.preventDefault(); submitProfile(false); });

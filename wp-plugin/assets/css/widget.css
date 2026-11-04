@@ -81,6 +81,8 @@
 .paia-chat .pc-head{position:relative;z-index:2;display:flex;align-items:center;gap:12px;padding:16px 16px 12px}
 .paia-chat .pc-avatar{position:relative;width:44px;height:44px;border-radius:15px;background:var(--pc-grad);color:#fff;display:grid;place-items:center;flex:none;box-shadow:0 8px 18px -6px color-mix(in srgb,var(--pc-primary) 65%,transparent)}
 .paia-chat .pc-avatar .pc-svg{width:22px;height:22px}
+.paia-chat .pc-avatar.has-logo{background:var(--pc-card);color:inherit;box-shadow:0 0 0 1px var(--pc-line),0 8px 18px -8px rgba(15,23,42,.35)}
+.paia-chat .pc-avatar-img{width:100%;height:100%;object-fit:contain;padding:5px;border-radius:inherit;box-sizing:border-box;display:block}
 .paia-chat .pc-online{position:absolute;bottom:-3px;inset-inline-start:-3px;width:13px;height:13px;border-radius:50%;background:#22C55E;border:2.5px solid var(--pc-surface)}
 .paia-chat .pc-online::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid #22C55E;opacity:0;animation:pc-pulse 2.4s ease-out infinite}
 .paia-chat .pc-title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.5}

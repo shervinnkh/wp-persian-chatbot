@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       دستیار هوشمند
  * Description:       سیستم مدیریت هوشمند وب‌سایت با هوش مصنوعی؛ شروع با چت‌بات مبتنی بر اطلاعات سایت و توسعه به ابزارهای مدیریتی بیشتر.
- * Version:           0.5.26
+ * Version:           0.5.27
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            شروین نخعی‌نیا
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'PAIA_VERSION', '0.5.26' );
+define( 'PAIA_VERSION', '0.5.27' );
 define( 'PAIA_FILE', __FILE__ );
 define( 'PAIA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'PAIA_URL', plugin_dir_url( __FILE__ ) );

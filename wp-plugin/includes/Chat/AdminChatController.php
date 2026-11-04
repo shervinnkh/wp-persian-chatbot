@@ -474,12 +474,7 @@ final class AdminChatController {
 		$this->store->clear_admin_typing( $uid );
 		$this->mark_read( $visitor );
 
-		// پیام پشتیبان در گفتگوی سرور هوش مصنوعی هم ذخیره می‌شود (شکست آن، ارسال پیام را نمی‌شکند).
-		try {
-			( new ReplyEngine() )->mirror_admin( $uid, $user_id, $text, $attach, get_current_user_id(), $this->admin_name() );
-		} catch ( \Throwable $e ) {
-			unset( $e );
-		}
+		// پیام پشتیبان فوری به سرور هوش مصنوعی نمی‌رود (ai_sent = 0)؛ با اولین درخواست پاسخ هوش مصنوعی همراه بقیهٔ پیام‌ها فرستاده می‌شود.
 
 		return rest_ensure_response(
 			array(

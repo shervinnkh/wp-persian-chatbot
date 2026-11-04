@@ -252,23 +252,13 @@
 
 	/* ---------- نشان تب ---------- */
 	var tabLink = document.getElementById('paia-tab-chatmanage');
-	var tabBadge = null, tabMarkedBadge = null;
+	var tabBadge = null;
 	function updateTabBadge() {
 		if (!tabLink) { return; }
-		// دایرهٔ قرمز = تعداد گفتگوهای خوانده‌نشده؛ دایرهٔ زرد = تعداد گفتگوهای مارک‌شده (هر دو فقط وقتی بیشتر از صفر باشند).
-		var n = st.counts.unread || 0, k = st.counts.marked || 0;
-		if (!n) { if (tabBadge && tabBadge.parentNode) { tabBadge.parentNode.removeChild(tabBadge); } tabBadge = null; }
-		else {
-			if (!tabBadge) { tabBadge = el('span', { class: 'paia-tab__badge', title: t.unread }); }
-			tabBadge.textContent = fmtNum(n);
-			tabLink.appendChild(tabBadge);
-		}
-		if (!k) { if (tabMarkedBadge && tabMarkedBadge.parentNode) { tabMarkedBadge.parentNode.removeChild(tabMarkedBadge); } tabMarkedBadge = null; }
-		else {
-			if (!tabMarkedBadge) { tabMarkedBadge = el('span', { class: 'paia-tab__badge paia-tab__badge--marked', title: t.marked }); }
-			tabMarkedBadge.textContent = fmtNum(k);
-			tabLink.appendChild(tabMarkedBadge); // همیشه بعد از دایرهٔ قرمز
-		}
+		var n = st.counts.unread || 0;
+		if (!n) { if (tabBadge && tabBadge.parentNode) { tabBadge.parentNode.removeChild(tabBadge); } tabBadge = null; return; }
+		if (!tabBadge) { tabBadge = el('span', { class: 'paia-tab__badge' }); tabLink.appendChild(tabBadge); }
+		tabBadge.textContent = fmtNum(n);
 	}
 
 	/* ---------- نوتیف منوی وردپرس (تعداد پیام‌های نخوانده؛ زنده با هر به‌روزرسانی فهرست) ---------- */

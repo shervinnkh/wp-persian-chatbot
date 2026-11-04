@@ -1237,6 +1237,11 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
 /* ---------- تب تنظیمات: چت سایت ---------- */
 .paia-app .paia-chatset__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .paia-app .paia-chatset__wide{grid-column:1/-1}
+.paia-app .paia-botlogo__row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.paia-app .paia-botlogo__preview{width:56px;height:56px;border-radius:16px;border:1px solid var(--paia-field-border,#34456b);background:#0b1222;display:grid;place-items:center;overflow:hidden;flex:none}
+.paia-app .paia-botlogo__img{width:100%;height:100%;object-fit:contain;padding:6px;box-sizing:border-box}
+.paia-app .paia-botlogo__img[hidden],.paia-app .paia-botlogo__empty[hidden]{display:none}
+.paia-app .paia-botlogo__empty{font-style:normal;color:var(--paia-muted);font-size:11px}
 .paia-app .paia-chatset__f{display:flex;flex-direction:column;gap:6px}
 .paia-app .paia-chatset__f>span{color:var(--paia-muted);font-size:13px}
 /* رنگ کادر همهٔ تکست‌باکس‌های تنظیمات: دیگر سفید نیست؛ آبیِ تیرهٔ هماهنگ با پالت، با هاور و فوکوس بنفش/فیروزه‌ای */
@@ -1264,7 +1269,6 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
    ========================================================================== */
 .paia-app .paia-chatset__hint{color:var(--paia-muted);font-size:12.5px;line-height:1.8}
 .paia-app .paia-tab__badge{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-inline-start:8px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:1}
-.paia-app .paia-tab__badge--marked{margin-inline-start:4px;background:#facc15;color:#1f1a00}
 
 .paia-app .paia-cm [hidden]{display:none!important}
 /* ظرف: همان کلاس .paia-chat اما داخل صفحه (نه شناور) */

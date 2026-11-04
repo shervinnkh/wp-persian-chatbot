@@ -81,18 +81,25 @@ final class ResultsEndpoint extends AbstractEndpoint {
 			);
 		}
 
-		// آیتم‌های kind = chat_answer پاسخ چت‌اند (نه نتیجهٔ رکورد): جدا می‌شوند.
+		// آیتم‌های kind = chat_answer و chat_messages_saved مربوط به چت‌اند (نه نتیجهٔ رکورد): جدا می‌شوند.
 		$answers = array();
+		$saved   = array(); // kind = chat_messages_saved: «این پیام‌ها در سرور ثبت شدند»
 		$records = array();
 		foreach ( $results as $row ) {
-			if ( is_array( $row ) && 'chat_answer' === ( $row['kind'] ?? '' ) ) {
+			$kind = is_array( $row ) ? ( $row['kind'] ?? '' ) : '';
+			if ( 'chat_answer' === $kind ) {
 				$answers[] = $row;
+			} elseif ( 'chat_messages_saved' === $kind ) {
+				$saved[] = $row;
 			} else {
 				$records[] = $row;
 			}
 		}
 
 		try {
+			if ( $saved ) {
+				\PersianAIAssistant\Chat\ChatAnswers::apply_saved( $saved );
+			}
 			if ( $answers ) {
 				\PersianAIAssistant\Chat\ChatAnswers::apply( $answers );
 			}

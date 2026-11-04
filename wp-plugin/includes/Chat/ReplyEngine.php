@@ -4,8 +4,10 @@
  *
  * اولویت:
  *  1) فیلتر `paia_chat_reply` (برای اتصال سرویس پایتون/RAG از کد)
- *  2) سرور هوش مصنوعی (Apis\Client امضادار): POST /v1/chat/messages ؛ سرور خودش تاریخچه/خلاصه را نگه می‌دارد، پس هر پیام کاربر
- *     همان‌جا ذخیره می‌شود و روی آخرین پیامِ دسته generate_ai_answer = true است.
+ *  2) سرور هوش مصنوعی (Apis\Client امضادار): POST /v1/chat/messages/batch ؛ سرور خودش تاریخچه/خلاصه را نگه می‌دارد.
+ *     از نسخهٔ ۰.۵.۲۶ هیچ پیامی جداگانه یا فوری به سرور نمی‌رود: هر پیام با ai_sent = 0 ذخیره می‌شود و فقط وقتی هوش مصنوعی
+ *     باید جواب بدهد، «همهٔ پیام‌های ارسال‌نشده + پیام جدید کاربر» با ترتیب شناسه (قدیمی ← جدید) در یک درخواست فرستاده می‌شوند
+ *     (روی آخرین پیام generate_ai_answer = true). پیامی که سرور «دریافت شد» بگوید ai_sent = 1 می‌گیرد.
  *  3) (قدیمی) آدرس سرویس در تنظیمات ویجت بدون کلید (POST JSON) — فقط وقتی اتصال امضادار تنظیم نباشد
  *  (بدون سرویس/پاسخ: null؛ پاسخ پیش‌فرض به پیام اول در Responder است)
  *
@@ -45,11 +47,6 @@ final class ReplyEngine {
 		} elseif ( ! is_array( $reply ) || empty( $reply['text'] ) ) {
 			$reply = $this->remote( $ctx );
 		}
-		if ( is_array( $reply ) && isset( $reply['text'] ) && AiMark::is_mark_reply( $reply['text'] ) ) {
-			// هوش مصنوعی نمی‌تواند جواب بدهد: پیامی ساخته نمی‌شود و فقط گفتگو مارک می‌شود.
-			AiMark::mark( (string) ( $ctx['visitor_uid'] ?? '' ) );
-			return null;
-		}
 		if ( ! is_array( $reply ) || empty( $reply['text'] ) ) {
 			// سرویس پاسخی نداد: ساکت می‌مانیم. «پاسخ پیش‌فرض به پیام اول» را Responder می‌فرستد، نه اینجا.
 			return null;
@@ -61,11 +58,14 @@ final class ReplyEngine {
 		);
 	}
 
+	/** حداکثر پیام در هر درخواست (سقف سرور ۱۰۰ است؛ تاریخچهٔ بلندتر در چند درخواست پشت‌سرهم می‌رود). */
+	private const BATCH_SIZE = 50;
+
 	/**
-	 * پیام‌های جمع‌شدهٔ کاربر را به سرور هوش مصنوعی می‌دهد و پاسخ آخرین پیام را برمی‌گرداند.
-	 * (هر پیام جدا ذخیره می‌شود؛ فقط آخری generate_ai_answer = true دارد.)
+	 * همهٔ پیام‌های ارسال‌نشده (ai_sent = 0) تا آخرین پیام کاربرِ این دسته را با ترتیب قدیمی ← جدید به سرور هوش مصنوعی می‌دهد
+	 * و پاسخ آخرین پیام را می‌گیرد. (هر پیامی که سرور دریافتش را تأیید کرد ai_sent = 1 می‌شود.)
 	 *
-	 * @param array<string,mixed> $ctx زمینه؛ ctx['rows'] = ردیف‌های پیام کاربر (به ترتیب).
+	 * @param array<string,mixed> $ctx زمینه؛ ctx['rows'] = ردیف‌های پیام کاربرِ این دسته (به ترتیب).
 	 * @return array{text:string,suggestions:array<int,string>}|null
 	 */
 	private function via_server( array $ctx ): ?array {
@@ -74,35 +74,33 @@ final class ReplyEngine {
 			return null;
 		}
 
-		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 120 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged
+		$uid      = (string) ( $ctx['visitor_uid'] ?? '' );
+		$user_id  = (int) ( $ctx['user_id'] ?? 0 );
+		$last_row = end( $rows );
+		$store    = new ChatStore();
+
+		// ارسال‌نشده‌ها (پیام‌های کاربر و پشتیبان که در این مدت — مثلاً با هوش مصنوعی خاموش — جمع شده‌اند) تا همین پیام.
+		$batch = $store->unsent_rows( $uid, $user_id, (int) $last_row->id );
+		if ( ! $batch || (int) end( $batch )->id !== (int) $last_row->id ) {
+			$batch[] = $last_row; // پیامِ درخواست‌دهنده همیشه آخرِ لیست است (generate_ai_answer روی آن)
 		}
 
-		$uid     = (string) ( $ctx['visitor_uid'] ?? '' );
-		$user_id = (int) ( $ctx['user_id'] ?? 0 );
-		$last    = count( $rows ) - 1;
-		$answer  = null;
-
-		foreach ( $rows as $i => $row ) {
-			$res = $this->push(
-				$uid,
-				$user_id,
-				array(
-					'role'       => 'user',
-					'content'    => (string) $row->content,
-					'attachment' => array(
-						'type' => (string) $row->attachment_type,
-						'url'  => (string) $row->attachment_url,
-					),
-				),
-				$i === $last
-			);
-			if ( $i === $last ) {
-				$answer = $res;
+		$chunks = array_chunk( $batch, self::BATCH_SIZE );
+		$answer = null;
+		foreach ( $chunks as $i => $chunk ) {
+			if ( function_exists( 'set_time_limit' ) ) {
+				@set_time_limit( 120 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged
 			}
+			$is_last = count( $chunks ) - 1 === $i;
+			$res     = $this->push_batch( $uid, $user_id, $chunk, $is_last, 90, $store );
+			if ( ! $res['ok'] || $res['received'] < count( $chunk ) ) {
+				// ارسال کامل نشد: پیام‌های تأییدنشده ai_sent = 0 می‌مانند و دفعهٔ بعد دوباره می‌روند.
+				return null;
+			}
+			$answer = $res;
 		}
 
-		if ( ! is_array( $answer ) || ! $answer['ok'] ) {
+		if ( ! is_array( $answer ) ) {
 			return null;
 		}
 
@@ -118,7 +116,7 @@ final class ReplyEngine {
 				__( 'سرور هوش مصنوعی پیام را ذخیره کرد ولی پاسخی تولید نکرد (جزئیات در لاگ سرور AI).', 'persian-ai-assistant' ),
 				array(
 					'method'      => 'POST',
-					'endpoint'    => '/v1/chat/messages',
+					'endpoint'    => '/v1/chat/messages/batch',
 					'http_status' => $answer['code'],
 					'response'    => $answer['body'],
 				)
@@ -159,88 +157,69 @@ final class ReplyEngine {
 	}
 
 	/**
-	 * پیام‌های کاربرِ بدون پاسخ هوش مصنوعی (هوش مصنوعی خاموش است یا پشتیبان انسانی جواب می‌دهد) فقط ذخیره می‌شوند
-	 * تا تاریخچهٔ گفتگو در سرور کامل بماند.
+	 * یک دسته پیام (قدیمی ← جدید) را به POST /v1/chat/messages/batch می‌فرستد. شکست را در «لاگ سرور» ثبت می‌کند و هرگز استثنا نمی‌اندازد.
+	 * هر پیامی که سرور دریافتش را تأیید کند (received_count پیام اول لیست) ai_sent = 1 می‌گیرد.
 	 *
-	 * @param array<int,object> $rows ردیف‌های پیام کاربر.
+	 * @param object[]  $rows     ردیف‌های پیام (user|admin) به ترتیب شناسه.
+	 * @param bool      $generate true = روی آخرین پیام (باید پیام کاربر باشد) پاسخ هوش مصنوعی هم خواسته می‌شود.
+	 * @param ChatStore $store    برای ai_sent.
+	 * @return array{ok:bool,received:int,code:int,body:array<string,mixed>} received = تعداد پیام‌های دریافت‌شدهٔ سرور
 	 */
-	public function mirror_rows( string $uid, int $user_id, array $rows ): void {
-		if ( ! Client::is_configured() ) {
-			return;
-		}
+	private function push_batch( string $uid, int $user_id, array $rows, bool $generate, int $timeout, ChatStore $store ): array {
+		$messages = array();
+		$ids      = array(); // شناسهٔ پیام برای هر عنصر $messages (هم‌ترتیب)
+		$empty    = array(); // پیام‌های بی‌متن و بی‌پیوست: چیزی برای ارسال ندارند؛ فقط علامت می‌خورند.
+
 		foreach ( $rows as $row ) {
-			$this->push(
-				$uid,
-				$user_id,
-				array(
-					'role'       => 'user',
-					'content'    => (string) $row->content,
-					'attachment' => array(
-						'type' => (string) $row->attachment_type,
-						'url'  => (string) $row->attachment_url,
-					),
-				),
-				false,
-				15
+			$type = (string) $row->attachment_type;
+			$url  = (string) $row->attachment_url;
+			$text = (string) $row->content;
+			if ( '' === trim( $text ) && ( '' === $type || '' === $url ) ) {
+				$empty[] = (int) $row->id;
+				continue;
+			}
+			$msg = array(
+				'role'        => 'admin' === $row->role ? 'admin' : 'user',
+				'content'     => $text,
+				'external_id' => (string) (int) $row->id, // شناسهٔ پیام در سایت: سرور آن را در وب‌هوک «پیام‌ها ثبت شدند» برمی‌گرداند
 			);
+			if ( '' !== $type && '' !== $url ) {
+				// در افزونه ویس «audio» ذخیره می‌شود ولی سرور فقط image | voice می‌پذیرد.
+				$msg['attachment_type'] = 'audio' === $type ? 'voice' : $type;
+				$msg['attachment_url']  = $url;
+			}
+			if ( 'admin' === $msg['role'] ) {
+				$msg['admin_user_id'] = max( 1, (int) $row->admin_user_id );
+				$msg['admin_name']    = (string) $row->admin_name;
+			}
+			$messages[] = $msg;
+			$ids[]      = (int) $row->id;
 		}
-	}
+		$store->mark_sent( $empty );
 
-	/**
-	 * پیام پشتیبان انسانی را در گفتگوی سرور ذخیره می‌کند (تا هوش مصنوعی از گفته‌های پشتیبان باخبر باشد).
-	 *
-	 * @param array<string,mixed> $attachment type/url (می‌تواند خالی باشد).
-	 */
-	public function mirror_admin( string $uid, int $user_id, string $text, array $attachment, int $admin_id, string $admin_name ): void {
-		if ( ! Client::is_configured() ) {
-			return;
-		}
-		$this->push(
-			$uid,
-			$user_id,
-			array(
-				'role'          => 'admin',
-				'content'       => $text,
-				'attachment'    => $attachment,
-				'admin_user_id' => max( 1, $admin_id ),
-				'admin_name'    => $admin_name,
-			),
-			false,
-			15
+		$fail = array(
+			'ok'       => false,
+			'received' => 0,
+			'code'     => 0,
+			'body'     => array(),
 		);
-	}
+		if ( ! $messages ) {
+			return array_merge( $fail, array( 'ok' => true, 'received' => count( $empty ) ) );
+		}
 
-	/**
-	 * یک پیام را به POST /v1/chat/messages می‌فرستد. شکست را در «لاگ سرور» ثبت می‌کند و هرگز استثنا نمی‌اندازد.
-	 *
-	 * @param array<string,mixed> $msg role, content, attachment{type,url}, admin_user_id?, admin_name?
-	 * @return array<string,mixed> پاسخ Client::request
-	 */
-	private function push( string $uid, int $user_id, array $msg, bool $generate, int $timeout = 65 ): array {
 		$payload = array(
 			'visitor_uid' => $uid,
 			'wp_user_id'  => $user_id,
-			'role'        => (string) $msg['role'],
-			'content'     => (string) ( $msg['content'] ?? '' ),
+			'request_id'  => wp_generate_uuid4(),
+			'messages'    => $messages,
+			// وب‌هوک اول: به‌محض ذخیرهٔ پیام‌ها در دیتابیس سرور و قبل از تولید پاسخ، «این پیام‌ها ثبت شدند» (kind = chat_messages_saved)
+			// به سایت می‌آید و ChatAnswers::apply_saved آن‌ها را ai_sent = 1 می‌کند؛ حتی اگر پاسخ HTTP همین درخواست گم شود.
+			// وب‌هوک دوم (فقط با generate_ai_answer): خودِ پاسخ (kind = chat_answer).
+			'callback'    => Callback::descriptor(),
 		);
-
-		$attachment = isset( $msg['attachment'] ) && is_array( $msg['attachment'] ) ? $msg['attachment'] : array();
-		$type       = (string) ( $attachment['type'] ?? '' );
-		$url        = (string) ( $attachment['url'] ?? '' );
-		if ( '' !== $type && '' !== $url ) {
-			// در افزونه ویس «audio» ذخیره می‌شود ولی سرور فقط image | voice می‌پذیرد.
-			$payload['attachment_type'] = 'audio' === $type ? 'voice' : $type;
-			$payload['attachment_url']  = $url;
-		}
-		if ( 'admin' === $payload['role'] ) {
-			$payload['admin_user_id'] = (int) ( $msg['admin_user_id'] ?? 1 );
-			$payload['admin_name']    = (string) ( $msg['admin_name'] ?? '' );
-		}
-		if ( $generate ) {
+		if ( $generate && 'user' === $messages[ count( $messages ) - 1 ]['role'] ) {
 			$payload['generate_ai_answer'] = true;
 			// فقط همراه درخواست پاسخ: مدل، لحن، اطلاعات سایت و صفحهٔ جاری (برای پراپمت).
-			// مارک کردن چت توسط هوش مصنوعی (تنظیمات ← عمومی): true = اگر نمی‌تواند جواب بدهد دقیقاً «Mark-Chat» برگرداند.
-			$payload['mark-the-conversation'] = (bool) ChatSettings::get( 'ai_mark', 0 );
 			$payload['model'] = (string) ChatSettings::get( 'ai_service', 'gpt-5-4' );
 			$payload['tone']  = 'friendly' === ChatSettings::get( 'tone', 'formal' ) ? 'friendly' : 'formal';
 			$payload['site']  = array_filter(
@@ -254,45 +233,67 @@ final class ReplyEngine {
 			if ( $page ) {
 				$payload['page'] = $page;
 			}
-			// «توضیحات مهم» مدیر سایت (تنظیمات ← عمومی) ← پرامپت. (تا ۰.۵.۲۳ اصلاً به سرور نمی‌رفت.)
+			// «توضیحات مهم» مدیر سایت (تنظیمات ← عمومی) ← پرامپت.
 			$notes = trim( (string) ChatSettings::get( 'important_notes', '' ) );
 			if ( '' !== $notes ) {
 				$payload['notes'] = $notes;
 			}
-			// ابزارهای داده زنده (LIVE_TOOLS_API.md §2): در هر پیامِ دارای generate_ai_answer دوباره فرستاده می‌شوند؛ سرور چیزی بین پیام‌ها نگه نمی‌دارد.
+			// ابزارهای داده زنده (LIVE_TOOLS_API.md §2): همراه درخواستِ دارای generate_ai_answer دوباره فرستاده می‌شوند؛ سرور چیزی بین پیام‌ها نگه نمی‌دارد.
 			$this->attach_live_tools( $payload );
-			// پاسخ غیرهمزمان: سرور فوراً «queued» می‌دهد و پاسخ را بعداً به این آدرس (وب‌هوک) می‌فرستد.
-			$payload['callback'] = Callback::descriptor();
 		}
 
-		// attempts = 1: تلاش دوباره پس از timeout ممکن است پیام را در سرور دوبار ذخیره کند.
-		$res = Client::request( 'POST', '/v1/chat/messages', $payload, $timeout, 1 );
+		// attempts = 1: تلاش دوباره پس از timeout ممکن است پیام‌ها را در سرور دوبار ذخیره کند (وب‌هوک «ثبت شدند» این خطر را کم می‌کند).
+		$res = Client::request( 'POST', '/v1/chat/messages/batch', $payload, $timeout, 1 );
 
 		if ( ! $res['ok'] ) {
 			LogStore::add(
 				LogStore::ERROR,
 				sprintf(
 					/* translators: %s: reason */
-					__( 'ارسال پیام چت به سرور هوش مصنوعی ناموفق بود: %s', 'persian-ai-assistant' ),
+					__( 'ارسال پیام‌های چت به سرور هوش مصنوعی ناموفق بود: %s', 'persian-ai-assistant' ),
 					'' !== (string) $res['error'] ? $res['error'] : ( 'HTTP ' . (int) $res['code'] )
 				),
 				array(
 					'method'      => 'POST',
-					'endpoint'    => '/v1/chat/messages',
+					'endpoint'    => '/v1/chat/messages/batch',
 					'http_status' => $res['code'],
 					'duration_ms' => $res['duration_ms'],
 					'error'       => (string) $res['error_code'],
 					'request_id'  => (string) $res['request_id'],
 					'request'     => array(
-						'role'     => $payload['role'],
 						'visitor'  => $uid,
-						'generate' => $generate,
+						'count'    => count( $messages ),
+						'generate' => ! empty( $payload['generate_ai_answer'] ),
 					),
+				)
+			);
+			return array_merge( $fail, array( 'code' => (int) $res['code'] ) );
+		}
+
+		$body = is_array( $res['body'] ) ? $res['body'] : array();
+		// سرور لیست را به ترتیب ذخیره می‌کند و در اولین شکست می‌ایستد: received_count = تعداد پیام‌های اولِ لیست که ذخیره شده‌اند.
+		$received = isset( $body['received_count'] ) && is_numeric( $body['received_count'] ) ? max( 0, min( count( $messages ), (int) $body['received_count'] ) ) : count( $messages );
+		$store->mark_sent( array_slice( $ids, 0, $received ) );
+
+		if ( $received < count( $messages ) ) {
+			LogStore::add(
+				LogStore::ERROR,
+				__( 'سرور هوش مصنوعی فقط بخشی از پیام‌های چت را دریافت کرد؛ بقیه در درخواست بعدی دوباره ارسال می‌شوند.', 'persian-ai-assistant' ),
+				array(
+					'method'      => 'POST',
+					'endpoint'    => '/v1/chat/messages/batch',
+					'http_status' => $res['code'],
+					'response'    => $body,
 				)
 			);
 		}
 
-		return $res;
+		return array(
+			'ok'       => true,
+			'received' => $received + count( $empty ),
+			'code'     => (int) $res['code'],
+			'body'     => $body,
+		);
 	}
 
 	/**
