@@ -49,6 +49,7 @@ def _attach_llm_generator(settings: Settings, messaging, knowledge) -> None:
     retriever = KnowledgeRetriever(
         embedder=embedder, vectorstore=vectorstore, repo=repo,
         top_k=settings.RAG_TOP_K, min_score=settings.RAG_MIN_SCORE,
+        cache_size=settings.EMBEDDING_CACHE_SIZE,
     )  # fmt: skip
     messaging.answer_generator = LLMAnswerGenerator(settings, retriever)
     logger.info("AI answers: RAG + LLM generator active (top_k=%d)", settings.RAG_TOP_K)

@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class ChatSchema {
 
-	public const VERSION = '1.4.0'; // 1.4.0: ستون refs (ارجاع‌های پاسخ هوش مصنوعی) در جدول پیام‌ها
+	public const VERSION = '1.5.0'; // 1.5.0: ایندکس last_seen (visitors) و created_at (messages) برای پاک‌سازی روزانه؛ 1.4.0: ستون refs
 	public const OPTION  = 'paia_chat_db_version';
 
 	public static function visitors_table(): string {
@@ -59,7 +59,8 @@ final class ChatSchema {
   created_at datetime NOT NULL,
   last_seen datetime NOT NULL,
   PRIMARY KEY  (uid),
-  KEY wp_user_id (wp_user_id)
+  KEY wp_user_id (wp_user_id),
+  KEY last_seen (last_seen)
 ) {$charset};"
 		);
 
@@ -82,7 +83,8 @@ final class ChatSchema {
   PRIMARY KEY  (id),
   KEY visitor_uid (visitor_uid,id),
   KEY ai_sent (visitor_uid,ai_sent),
-  KEY wp_user_id (wp_user_id)
+  KEY wp_user_id (wp_user_id),
+  KEY created_at (created_at)
 ) {$charset};"
 		);
 

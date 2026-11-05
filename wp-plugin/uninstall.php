@@ -18,6 +18,9 @@ $paia_options = array(
 	'paia_logs_seeded',
 	'paia_chatbot_status',
 	'paia_subscription',
+	'paia_retention_days',
+	'paia_cleanup_batch',
+	'paia_tool_cache_ttl',
 );
 
 foreach ( $paia_options as $paia_option ) {
@@ -28,6 +31,7 @@ delete_transient( 'paia_api_authfail' );
 delete_transient( 'paia_reconcile_lock' );
 delete_transient( 'paia_reconcile_err' );
 wp_clear_scheduled_hook( 'paia_ai_reconcile' );
+wp_clear_scheduled_hook( 'paia_daily_cleanup' );
 delete_site_transient( 'paia_update_info' );
 
 // جدول اطلاعات استخراج‌شده (فایل‌های افزونه در این مرحله هنوز بارگذاری نشده‌اند، پس مستقیم حذف می‌شود).

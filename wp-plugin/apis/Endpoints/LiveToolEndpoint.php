@@ -13,7 +13,7 @@ defined( 'ABSPATH' ) || exit;
  * بدنه: { request_id, tool_id: 0 }   ← tool_id همان id ابزار در tools[] پیام (= شناسهٔ ردیف «اطلاعات تعریف‌شده»)
  * پاسخ: { ok: true, text: "<متن زندهٔ ابزار>" }  یا  { ok: false, error: "این ابزار وجود ندارد یا غیرفعال است" }
  *
- * متن هر بار زنده از دیتابیس خوانده می‌شود (ویرایش مدیر همان لحظه اثر می‌کند)؛ کش نمی‌شود.
+ * پاسخ موفق ۶۰ ثانیه با transient کش می‌شود (option: paia_tool_cache_ttl؛ ۰ = خاموش)؛ ویرایش مدیر حداکثر تا همین مدت دیر اثر می‌کند.
  * tool_id فقط به عدد تبدیل و با prepare در LiveStore::get استفاده می‌شود (هرگز مستقیم در SQL/مسیر فایل).
  */
 final class LiveToolEndpoint extends AbstractEndpoint {
@@ -38,7 +38,15 @@ final class LiveToolEndpoint extends AbstractEndpoint {
 			$params = $request->get_json_params();
 			$params = is_array( $params ) ? $params : array();
 			$id     = $this->tool_id( $params['tool_id'] ?? null );
-			$tool   = $id > 0 ? LiveStore::get( $id ) : null;
+
+			// کش ۶۰ ثانیه‌ای پاسخ موفق: ضربهٔ کش هیچ کوئری‌ای به دیتابیس نمی‌زند.
+			$parts  = array( 'tool_id' => $id );
+			$cached = $id > 0 ? $this->cache_get( 'tool', $parts ) : null;
+			if ( null !== $cached ) {
+				return $this->respond( $cached );
+			}
+
+			$tool = $id > 0 ? LiveStore::get( $id ) : null;
 
 			if ( ! $tool || empty( $tool['enabled'] ) ) {
 				return $this->respond(
@@ -59,12 +67,13 @@ final class LiveToolEndpoint extends AbstractEndpoint {
 				);
 			}
 
-			return $this->respond(
-				array(
-					'ok'   => true,
-					'text' => Text::cut( Text::latin_digits( $text ), self::MAX_CHARS ),
-				)
+			$result = array(
+				'ok'   => true,
+				'text' => Text::cut( Text::latin_digits( $text ), self::MAX_CHARS ),
 			);
+			$this->cache_put( 'tool', $parts, $result );
+
+			return $this->respond( $result );
 		} catch ( \Throwable $e ) {
 			LogStore::add(
 				LogStore::ERROR,
