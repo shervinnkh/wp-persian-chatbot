@@ -473,6 +473,7 @@ final class AdminChatController {
 
 		$this->store->clear_admin_typing( $uid );
 		$this->mark_read( $visitor );
+		Realtime::push( $uid, 'new_message' ); // اعلان لحظه‌ای (غیرمسدودکننده)؛ شکستش پیام را خراب نمی‌کند
 
 		// پیام پشتیبان فوری به سرور هوش مصنوعی نمی‌رود (ai_sent = 0)؛ با اولین درخواست پاسخ هوش مصنوعی همراه بقیهٔ پیام‌ها فرستاده می‌شود.
 
@@ -509,6 +510,7 @@ final class AdminChatController {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->delete( $table, array( 'id' => $id ) );
 		Unread::flush();
+		Realtime::push( (string) $row->visitor_uid, 'new_message' );
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
 
@@ -542,6 +544,7 @@ final class AdminChatController {
 		$this->store->clear_user_typing( $uid );
 		$this->store->clear_admin_typing( $uid );
 		Unread::flush();
+		Realtime::push( $uid, 'new_message' );
 
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
@@ -564,6 +567,9 @@ final class AdminChatController {
 			$wpdb->update( ChatSchema::visitors_table(), $data, array( 'uid' => $visitor->uid ) );
 		}
 		$fresh = $this->store->visitor( (string) $visitor->uid );
+		if ( array_key_exists( 'ai_muted', $data ) ) {
+			Realtime::push( (string) $visitor->uid, 'new_message' );
+		}
 		return rest_ensure_response(
 			array(
 				'marked'   => $fresh && (int) $fresh->marked > 0,
@@ -578,6 +584,7 @@ final class AdminChatController {
 			return $visitor;
 		}
 		$this->store->touch_admin_typing( (string) $visitor->uid, $this->admin_name() );
+		Realtime::push( (string) $visitor->uid, 'typing', array( 'on' => true ) );
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
 }

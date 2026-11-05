@@ -32,6 +32,7 @@ def main() -> int:
         forwarded_allow_ips=settings.FORWARDED_ALLOW_IPS,
         log_config=None,  # logging is configured by app.core.logging
         access_log=False,  # we write our own access log (RequestContextMiddleware)
+        ws_max_size=max(4096, settings.WS_MAX_MESSAGE_BYTES * 4),  # tiny frames only (notify-only sockets)
     )
     return 0
 

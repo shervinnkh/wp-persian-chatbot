@@ -800,6 +800,7 @@ persian-ai-assistant/
 
 
 
+
 ### 0.5.29 (امنیت S-1 تا S-3 — افزونه؛ سرور 0.8.0)
 - **S-1:** `Support\ClientIp` (پیش‌فرض `REMOTE_ADDR`؛ ثابت اختیاری `PAIA_IP_HEADER` در wp-config؛ `X-Forwarded-For` هرگز)، جدول `{prefix}paia_rl` (ChatSchema 1.5.0 + Upgrader) با شمارش اتمیک (`Chat\RateLimit`)، IP فقط به‌صورت HMAC (`wp_salt('auth')`). فقط `chat/init` بازدیدکنندهٔ تازه می‌سازد (۱۰ در ساعت برای هر IP)؛ بقیه با uid نامعتبر `400 paia_bad_visitor` (ویجت یک‌بار init و تکرار درخواست). پیام: ۳۰/دقیقه برای IP و ۱۰/دقیقه برای uid ← `429` + `Retry-After`. بدنهٔ سرور: `client_ip`. پاک‌سازی ردیف‌های قدیمی به‌صورت تصادفی (۱٪ درخواست‌ها).
 - **S-2:** تنظیمات `budget_daily_usd` / `budget_monthly_usd` (تب تنظیمات ← بخش «سرویس هوش مصنوعی»، ذخیره با دکمهٔ «ذخیرهٔ تغییرات») و ارسال `budget` در بدنه؛ endpoint جدید `POST /paia/v1/ai/budget` (`Apis\Endpoints\BudgetEndpoint`) ← option `paia_budget_state` (autoload=no)؛ بنر زرد/قرمز بالای تب «عمومی» فقط با `get_option`؛ `budget_exceeded` (پاسخ HTTP یا callback) همان دوره را `limit100` می‌کند؛ پیام بی‌پاسخ برای پشتیبان انسانی می‌ماند.
@@ -822,4 +823,15 @@ persian-ai-assistant/
 - **ایندکس‌ها:** `ChatSchema` نسخهٔ `1.5.0`: `KEY last_seen` (visitors) و `KEY created_at` (messages) با dbDelta.
 - **کش ابزارها:** `apis/Endpoints/AbstractEndpoint` (`cache_get/cache_put`) — پاسخ موفق `/live/products` و `/live/tool` با transient به مدت `paia_tool_cache_ttl` ثانیه (پیش‌فرض ۶۰؛ ۰ = خاموش)، کلید = hash پارامترها (بدون `request_id`؛ برای محصولات شامل فیلدهای فعال). خطاها کش نمی‌شوند؛ ویرایش مدیر حداکثر تا ۶۰ ثانیه دیر اثر می‌کند.
 - **تست:** اجرا روی وردپرس واقعی انجام نشد (فقط `php -l`).
->>>>>>> performance-update-phase1
+
+
+---
+
+## ۳۸. نسخهٔ ۰.۵.۲۸: polling سبک/امن، WebSocket «فقط اعلان» و fallback خودکار
+
+**فاز ۱:** چت بسته هر ۶۰ث (فقط اگر بازدیدکننده پیام دارد)؛ باز ۲ث ← ۵ث ← ۱۰ث؛ تا رسیدن پاسخ سریع؛ تب پنهان متوقف؛ `429`+`Retry-After` ← فاصله دو برابر. `poll()` بدون کوئری تکراری، با قفل `paia_run_<uid>`، حداکثر ۵۰ پیام. **S-1:** `ensure_visitor(.., $create=false)` در مسیرهای GET/poll؛ ردیف فقط در `message`/`profile` (سقف ساخت هر IP؛ `uid` در پاسخ `message`). `Chat\RateLimit`. تنظیمات `poll_*`, `ws_retry`, `rl_*`, `realtime_enabled`, `ws_url`.
+
+**فاز ۲:** `POST /paia/v1/chat/ws-token`؛ وب‌هوک غیرمسدودکنندهٔ `Realtime::push` → `/v1/push` بعد از پیام/حذف/پاک‌کردن/mute/تایپ پشتیبان. `new_message` ← ویجت یک `chat/poll` می‌زند. پردازش تأخیر AI فقط با poll شروع می‌شود، پس در حالت WS ویجت پس از `wait+1` ثانیه یک واکشی تکی و تا رسیدن پاسخ هر ۴۵ث شبکهٔ ایمنی دارد. توکن فقط در حافظه. WS مثل polling قبلی بعد از اولین init شروع می‌شود.
+
+**فاز ۳:** ۳ شکست اتصال (backoff ۱،۲،۵،۱۰،۳۰ث)، کد `4403/4429/4503`، `4401` تکراری، ping مرده، نبود WebSocket یا `rt=0` ← polling؛ تلاش مجدد هر ۶۰ث و با `visibilitychange`/`online`؛ با `ready` polling متوقف + یک catch-up. kill switch: `realtime_enabled` و `WS_ENABLED`.
+>>>>>>> websocket-messaging

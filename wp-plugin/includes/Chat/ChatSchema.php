@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class ChatSchema {
 
-	public const VERSION = '1.5.0'; 
+	public const VERSION = '1.5.0'; // 1.5.0: ایندکس last_seen در جدول بازدیدکننده‌ها (polling سبک)؛ 1.4.0: ستون refs (ارجاع‌های پاسخ هوش مصنوعی) در جدول پیام‌ها
 	public const OPTION  = 'paia_chat_db_version';
 
 	public static function visitors_table(): string {

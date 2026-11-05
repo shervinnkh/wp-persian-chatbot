@@ -65,9 +65,12 @@ final class Responder {
 	 * 0 = وقتش رسیده (یا پیامی در انتظار نیست). با هر پیام/تایپ تازهٔ کاربر دوباره از اول شروع می‌شود.
 	 * ویجت تا صفر نشدن این مقدار «در حال تایپِ هوش مصنوعی» نشان نمی‌دهد.
 	 */
-	public function wait_seconds( object $visitor ): int {
+	/**
+	 * @param object[]|null $rows پیام‌های منتظر (اگر از قبل خوانده شده‌اند، دوباره کوئری نمی‌زند).
+	 */
+	public function wait_seconds( object $visitor, ?array $rows = null ): int {
 		$uid  = (string) $visitor->uid;
-		$rows = $this->store->pending_rows( $uid, (int) $visitor->wp_user_id, (int) $visitor->ai_done_id );
+		$rows = null !== $rows ? $rows : $this->pending_rows( $visitor );
 		if ( ! $rows ) {
 			return 0;
 		}
@@ -78,7 +81,16 @@ final class Responder {
 	}
 
 	public function has_pending( object $visitor ): bool {
-		return (bool) $this->store->pending_rows( (string) $visitor->uid, (int) $visitor->wp_user_id, (int) $visitor->ai_done_id );
+		return (bool) $this->pending_rows( $visitor );
+	}
+
+	/**
+	 * پیام‌های کاربر که هنوز به هوش مصنوعی داده نشده‌اند (یک کوئری؛ نتیجه را به wait_seconds/maybe_run بدهید تا تکرار نشود).
+	 *
+	 * @return object[]
+	 */
+	public function pending_rows( object $visitor ): array {
+		return $this->store->pending_rows( (string) $visitor->uid, (int) $visitor->wp_user_id, (int) $visitor->ai_done_id );
 	}
 
 	/**
@@ -86,12 +98,13 @@ final class Responder {
 	 *
 	 * @param object $visitor ردیف بازدیدکننده.
 	 * @param bool   $force   بدون انتظار برای تأخیر (ai_delay = 0).
+	 * @param object[]|null $rows پیام‌های منتظر اگر پیش‌تر خوانده شده‌اند (کم‌کردن یک کوئری).
 	 * @return array<int,array<string,mixed>>|null null = کاری انجام نشد؛ آرایه = پیام‌های ساخته‌شده (ممکن است خالی باشد)
 	 */
-	public function maybe_run( object $visitor, bool $force = false ): ?array {
+	public function maybe_run( object $visitor, bool $force = false, ?array $rows = null ): ?array {
 		$uid     = (string) $visitor->uid;
 		$user_id = (int) $visitor->wp_user_id;
-		$rows    = $this->store->pending_rows( $uid, $user_id, (int) $visitor->ai_done_id );
+		$rows    = null !== $rows ? $rows : $this->pending_rows( $visitor );
 		if ( ! $rows ) {
 			return null;
 		}

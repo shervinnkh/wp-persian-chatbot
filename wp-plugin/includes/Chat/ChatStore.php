@@ -33,12 +33,15 @@ final class ChatStore {
 	}
 
 	/**
-	 * بازدیدکنندهٔ فعلی را پیدا/ایجاد/به کاربر وردپرس وصل می‌کند.
+	 * بازدیدکنندهٔ فعلی را پیدا می‌کند و اگر نبود می‌سازد. فقط برای ارسال پیام و ذخیرهٔ پروفایل صدا زده شود
+	 * (سقف نرخ ساخت ردیف جدید در ChatController::identity اعمال می‌شود).
 	 * ممکن است uid جدید برگرداند (مثلاً وقتی uid قبلی متعلق به کاربر دیگری است).
+	 *
+	 * @param bool $create false = فقط بازدیدکنندهٔ موجود (مثل resolve_visitor)؛ اگر پیدا نشود null برمی‌گرداند.
 	 */
-	public function ensure_visitor( string $uid, int $user_id ): object {
+	public function ensure_visitor( string $uid, int $user_id, bool $create = true ): ?object {
 		$row = $this->resolve_visitor( $uid, $user_id );
-		if ( $row ) {
+		if ( $row || ! $create ) {
 			return $row;
 		}
 		global $wpdb;
@@ -60,6 +63,7 @@ final class ChatStore {
 
 	/**
 	 * بازدیدکنندهٔ موجود را پیدا (و در صورت لزوم به کاربر وردپرس وصل) می‌کند؛ هرگز بازدیدکنندهٔ تازه نمی‌سازد (S-1).
+	 * برای مسیرهای GET/poll/history/typing/ws-token.
 	 */
 	public function resolve_visitor( string $uid, int $user_id ): ?object {
 		global $wpdb;
@@ -100,6 +104,7 @@ final class ChatStore {
 
 		// برای کم‌کردن بار پایگاه‌داده (polling) فقط هر ۳۰ ثانیه (در حالت بهینه‌شده ۱۲۰ ثانیه) یک‌بار ثبت می‌شود.
 		if ( time() - (int) strtotime( $row->last_seen . ' UTC' ) > ( ChatSettings::is_optimized() ? 120 : 30 ) ) {
+			$row->last_seen = self::now();
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->update( $table, array( 'last_seen' => self::now() ), array( 'uid' => $row->uid ) );
 		}

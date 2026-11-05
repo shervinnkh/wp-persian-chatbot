@@ -223,8 +223,14 @@ class DeliveryService:
         repo: IngestRepository,
         transport: Transport | None = None,
         rand=random.random,
+        notifier=None,
     ):
         self.settings = settings
+        self.notifier = notifier
+        if self.notifier is None and settings.ws_active:
+            from app.services.realtime.notifier import LoopbackNotifier
+
+            self.notifier = LoopbackNotifier(settings)
         self.repo = repo
         self.transport = transport or PinnedHttpTransport(settings)
         self._rand = rand
@@ -397,6 +403,26 @@ class DeliveryService:
             logger.warning("callback.budget_dropped site=%s error=%s", site.host, verdict.detail)
             return
         await self._apply(site, [row], [row.id], verdict, result)
+        
+    async def _announce(self, rows: list[CallbackDelivery]) -> None:
+        """Tell the realtime hub which visitors have a new/failed chat answer (never raises)."""
+        if self.notifier is None:
+            return
+        uids: set[str] = set()
+        for r in rows:
+            if r.kind != "answer" or not r.payload:
+                continue
+            try:
+                item = json.loads(r.payload)
+            except ValueError:
+                continue
+            if isinstance(item, dict) and item.get("kind") == "chat_answer" and item.get("visitor_uid"):
+                uids.add(str(item["visitor_uid"]))
+        for uid in uids:
+            try:
+                await self.notifier.notify(uid, "new_message")
+            except Exception:  # noqa: BLE001
+                logger.warning("realtime.announce_failed")
 
     async def _split(self, site: CallbackSite, rows: list[CallbackDelivery]) -> None:
         half = max(1, len(rows) // 2)
@@ -418,6 +444,7 @@ class DeliveryService:
 
         if verdict.kind == "ok":
             await self.repo.mark_deliveries_done(ids)
+            await self._announce(rows)  # realtime: only AFTER WordPress saved the answer
             latency = result.elapsed_ms
             limit = site.batch_limit
             if latency > SLOW_MS:
