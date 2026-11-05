@@ -55,6 +55,13 @@ class ServiceUnavailableError(AppError):
     code = "service_unavailable"
 
 
+class ConfigurationError(AppError):
+    """The server is misconfigured (e.g. a required setting is missing). Messages must not hold secrets."""
+
+    status_code = 500
+    code = "configuration_error"
+
+
 class PayloadTooLargeError(AppError):
     status_code = 413
     code = "payload_too_large"

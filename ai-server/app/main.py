@@ -60,6 +60,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     for directory in (settings.data_dir, settings.uploads_dir, settings.log_dir):
         directory.mkdir(parents=True, exist_ok=True)
+    if settings.multi_worker_warning:
+        logger.warning(settings.multi_worker_warning)
     if settings.WS_ENABLED and settings.WORKERS > 1:
         logger.warning("Realtime (WebSocket) is OFF: WORKERS > 1 needs pub/sub (not implemented); clients use polling")
     logger.info(
@@ -71,7 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         len(settings.allowed_networks),
         settings.docs_enabled,
     )
-    if settings.QDRANT_PATH:
+    if settings.qdrant_mode != "server":
         logger.warning(
             "Embedded Qdrant فقط برای توسعه است؛ برای production از Qdrant سرور جدا "
             "و worker ingestion جدا استفاده کنید."

@@ -196,8 +196,9 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 | کلید | پیش‌فرض | توضیح |
 |---|---|---|
 | `DATABASE_URL` | خالی ← `sqlite+aiosqlite:///data/app.db` | هر URL آسینک SQLAlchemy (مثلاً `postgresql+asyncpg://…` با نصب `asyncpg`) |
-| `QDRANT_PATH` | خالی (در `.env.example`: `data/qdrant`) | پر = حالت محلی توکار بدون سرور (فقط یک پروسه، مناسب توسعه/داده کم)؛ خالی = اتصال به سرور Qdrant. برای production سرور واقعی؛ هنگام مهاجرت `QDRANT_PATH` را خالی و رکوردها را با `force=true` دوباره بفرستید |
-| `QDRANT_URL` / `QDRANT_API_KEY` | `http://127.0.0.1:6333` / خالی | `:memory:` فقط برای تست |
+| `QDRANT_MODE` | `server` | انتخاب **صریح** حالت: `server` (پیش‌فرض؛ فقط حالت مجاز production) / `embedded` (توسعه؛ نیاز به `QDRANT_PATH`) / `memory` (فقط تست). هیچ حالتی خودکار حدس زده نمی‌شود: `QDRANT_PATH` پر با `QDRANT_MODE=server` ← خطای استارت |
+| `QDRANT_PATH` | خالی (در `.env.example`: `data/qdrant`) | فقط با `QDRANT_MODE=embedded` (یک پروسه، توسعه/داده کم). در production باید خالی باشد. انتقال داده به سرور: `README.md` بخش «انتقال داده از Qdrant Embedded به Server» |
+| `QDRANT_URL` / `QDRANT_API_KEY` | `http://127.0.0.1:6333` / خالی | URL فقط با `QDRANT_MODE=server` (http/https). در production `QDRANT_API_KEY` اجباری است؛ Secret لاگ نمی‌شود. `QDRANT_URL=:memory:` فقط در غیر production و املای قدیمی تست است (جایگزین: `QDRANT_MODE=memory`) |
 | `QDRANT_COLLECTION` / `QDRANT_TIMEOUT` | `knowledge` / `30` | collection خودکار ساخته می‌شود (cosine) و ایندکس payload روی `record_id`, `type`, `chunk_index` |
 | `OPENAI_API_KEY` | خالی (الزامی برای ارسال رکورد) | بدون آن، ارسال رکورد ← `service_unavailable` برای هر رکورد |
 | `OPENAI_BASE_URL` | خالی | آدرس پروکسی/گیت‌وی سازگار با OpenAI (در صورت نیاز) |
@@ -231,7 +232,7 @@ $response = wp_remote_post( trailingslashit( $api_url ) . 'v1/ping', [
 
 | کلید | پیش‌فرض | توضیح |
 |---|---|---|
-| `INGEST_RUN_IN_API` | خالی = خودکار | خالی: فقط وقتی `QDRANT_PATH` پر است حلقهٔ ingestion داخل API اجرا می‌شود. `true/false` اجبار می‌کند |
+| `INGEST_RUN_IN_API` | خالی = خودکار | خالی: فقط وقتی `QDRANT_MODE=embedded` است حلقهٔ ingestion داخل API اجرا می‌شود. `true/false` اجبار می‌کند |
 | `INGEST_WORKER_CONCURRENCY` | `2` | تعداد رکوردی که هم‌زمان پردازش می‌شود (یک رکورد هرگز دو بار هم‌زمان) |
 | `INGEST_WORKER_POLL_SECONDS` | `1` | فاصلهٔ بررسی صف وقتی کاری نیست |
 | `INGEST_MAX_ATTEMPTS` / `INGEST_RETRY_DELAY_SECONDS` | `3` / `30` | تلاش مجدد برای خطای موقت (OpenAI/Qdrant)؛ تأخیر × شمارهٔ تلاش. خطای دائمی (مثلاً متن خالی) تلاش مجدد ندارد |
@@ -703,7 +704,7 @@ for دور in 1..K:
 - اجرا نشده: ارتباط واقعی با OpenAI و سرور Qdrant، و دانلود واژگان tiktoken (محیط توسعه شبکهٔ بیرونی نداشت؛ مسیر fallback تست شد). اولین ارسال واقعی را با `LOG_LEVEL=INFO` ببینید و خط‌های `embedding.request` / `knowledge.token_mismatch` را بررسی کنید.
 
 ### 0.3.1
-- `QDRANT_PATH`: حالت محلی توکار Qdrant بدون نصب سرور (توسعه روی ویندوز). `.env.example` آن را `data/qdrant` می‌گذارد. `run.bat` تغییری نکرد.
+- `QDRANT_MODE`/`QDRANT_PATH`: حالت محلی توکار Qdrant (فقط `QDRANT_MODE=embedded`) بدون نصب سرور (توسعه روی ویندوز). `.env.example` آن را `embedded` + `data/qdrant` می‌گذارد. **`run.bat` باید بازبینی شود** (در zip این نوبت نبود): اگر شرط «پنجرهٔ ingestion را باز نکن» را با `QDRANT_PATH` پر تشخیص می‌دهد، با `.env` توسعه همچنان درست کار می‌کند؛ ولی `.env` قدیمی بدون `QDRANT_MODE=embedded` دیگر استارت نمی‌شود.
 
 ### 0.3.2
 - endpointهای دیباگ `GET /v1/knowledge/records` و `GET /v1/knowledge/records/{id}` (رکورد، چانک‌ها، payload نقطه‌های Qdrant، `in_sync`).
@@ -789,3 +790,15 @@ for دور in 1..K:
 - فایل مرده `app/api/v1/knowledge_files.py` دوباره در zip بود؛ حذف شد (import نمی‌شود).
 - zip این نوبت `requirements.txt`، `.env.example`، `scripts/` (به‌جز جدید)، `tests/`، `docs/` و `deploy/` نداشت؛ آن‌ها دست‌نخورده‌اند.
 - تست: طبق دستور هیچ تستی نوشته نشد؛ فقط compile و یک اجرای یک‌بارمصرف (حذف‌شده) از writer/rollup/گزارش. اجرا نشده: اجرای کامل سرور و workerها، ویندوز (`run.bat report`)، PostgreSQL برای `queue.snapshot`.
+
+### 0.8.0+ — رفع موارد امنیتی و آماده‌سازی production (SEC-02، SEC-04، P-01، P-03؛ بدون تغییر `__version__`)
+- **سمت سرور (این پروژه):**
+  - `QDRANT_MODE` (`server`/`embedded`/`memory`) جدید و صریح؛ `Settings._qdrant_rules`: `QDRANT_PATH` با حالت `server` = خطا؛ production فقط `server` + `QDRANT_API_KEY` اجباری؛ `qdrant_path` فقط در `embedded` مقدار دارد (پس `workers/ingestion.py` و `monitoring.py` بدون تغییر درست کار می‌کنند)؛ `ingest_in_api` خودکار فقط برای `embedded`.
+  - `services/vectorstore/qdrant.py`: `build_client()` (انتخاب حالت)، نگاشت خطای احراز هویت ۴۰۱/۴۰۳ و timeout به `ServiceUnavailableError` (بدون Secret). `ConfigurationError` به `core/errors.py` اضافه شد. منطق Collection/upsert/search/delete دست‌نخورده.
+  - `WORKERS>1`: هشدار در `__main__.py` (stderr) و lifespan (لاگ) با `Settings.multi_worker_warning`؛ خاموش‌شدن WebSocket (`ws_active`) حفظ شد. پیش‌فرض `WORKERS=1` از قبل بود.
+  - تست‌های جدید: `tests/conftest.py`، `tests/test_qdrant_config.py`، `tests/test_vectorstore_client.py` (بدون سرویس واقعی؛ mock).
+  - `.env.example` به‌روز شد؛ `README.md` **عمومی** جدید (محدودیت تک‌پروسه‌ای، حالت‌های Qdrant، مهاجرت). `app/docs-patch/README_sections.md` هم‌راستا شد.
+- **سمت افزونه:** `Support\Uuid` (UUID v4 با `random_bytes`)، `Chat\ChatStore::ensure_visitor` ← در خطای RNG مقدار `null` (بدون fallback)؛ `Support\ClientIp` بازنویسی با فهرست Proxy مورد اعتماد (`PAIA_TRUSTED_PROXIES`، فیلتر `paia_trusted_proxies`، preset `cloudflare`)؛ تست بدون وابستگی `php tests/run.php`.
+- **مهاجرت:** `.env` قدیمی که فقط `QDRANT_PATH` دارد باید `QDRANT_MODE=embedded` بگیرد (یا به سرور برود). تست‌هایی که `QDRANT_URL=:memory:` می‌گذارند همچنان کار می‌کنند (غیر production)، ولی بهتر است `QDRANT_MODE=memory` شوند.
+- **`run.bat`:** در zip این نوبت نبود و تغییر داده نشد؛ باید بازبینی شود (بالا).
+- **اجرا نشده:** تست‌های قبلی پروژه (پوشهٔ `tests/` در zip نبود)، ruff کامل، اجرای واقعی با Qdrant Server، WordPress واقعی (فقط PHP CLI و منطق خالص).

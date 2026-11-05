@@ -13,6 +13,8 @@
 
 namespace PersianAIAssistant\Chat;
 
+use PersianAIAssistant\Support\Uuid;
+
 defined( 'ABSPATH' ) || exit;
 
 final class ChatStore {
@@ -47,8 +49,16 @@ final class ChatStore {
 		global $wpdb;
 		$table = ChatSchema::visitors_table();
 		$user  = $user_id > 0 ? get_userdata( $user_id ) : false;
+		try {
+			$new_uid = Uuid::v4();
+		} catch ( \Throwable $e ) {
+			// منبع تصادفی رمزنگاری‌شده در دسترس نیست: بدون fallback ضعیف، ساخت بازدیدکننده شکست می‌خورد (فراخوان خطای ۵۰۰ می‌دهد).
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( 'PAIA: secure visitor uid generation failed.' );
+			return null;
+		}
 		$new   = array(
-			'uid'          => wp_generate_uuid4(),
+			'uid'          => $new_uid,
 			'wp_user_id'   => $user_id,
 			'name'         => $user ? (string) $user->display_name : '',
 			'contact'      => $user ? (string) $user->user_email : '',

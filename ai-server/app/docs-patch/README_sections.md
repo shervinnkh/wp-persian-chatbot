@@ -22,8 +22,9 @@
 
 ## Production checklist
 
-- [ ] **Qdrant جدا:** `QDRANT_PATH` را خالی بگذار و `QDRANT_URL` (و `QDRANT_API_KEY`) را به سرور Qdrant بده.
-      Embedded Qdrant فقط برای توسعه است (یک پروسه، بدون مقیاس‌پذیری؛ موقع استارت در لاگ warning می‌دهد).
+- [ ] **Qdrant جدا:** `QDRANT_MODE=server`، `QDRANT_PATH` خالی، `QDRANT_URL` و `QDRANT_API_KEY` (در production اجباری).
+      Embedded (`QDRANT_MODE=embedded`) فقط برای توسعه است و با `APP_ENV=production` استارت نمی‌شود.
+- [ ] **`WORKERS=1`:** چند Worker/نمونهٔ API پشتیبانی نمی‌شود (صف، WebSocket و JtiCache در حافظهٔ یک پروسه‌اند).
 - [ ] **`worker_ingestion` جدا:** `python -m app.workers.ingestion` را به‌عنوان سرویس جدا اجرا کن
       (با Qdrant سرور، `INGEST_RUN_IN_API` خودکار خاموش است و حلقهٔ ingestion داخل API اجرا نمی‌شود).
 - [ ] **Postgres:** `DATABASE_URL` پستگرس (بخش بالا).

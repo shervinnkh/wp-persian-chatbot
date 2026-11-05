@@ -20,6 +20,10 @@ def main() -> int:
             print(f"  - {field}: {err['msg']}", file=sys.stderr)
         return 1
 
+    warning = settings.multi_worker_warning
+    if warning and not settings.RELOAD:  # RELOAD already forces a single worker below
+        print(f"\nWARNING: {warning}\n", file=sys.stderr)
+
     uvicorn.run(
         "app.main:create_app",
         factory=True,

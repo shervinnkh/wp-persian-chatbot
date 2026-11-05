@@ -72,3 +72,40 @@ define( 'PAIA_GITHUB_REPO',      'owner/repo' ); // اختیاری؛ جای ثا
 location ~* /uploads/paia-chat/.*\.php$ { deny all; }
 ```
 فایل‌های چت عمداً عمومی‌اند (نام تصادفی ۱۶ نویسه‌ای). پیام‌ها و پیوست‌های قدیمی‌تر از ۹۰ روز با cron روزانهٔ `paia_daily_cleanup` پاک می‌شوند (فیلتر `paia_retention_days`).
+
+## شناسهٔ بازدیدکننده (UID) — SEC-02
+
+- هدر `X-PAIA-Visitor` برای دسترسی به تاریخچهٔ گفتگوی همان بازدیدکننده استفاده می‌شود؛ پس **عملاً یک credential است** (نباید در لاگ، URL یا اشتراک‌گذاری ظاهر شود).
+- UID فقط در سرور (وردپرس) ساخته می‌شود: UUID نسخهٔ ۴ از `random_bytes(16)` (کلاس `Support\Uuid`)، با بیت‌های version/variant استاندارد، به‌صورت ۳۶ نویسه با حروف کوچک (`xxxxxxxx-xxxx-4xxx-[89ab]xxx-xxxxxxxxxxxx`).
+- اگر منبع تصادفی رمزنگاری‌شده در دسترس نباشد، هیچ روش ضعیفی (`mt_rand` و مشابه) جایگزین نمی‌شود: ساخت بازدیدکنندهٔ جدید با خطای `500 paia_db` رد می‌شود و در لاگ خطای PHP یک پیام ثبت می‌شود.
+- قالب خروجی تغییر نکرده است؛ UIDهای قبلی (که با `wp_generate_uuid4()` ساخته شده بودند) با همان regex پذیرفته می‌شوند و نیازی به مهاجرت نیست.
+- توکن WebSocket جدا تولید می‌شود (از قبل با `random_bytes`) و تغییری نکرده است.
+
+## IP بازدیدکننده، Proxy و Cloudflare — SEC-04
+
+سقف نرخ مبتنی بر IP (`Chat\RateLimit`) از `Support\ClientIp` استفاده می‌کند.
+
+- **سایت معمولی** (بدون Proxy): هیچ ثابتی تعریف نکنید. فقط `REMOTE_ADDR` خوانده می‌شود و هدرهای IP که کلاینت می‌فرستد (از جمله `X-Forwarded-For`، `CF-Connecting-IP`) نادیده گرفته می‌شوند.
+- **سایت پشت Cloudflare/Proxy:** `PAIA_IP_HEADER` به‌تنهایی کافی نیست. هدر فقط وقتی خوانده می‌شود که IP اتصال‌دهنده (`REMOTE_ADDR`) داخل محدودهٔ Proxy مورد اعتماد باشد؛ بدون فهرست مورد اعتماد، هدر نادیده گرفته می‌شود.
+
+```php
+// wp-config.php — پشت Cloudflare
+define( 'PAIA_IP_HEADER',       'HTTP_CF_CONNECTING_IP' );
+define( 'PAIA_TRUSTED_PROXIES', 'cloudflare' );   // فهرست پیوست‌شده: includes/Support/trusted-proxies/cloudflare.txt
+
+// یا فهرست دلخواه (آرایه یا رشتهٔ جداشده با کاما؛ می‌توان با 'cloudflare' ترکیب کرد)
+define( 'PAIA_TRUSTED_PROXIES', array( 'cloudflare', '203.0.113.0/24' ) );
+```
+
+- رفتار: اگر Proxy معتبر نباشد ← هدر کاملاً نادیده گرفته و `REMOTE_ADDR` برگردانده می‌شود. اگر Proxy معتبر ولی هدر خالی/نامعتبر باشد (با `FILTER_VALIDATE_IP`) ← `REMOTE_ADDR`. `X-Forwarded-For` هرگز خوانده نمی‌شود.
+- **محدوده‌های IP باید به‌روز بمانند.** فایل `includes/Support/trusted-proxies/cloudflare.txt` یک snapshot است؛ منبع رسمی `https://www.cloudflare.com/ips-v4` و `https://www.cloudflare.com/ips-v6` است. پیش از استقرار آن را با منبع رسمی مطابقت دهید و دوره‌ای به‌روز کنید. جایگزین‌ها: فهرست مستقیم در `PAIA_TRUSTED_PROXIES` یا فیلتر `paia_trusted_proxies` (برای دریافت از منبع به‌روز).
+- اگر Cloudflare را برای سایت فعال کرده‌اید ولی این تنظیم را انجام نداده‌اید، همهٔ کاربران یک IP (IP پروکسی) دیده می‌شوند و سقف نرخ بین آن‌ها مشترک می‌شود؛ پس پیکربندی بالا را کامل کنید.
+- سرور `client_ip` را در بدنهٔ امضاشده دریافت می‌کند؛ هر IP معتبر همان مقدار اعتبارسنجی‌شده است.
+
+## سرور هوش مصنوعی
+
+محدودیت تک‌پروسه‌ای، حالت‌های Qdrant و مهاجرت داده در `ai-server/README.md` توضیح داده شده‌اند. افزونه فرض می‌کند سرور با `WORKERS=1` اجرا می‌شود.
+
+## تست
+
+بدون وابستگی (فقط PHP CLI): `php tests/run.php` (کد خروج غیرصفر = شکست).

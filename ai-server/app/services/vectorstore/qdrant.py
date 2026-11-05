@@ -9,10 +9,14 @@ from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from qdrant_client import AsyncQdrantClient, models
-from qdrant_client.http.exceptions import ApiException, ResponseHandlingException
+from qdrant_client.http.exceptions import (
+    ApiException,
+    ResponseHandlingException,
+    UnexpectedResponse,
+)
 
 from app.core.config import Settings
-from app.core.errors import ServiceUnavailableError
+from app.core.errors import ConfigurationError, ServiceUnavailableError
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -33,30 +37,59 @@ class VectorPoint:
     payload: dict[str, Any]
 
 
+def build_client(settings: Settings) -> tuple[AsyncQdrantClient, str]:
+    """Create the Qdrant client for the explicitly chosen `QDRANT_MODE`; returns `(client, label)`.
+
+    The mode is never guessed: `server` -> QDRANT_URL (+ QDRANT_API_KEY), `embedded` -> QDRANT_PATH
+    (development only), `memory` -> in-process (tests). Secrets are never logged.
+    """
+    mode = settings.qdrant_mode
+    if mode == "embedded":
+        path = settings.qdrant_path
+        if path is None:  # config validation prevents this; keep the failure explicit
+            raise ConfigurationError("QDRANT_MODE=embedded needs QDRANT_PATH")
+        path.mkdir(parents=True, exist_ok=True)
+        logger.info("Qdrant embedded local mode (development only): path=%s", path)
+        return AsyncQdrantClient(path=str(path)), f"local:{path}"
+    if mode == "memory":
+        return AsyncQdrantClient(location=":memory:"), ":memory:"
+    url = settings.QDRANT_URL.strip()
+    if not url:
+        raise ConfigurationError("QDRANT_URL is required when QDRANT_MODE=server")
+    key = settings.QDRANT_API_KEY.get_secret_value().strip() or None
+    logger.info(
+        "Qdrant server mode: url=%s api_key=%s timeout=%ss",
+        url,
+        "set" if key else "not set",
+        settings.QDRANT_TIMEOUT,
+    )
+    return AsyncQdrantClient(url=url, api_key=key, timeout=settings.QDRANT_TIMEOUT), url
+
+
 class VectorStore:
     def __init__(self, settings: Settings):
         self.collection = settings.QDRANT_COLLECTION
         self.dimensions = settings.EMBEDDING_DIMENSIONS
         self._quantize = settings.QDRANT_SCALAR_QUANTIZATION
-        url = settings.QDRANT_URL
-        path = settings.qdrant_path
-        if path is not None:
-            path.mkdir(parents=True, exist_ok=True)
-            self._client = AsyncQdrantClient(path=str(path))
-            url = f"local:{path}"
-            logger.info("Qdrant embedded local mode: path=%s (single process only)", path)
-        elif url == ":memory:":
-            self._client = AsyncQdrantClient(location=":memory:")
-        else:
-            key = settings.QDRANT_API_KEY.get_secret_value() or None
-            self._client = AsyncQdrantClient(url=url, api_key=key, timeout=settings.QDRANT_TIMEOUT)
-        self._url = url
+        self._client, self._url = build_client(settings)
         self._ready = False
 
     async def _call(self, what: str, fn: Callable[[], Awaitable[T]]) -> T:
         try:
             return await fn()
-        except (ApiException, ResponseHandlingException, OSError) as exc:
+        except UnexpectedResponse as exc:
+            if exc.status_code in (401, 403):
+                # Never include headers/keys; the message of the exception is only the HTTP reason.
+                logger.error(
+                    "qdrant.%s rejected: HTTP %s (check QDRANT_API_KEY)", what, exc.status_code
+                )
+                raise ServiceUnavailableError(
+                    f"Vector database authentication failed during {what}"
+                ) from exc
+            logger.error("qdrant.%s failed: HTTP %s", what, exc.status_code)
+            raise ServiceUnavailableError(f"Vector database error during {what}") from exc
+        except (ApiException, ResponseHandlingException, OSError, TimeoutError) as exc:
+            # Connection refused / DNS / timeout (httpx errors arrive wrapped).
             logger.error("qdrant.%s failed: %s: %s", what, type(exc).__name__, exc)
             raise ServiceUnavailableError(f"Vector database error during {what}") from exc
 

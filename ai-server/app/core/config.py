@@ -85,11 +85,16 @@ class Settings(BaseSettings):
     DB_POOL_PRE_PING: bool = True
 
     # --- Qdrant (vector DB) ---
-    # QDRANT_PATH set = embedded local mode (no server needed; data in this folder, one process
-    # only, fine for development / small data). Empty = connect to a Qdrant server at QDRANT_URL.
-    QDRANT_PATH: str = ""
-    QDRANT_URL: str = "http://127.0.0.1:6333"  # ":memory:" = in-process (tests only)
-    QDRANT_API_KEY: SecretStr = SecretStr("")
+    # The connection mode is chosen EXPLICITLY with QDRANT_MODE (never guessed from other values):
+    #   server   (default) connect to a Qdrant server at QDRANT_URL (+ QDRANT_API_KEY). The only
+    #            mode allowed when APP_ENV=production. QDRANT_PATH must be empty.
+    #   embedded local mode inside this Python process (development / small data only; data in
+    #            QDRANT_PATH, ONE process only). Refused in production.
+    #   memory   in-process, nothing persisted (tests only). Refused in production.
+    QDRANT_MODE: Literal["server", "embedded", "memory"] = "server"
+    QDRANT_PATH: str = ""  # only with QDRANT_MODE=embedded
+    QDRANT_URL: str = "http://127.0.0.1:6333"  # only with QDRANT_MODE=server
+    QDRANT_API_KEY: SecretStr = SecretStr("")  # required when APP_ENV=production
     QDRANT_COLLECTION: str = "knowledge"
     QDRANT_TIMEOUT: int = Field(30, ge=1, le=600)
     # Optional int8 scalar quantization (about 4x less RAM for the vectors, small recall loss).
@@ -448,6 +453,40 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def _qdrant_rules(self) -> Settings:
+        mode = self.QDRANT_MODE
+        url = self.QDRANT_URL.strip()
+        if mode == "server":
+            if self.QDRANT_PATH.strip():
+                raise ValueError(
+                    "QDRANT_PATH is set but QDRANT_MODE=server. Embedded Qdrant must be chosen "
+                    "explicitly: set QDRANT_MODE=embedded (development only), or clear QDRANT_PATH "
+                    "and use QDRANT_URL to reach a Qdrant server."
+                )
+            if url == ":memory:":
+                # Legacy test spelling: tolerated outside production only (see qdrant_mode).
+                if self.APP_ENV == "production":
+                    raise ValueError("QDRANT_URL=:memory: is not allowed in production")
+            elif not re.match(r"^https?://[^/\s]+", url, re.I):
+                raise ValueError(
+                    "QDRANT_URL must be an http(s) URL of the Qdrant server "
+                    "(e.g. http://127.0.0.1:6333) when QDRANT_MODE=server"
+                )
+        elif mode == "embedded" and not self.QDRANT_PATH.strip():
+            raise ValueError("QDRANT_PATH is required when QDRANT_MODE=embedded")
+        elif mode == "memory" and self.QDRANT_PATH.strip():
+            raise ValueError("QDRANT_PATH must be empty when QDRANT_MODE=memory")
+        if self.APP_ENV == "production":
+            if mode != "server":
+                raise ValueError(
+                    f"QDRANT_MODE={mode} is not allowed when APP_ENV=production: use "
+                    "QDRANT_MODE=server with QDRANT_URL and QDRANT_API_KEY"
+                )
+            if not self.QDRANT_API_KEY.get_secret_value().strip():
+                raise ValueError("QDRANT_API_KEY is required when APP_ENV=production")
+        return self
+
+    @model_validator(mode="after")
     def _production_rules(self) -> Settings:
         if self.APP_ENV == "production":
             if not self.REQUIRE_HTTPS:
@@ -485,6 +524,18 @@ class Settings(BaseSettings):
         return [ipaddress.ip_network(i, strict=False) for i in items]
 
     @property
+    def multi_worker_warning(self) -> str | None:
+        """Single-process warning text when WORKERS > 1, else None."""
+        if self.WORKERS <= 1:
+            return None
+        return (
+            "WORKERS > 1 is NOT supported: the answer queue, the WebSocket connection manager and "
+            "the token replay cache (JtiCache) live in the memory of ONE process, so several "
+            "workers can process messages twice and disagree about connections and tokens. "
+            "Set WORKERS=1 (see README: single-process limitation)."
+        )
+
+    @property
     def ws_active(self) -> bool:
         """Realtime really runs (kill switch on AND a single API process)."""
         return self.WS_ENABLED and self.WORKERS == 1
@@ -506,7 +557,7 @@ class Settings(BaseSettings):
         """Run the ingestion loop inside the API process (embedded Qdrant needs that)."""
         if self.INGEST_RUN_IN_API is not None:
             return self.INGEST_RUN_IN_API
-        return bool(self.QDRANT_PATH)
+        return self.qdrant_mode == "embedded"
 
     @property
     def allowed_models(self) -> list[str]:
@@ -591,8 +642,18 @@ class Settings(BaseSettings):
         return self._abs(self.TIKTOKEN_CACHE_DIR)
 
     @property
+    def qdrant_mode(self) -> Literal["server", "embedded", "memory"]:
+        """Effective Qdrant mode (`QDRANT_URL=:memory:`, old test spelling, means memory)."""
+        if self.QDRANT_MODE == "server" and self.QDRANT_URL.strip() == ":memory:":
+            return "memory"
+        return self.QDRANT_MODE
+
+    @property
     def qdrant_path(self) -> Path | None:
-        return self._abs(Path(self.QDRANT_PATH)) if self.QDRANT_PATH else None
+        """Embedded Qdrant folder; None unless QDRANT_MODE=embedded."""
+        if self.QDRANT_MODE != "embedded":
+            return None
+        return self._abs(Path(self.QDRANT_PATH))
 
     @property
     def database_url(self) -> str:
