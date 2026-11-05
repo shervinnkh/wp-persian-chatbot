@@ -1,11 +1,14 @@
 <?php
 namespace PersianAIAssistant\Admin\Pages;
 
-use PersianAIAssistant\Support\View;
+use PersianAIAssistant\Admin\Chatbot\Tabs\GeneralTab;
 
 defined( 'ABSPATH' ) || exit;
 
-final class HomePage implements PageInterface {
+/**
+ * صفحهٔ اصلی: کلید وضعیت چت‌بات + آمار کلی (تب «عمومی» قدیمی). همیشه باز است، حتی با چت‌بات خاموش.
+ */
+final class HomePage extends AbstractTabbedPage {
 
 	public const SLUG = 'paia';
 
@@ -21,11 +24,13 @@ final class HomePage implements PageInterface {
 		return __( 'صفحه اصلی', 'persian-ai-assistant' );
 	}
 
-	public function uses_app_shell(): bool {
+	protected function lock_when_disabled(): bool {
 		return false;
 	}
 
-	public function render(): void {
-		View::render( 'admin/home' );
+	protected function build_tabs(): array {
+		return array(
+			new GeneralTab(),
+		);
 	}
 }

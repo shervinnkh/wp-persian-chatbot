@@ -3,8 +3,10 @@ namespace PersianAIAssistant\Admin;
 
 use PersianAIAssistant\Admin\Pages\ChatbotPage;
 use PersianAIAssistant\Admin\Pages\HomePage;
+use PersianAIAssistant\Admin\Pages\LogsPage;
 use PersianAIAssistant\Admin\Pages\MonitoringPage;
 use PersianAIAssistant\Admin\Pages\PageInterface;
+use PersianAIAssistant\Admin\Pages\ResourcesPage;
 use PersianAIAssistant\Admin\Pages\SettingsPage;
 use PersianAIAssistant\Chat\Unread;
 use PersianAIAssistant\Contracts\Module;
@@ -40,8 +42,8 @@ final class AdminModule implements Module {
 	}
 
 	public function register_menu(): void {
-		// ترتیب زیرمنوها: صفحه اصلی، چت‌بات هوشمند، پنل مانیتورینگ، تنظیمات.
-		$pages = array( new HomePage(), new ChatbotPage(), new MonitoringPage(), new SettingsPage() );
+		// ترتیب زیرمنوها: صفحه اصلی، چت بات، منابع AI، لاگ، پنل مانیتورینگ، تنظیمات.
+		$pages = array( new HomePage(), new ChatbotPage(), new ResourcesPage(), new LogsPage(), new MonitoringPage(), new SettingsPage() );
 
 		foreach ( $pages as $page ) {
 			$this->pages[ $page->slug() ] = $page;
@@ -117,9 +119,8 @@ final class AdminModule implements Module {
 			return;
 		}
 
-		if ( ChatbotPage::SLUG === $page->slug() ) {
+		if ( SettingsPage::SLUG === $page->slug() ) {
 			wp_enqueue_media(); // انتخاب لوگوی چت از کتابخانهٔ رسانه (تنظیمات ← مدیریت چت)
-
 		}
 
 		wp_enqueue_script( 'paia-admin', PAIA_URL . 'assets/js/admin.js', array(), PAIA_VERSION, true );
@@ -181,7 +182,7 @@ final class AdminModule implements Module {
 	 * @return array<string, mixed>
 	 */
 	private function script_data(): array {
-		// چت‌بات خاموش: فقط داده‌ٔ لازم برای تب «عمومی» (کلید وضعیت)؛ هیچ کوئری سنگینی اجرا نمی‌شود.
+		// چت‌بات خاموش: فقط داده‌ٔ لازم برای صفحهٔ اصلی (کلید وضعیت)؛ هیچ کوئری سنگینی اجرا نمی‌شود.
 		if ( ! Status::is_enabled() ) {
 			return array(
 				'restUrl' => esc_url_raw( rest_url( 'paia/v1/' ) ),
@@ -267,7 +268,7 @@ final class AdminModule implements Module {
 				'removeAi'       => __( 'حذف از دانش هوش مصنوعی', 'persian-ai-assistant' ),
 				'removeAiConfirm' => __( 'با حذف این داده، هوش مصنوعی دیگر به آن دسترسی نخواهد داشت. آیا مطمئن هستید؟', 'persian-ai-assistant' ),
 				'removedAi'      => __( 'درخواست حذف به سرور هوش مصنوعی رفت؛ تا پایان پردازش در حال حذف است.', 'persian-ai-assistant' ),
-				'untrainFailed'  => __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در تب «لاگ سرور» است.', 'persian-ai-assistant' ),
+				'untrainFailed'  => __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در صفحهٔ «لاگ» است.', 'persian-ai-assistant' ),
 				'removeSrcAi'    => __( 'حذف همهٔ آموزش‌دیده‌های این بخش از دانش هوش مصنوعی', 'persian-ai-assistant' ),
 				/* translators: %s: number of records */
 				'removeSrcAiConfirm' => __( 'آموزش %s مورد از دانش هوش مصنوعی حذف می‌شود (خود اطلاعات در سایت می‌ماند). آیا مطمئن هستید؟', 'persian-ai-assistant' ),
@@ -431,9 +432,6 @@ final class AdminModule implements Module {
 				'lgDetails'       => __( 'جزئیات', 'persian-ai-assistant' ),
 				'anView'         => __( 'مشاهده در سایت', 'persian-ai-assistant' ),
 				'anDetailFailed' => __( 'خواندن جزئیات این مورد ناموفق بود.', 'persian-ai-assistant' ),
-				'subSyncing'     => __( 'در حال اتصال به سرور هوش مصنوعی…', 'persian-ai-assistant' ),
-				'subSynced'      => __( 'آخرین همگام‌سازی: %s', 'persian-ai-assistant' ),
-				'subFailed'      => __( 'همگام‌سازی ناموفق بود. اتصال به سرور هوش مصنوعی را بررسی کنید و دوباره تلاش کنید.', 'persian-ai-assistant' ),
 				'foldShow'       => __( 'نمایش: %s', 'persian-ai-assistant' ),
 				'anTrainFailed'  => __( 'آموزش ناموفق بود. موارد به فرم برگشتند؛ دوباره تلاش کنید.', 'persian-ai-assistant' ),
 				/* translators: %s: number of items */
@@ -451,7 +449,7 @@ final class AdminModule implements Module {
 	 */
 	private function status_i18n(): array {
 		return array(
-			'stOffConfirm' => __( 'در صورت غیرفعال کردن، تمام عملکرد چت‌بات متوقف می‌شود: آیکن چت از سایت برداشته می‌شود، پاسخ‌گویی و ذخیرهٔ خودکار اطلاعات قطع می‌شود و همهٔ تب‌ها تا فعال کردن دوباره قفل می‌شوند. ادامه می‌دهید؟', 'persian-ai-assistant' ),
+			'stOffConfirm' => __( 'در صورت غیرفعال کردن، تمام عملکرد چت‌بات متوقف می‌شود: آیکن چت از سایت برداشته می‌شود، پاسخ‌گویی و ذخیرهٔ خودکار اطلاعات قطع می‌شود و همهٔ بخش‌ها تا فعال کردن دوباره قفل می‌شوند. ادامه می‌دهید؟', 'persian-ai-assistant' ),
 			'stSaving'     => __( 'در حال ذخیرهٔ وضعیت…', 'persian-ai-assistant' ),
 			'stFailed'     => __( 'تغییر وضعیت ناموفق بود. دوباره تلاش کنید.', 'persian-ai-assistant' ),
 			'stOnDone'     => __( 'چت‌بات فعال شد. در حال بارگذاری دوبارهٔ صفحه…', 'persian-ai-assistant' ),

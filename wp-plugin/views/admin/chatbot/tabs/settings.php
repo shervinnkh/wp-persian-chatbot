@@ -12,7 +12,7 @@ $paia_name = static function ( $key ) {
 };
 $paia_sync    = SyncSettings::all();
 $paia_sources = Sources::all();
-$paia_back = admin_url( 'admin.php?page=paia-chatbot' ) . '#settings';
+$paia_back = admin_url( 'admin.php?page=paia-settings' );
 // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-updated'];
 ?>

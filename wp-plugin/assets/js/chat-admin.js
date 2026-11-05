@@ -328,7 +328,7 @@
 			if (c.ai_muted) { badges.appendChild(el('span', { class: 'pcm-mini pcm-mini--ai', html: icon('spark'), title: t.aiOff })); }
 			if (c.unread > 0) { badges.appendChild(el('span', { class: 'pcm-unread', text: fmtNum(c.unread) })); }
 
-			var btn = el('button', { class: 'pcm-item' + (c.uid === st.uid ? ' is-active' : '') + (c.unread > 0 ? ' is-unread' : ''), type: 'button', 'data-uid': c.uid }, [
+			var btn = el('button', { class: 'pcm-item' + (c.uid === st.uid ? ' is-active' : '') + (c.unread > 0 ? ' is-unread' : '') + (c.marked ? ' is-marked' : ''), type: 'button', 'data-uid': c.uid }, [
 				el('span', { class: 'pcm-av', text: initial(c.name) }),
 				el('span', { class: 'pcm-ibody' }, [
 					el('span', { class: 'pcm-irow' }, [el('strong', { class: 'pcm-name', text: c.name }), el('time', { text: c.last ? fmtShort(c.last.time) : '' })]),

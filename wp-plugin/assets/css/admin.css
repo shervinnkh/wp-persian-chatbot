@@ -1268,13 +1268,14 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
    تب «مدیریت چت» — فهرست گفتگوها + پنجرهٔ چت (ظاهر چت از widget.css)
    ========================================================================== */
 .paia-app .paia-chatset__hint{color:var(--paia-muted);font-size:12.5px;line-height:1.8}
-.paia-app .paia-tab__badge--marked{background:#facc15;color:#422006}
 .paia-app .paia-tab__badge{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-inline-start:8px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:1}
+.paia-app .paia-tab__badge.paia-tab__badge--marked{background:#facc15;color:#422006}
 
 .paia-app .paia-cm [hidden]{display:none!important}
 /* ظرف: همان کلاس .paia-chat اما داخل صفحه (نه شناور) */
 .paia-app .paia-chat.paia-cm{position:relative;inset:auto;bottom:auto;width:auto;height:auto;z-index:auto;font-size:14px}
 .paia-app .pcm-layout{display:grid;grid-template-columns:minmax(290px,360px) minmax(0,1fr);gap:16px;align-items:stretch;height:min(720px,calc(100vh - 230px));min-height:520px}
+.paia-app.paia-app--single .pcm-layout{height:min(720px,calc(100vh - 175px))}
 
 /* پنل فهرست (سمت راست در RTL) */
 .paia-app .pcm-side{display:flex;flex-direction:column;min-height:0;border-radius:26px;background:var(--pc-surface);color:var(--pc-text);box-shadow:var(--pc-shadow),0 0 0 1px var(--pc-line);overflow:hidden}
@@ -1307,9 +1308,11 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
 .paia-app .pcm-badges{flex:none;display:flex;align-items:center;gap:4px}
 .paia-app .pcm-mini{display:grid;place-items:center;width:18px;height:18px;color:var(--pc-muted)}
 .paia-app .pcm-mini .pc-svg{width:14px;height:14px}
-.paia-app .pcm-mini--star{color:#f59e0b}
+.paia-app .pcm-mini--star{color:#facc15}
 .paia-app .pcm-mini--star .pc-svg{fill:currentColor}
 .paia-app .pcm-unread{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:20px;text-align:center}
+/* گفتگوی مارک‌شده: فقط دایرهٔ زرد (نه قرمز) */
+.paia-app .pcm-item.is-marked .pcm-unread{background:#facc15;color:#422006}
 
 /* ستون چت (سمت چپ در RTL) */
 .paia-app .pcm-chat{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column}
@@ -1697,26 +1700,6 @@ html[dir="rtl"] .paia-ai:focus-visible::after {
 }
 .paia-app .paia-fold-bar:hover, .paia-app .paia-fold-bar:focus-visible { color: var(--paia-text); border-color: var(--paia-accent); }
 .paia-app .paia-fold-bar[hidden] { display: none; }
-
-/* 0.5.14: کارت «وضعیت اشتراک» زیر آمار تب عمومی */
-.paia-app .paia-plan { margin-top: 20px; padding: 20px; border-radius: 16px; background: var(--paia-surface); border: 1px solid rgba(148,163,184,.18); }
-.paia-app .paia-plan__head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
-.paia-app .paia-plan__title { margin: 0; color: #fff; font-size: 16px; }
-.paia-app .paia-plan__sync { margin-inline-start: auto; }
-.paia-app .paia-plan__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.paia-app .paia-plan__item { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px; border-radius: 12px; background: rgba(15,23,42,.55); }
-.paia-app .paia-plan__label { color: var(--paia-muted); font-size: 12px; }
-.paia-app .paia-plan__value { color: var(--paia-text); font-size: 18px; overflow-wrap: anywhere; }
-.paia-app .paia-plan__value small { color: var(--paia-muted); font-size: 12px; font-weight: 400; }
-.paia-app .paia-plan__hint { color: var(--paia-muted); font-size: 12px; }
-.paia-app .paia-plan__bar { display: block; height: 8px; border-radius: 999px; background: rgba(148,163,184,.2); overflow: hidden; }
-.paia-app .paia-plan__bar > span { display: block; height: 100%; border-radius: inherit; background: var(--paia-accent); transition: width .4s ease; }
-.paia-app .paia-plan__bar--tokens > span { background: var(--paia-secondary); }
-.paia-app .paia-plan.is-expired .paia-plan__bar:not(.paia-plan__bar--tokens) > span { background: #f87171; }
-.paia-app .paia-plan.is-expired [data-sub="remaining"] { color: #f87171; }
-.paia-app .paia-plan__foot { margin: 14px 0 0; color: var(--paia-muted); font-size: 13px; }
-@media (max-width: 1100px) { .paia-app .paia-plan__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .paia-app .paia-plan__grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* دکمهٔ «حذف آموزش» وقتی درخواست حذف در راه است (loading) و ردیف «در حال حذف» در لیست موارد حذف‌شده */
 .paia-app .paia-ai-del.is-loading{pointer-events:none;position:relative;color:transparent}

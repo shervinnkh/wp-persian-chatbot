@@ -392,7 +392,7 @@ final class DocumentsController extends AbstractController {
 		$ok     = AiBackend::delete( $id );
 
 		if ( ! $ok && $status >= Records::STATUS_PROCESSING ) {
-			return new \WP_Error( 'paia_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در تب «لاگ سرور» است؛ دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 502 ) );
+			return new \WP_Error( 'paia_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در صفحهٔ «لاگ» است؛ دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 502 ) );
 		}
 
 		return null;

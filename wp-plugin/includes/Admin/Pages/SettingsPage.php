@@ -1,14 +1,14 @@
 <?php
 namespace PersianAIAssistant\Admin\Pages;
 
-use PersianAIAssistant\Support\View;
+use PersianAIAssistant\Admin\Chatbot\Tabs\SettingsTab;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * صفحهٔ «تنظیمات» (زیرمنوی افزونه). فعلاً خالی است؛ محتوا در مراحل بعد اضافه می‌شود.
+ * صفحهٔ «تنظیمات»: همهٔ تنظیمات افزونه (منوی کناری عمومی / استخراج اطلاعات سایت / مدیریت چت).
  */
-final class SettingsPage implements PageInterface {
+final class SettingsPage extends AbstractTabbedPage {
 
 	public const SLUG = 'paia-settings';
 
@@ -24,11 +24,9 @@ final class SettingsPage implements PageInterface {
 		return __( 'تنظیمات', 'persian-ai-assistant' );
 	}
 
-	public function uses_app_shell(): bool {
-		return false;
-	}
-
-	public function render(): void {
-		View::render( 'admin/settings' );
+	protected function build_tabs(): array {
+		return array(
+			new SettingsTab(),
+		);
 	}
 }

@@ -28,6 +28,9 @@ final class Upgrader {
 			$this->migrate_ai_status();
 		}
 
+		// ۰.۵.۳۱: کارت «وضعیت اشتراک» حذف شد؛ داده‌ٔ ذخیره‌شدهٔ آن هم پاک می‌شود.
+		delete_option( 'paia_subscription' );
+
 		/**
 		 * @param string $installed نسخهٔ قبلی.
 		 * @param string $current   نسخهٔ فعلی.

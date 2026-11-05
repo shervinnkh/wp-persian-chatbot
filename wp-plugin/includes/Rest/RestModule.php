@@ -33,7 +33,6 @@ final class RestModule implements Module {
 				DocumentsController::class,
 				LogsController::class,
 				LiveController::class,
-				SubscriptionController::class,
 				AiStatusController::class,
 			)
 		);

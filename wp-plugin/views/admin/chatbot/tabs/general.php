@@ -8,9 +8,11 @@
  * @var array<string,mixed> $extraction  خروجی Extraction\Overview::build()
  * @var array<string,mixed> $docs        خروجی Documents\Overview::build()
  * @var array<string,int>   $logs        خروجی LogStore::stats()
- * @var array<string,mixed> $subscription خروجی Subscription\Service::present()
  */
 
+use PersianAIAssistant\Admin\Pages\ChatbotPage;
+use PersianAIAssistant\Admin\Pages\LogsPage;
+use PersianAIAssistant\Admin\Pages\ResourcesPage;
 use PersianAIAssistant\Support\Icons;
 
 defined( 'ABSPATH' ) || exit;
@@ -69,7 +71,7 @@ $paia_last = (string) ( $extraction['last_label'] ?? '' );
  */
 $paia_cards = array(
 	array(
-		'href'  => '#chatmanage',
+		'href'  => admin_url( 'admin.php?page=' . ChatbotPage::SLUG ),
 		'color' => '#a78bfa',
 		'icon'  => 'message',
 		'title' => __( 'پیام‌ها و گفت‌وگوها', 'persian-ai-assistant' ),
@@ -82,7 +84,7 @@ $paia_cards = array(
 		'cta'   => __( 'مدیریت چت', 'persian-ai-assistant' ),
 	),
 	array(
-		'href'  => '#extraction',
+		'href'  => admin_url( 'admin.php?page=' . ResourcesPage::SLUG ) . '#extraction',
 		'color' => '#22d3ee',
 		'icon'  => 'database',
 		'title' => __( 'اطلاعات استخراج‌شده از سایت', 'persian-ai-assistant' ),
@@ -96,7 +98,7 @@ $paia_cards = array(
 		'cta'   => __( 'استخراج اطلاعات', 'persian-ai-assistant' ),
 	),
 	array(
-		'href'  => '#documents',
+		'href'  => admin_url( 'admin.php?page=' . ResourcesPage::SLUG ) . '#documents',
 		'color' => '#818cf8',
 		'icon'  => 'file-text',
 		'title' => __( 'اسناد اضافه شده', 'persian-ai-assistant' ),
@@ -112,7 +114,7 @@ $paia_cards = array(
 		'cta'   => __( 'اسناد اضافه', 'persian-ai-assistant' ),
 	),
 	array(
-		'href'  => '#serverlog',
+		'href'  => admin_url( 'admin.php?page=' . LogsPage::SLUG ) . '#serverlog',
 		'color' => '#f472b6',
 		'icon'  => 'list',
 		'title' => __( 'لاگ سرور', 'persian-ai-assistant' ),
@@ -135,7 +137,7 @@ $paia_cards = array(
 
 	<div class="paia-dash__grid">
 		<?php foreach ( $paia_cards as $paia_card ) : ?>
-			<a class="paia-dcard<?php echo $paia_card['alert'] ? ' is-alert' : ''; ?>" href="<?php echo esc_attr( $paia_card['href'] ); ?>" style="--dc:<?php echo esc_attr( $paia_card['color'] ); ?>">
+			<a class="paia-dcard<?php echo $paia_card['alert'] ? ' is-alert' : ''; ?>" href="<?php echo esc_url( $paia_card['href'] ); ?>" style="--dc:<?php echo esc_attr( $paia_card['color'] ); ?>">
 				<span class="paia-dcard__top">
 					<span class="paia-dcard__icon"><?php echo Icons::get( $paia_card['icon'], 22 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 					<h3 class="paia-dcard__title"><?php echo esc_html( $paia_card['title'] ); ?></h3>
@@ -167,56 +169,4 @@ $paia_cards = array(
 			</a>
 		<?php endforeach; ?>
 	</div>
-	<?php
-	$paia_sub    = isset( $subscription ) ? (array) $subscription : array( 'synced' => false );
-	$paia_synced = ! empty( $paia_sub['synced'] );
-	$paia_dash   = '—';
-	$paia_val    = static function ( string $key ) use ( $paia_sub, $paia_dash ): string {
-		return isset( $paia_sub[ $key ] ) ? (string) $paia_sub[ $key ] : $paia_dash;
-	};
-	?>
-	<section class="paia-plan<?php echo ! empty( $paia_sub['expired'] ) ? ' is-expired' : ''; ?>" data-role="subscription" aria-labelledby="paia-plan-title">
-		<div class="paia-plan__head">
-			<h3 class="paia-plan__title" id="paia-plan-title"><?php esc_html_e( 'وضعیت اشتراک', 'persian-ai-assistant' ); ?></h3>
-			<span class="paia-chip paia-chip--warn" data-sub="demo" <?php echo ! empty( $paia_sub['demo'] ) ? '' : 'hidden'; ?>><?php esc_html_e( 'نمایشی (تا اتصال سرور)', 'persian-ai-assistant' ); ?></span>
-			<button type="button" class="paia-btn paia-btn--ghost paia-plan__sync" data-role="sub-sync">
-				<?php echo Icons::get( 'refresh', 18 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				<span class="paia-btn__label"><?php esc_html_e( 'همگام‌سازی با سرور', 'persian-ai-assistant' ); ?></span>
-				<span class="paia-spinner" aria-hidden="true"></span>
-			</button>
-		</div>
-
-		<div class="paia-plan__grid">
-			<div class="paia-plan__item">
-				<span class="paia-plan__label"><?php esc_html_e( 'نوع اشتراک', 'persian-ai-assistant' ); ?></span>
-				<strong class="paia-plan__value" data-sub="plan"><?php echo esc_html( $paia_val( 'plan' ) ); ?></strong>
-			</div>
-
-			<div class="paia-plan__item">
-				<span class="paia-plan__label"><?php esc_html_e( 'مهلت باقی‌مانده (ددلاین)', 'persian-ai-assistant' ); ?></span>
-				<strong class="paia-plan__value" data-sub="remaining"><?php echo esc_html( $paia_val( 'remaining' ) ); ?></strong>
-				<span class="paia-plan__bar"><span data-sub="time_bar" style="width:<?php echo esc_attr( (string) (int) ( $paia_sub['time_pct'] ?? 0 ) ); ?>%"></span></span>
-				<small class="paia-plan__hint"><?php esc_html_e( 'پایان اشتراک:', 'persian-ai-assistant' ); ?> <span data-sub="expires"><?php echo esc_html( $paia_val( 'expires' ) ); ?></span></small>
-			</div>
-
-			<div class="paia-plan__item">
-				<span class="paia-plan__label"><?php esc_html_e( 'مصرف توکن', 'persian-ai-assistant' ); ?></span>
-				<strong class="paia-plan__value"><span data-sub="tokens_used"><?php echo esc_html( $paia_val( 'tokens_used' ) ); ?></span> <small>/ <span data-sub="tokens_total"><?php echo esc_html( $paia_val( 'tokens_total' ) ); ?></span></small></strong>
-				<span class="paia-plan__bar paia-plan__bar--tokens"><span data-sub="tokens_bar" style="width:<?php echo esc_attr( (string) (int) ( $paia_sub['tokens_pct'] ?? 0 ) ); ?>%"></span></span>
-			</div>
-
-			<div class="paia-plan__item">
-				<span class="paia-plan__label"><?php esc_html_e( 'توکن باقی‌مانده', 'persian-ai-assistant' ); ?></span>
-				<strong class="paia-plan__value" data-sub="tokens_left"><?php echo esc_html( $paia_val( 'tokens_left' ) ); ?></strong>
-			</div>
-		</div>
-
-		<p class="paia-plan__foot" data-role="sub-foot" role="status" aria-live="polite">
-			<?php
-			echo $paia_synced
-				? esc_html( sprintf( /* translators: %s: date and time */ __( 'آخرین همگام‌سازی: %s', 'persian-ai-assistant' ), $paia_val( 'synced_label' ) ) )
-				: esc_html__( 'هنوز همگام‌سازی نشده؛ برای دیدن وضعیت اشتراک دکمهٔ «همگام‌سازی با سرور» را بزنید.', 'persian-ai-assistant' );
-			?>
-		</p>
-	</section>
 </div>

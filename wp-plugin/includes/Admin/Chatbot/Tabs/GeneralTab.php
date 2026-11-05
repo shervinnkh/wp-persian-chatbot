@@ -6,13 +6,12 @@ use PersianAIAssistant\Chat\Unread;
 use PersianAIAssistant\Database\LogStore;
 use PersianAIAssistant\Documents\Overview as DocsOverview;
 use PersianAIAssistant\Extraction\Overview as ExtractionOverview;
-use PersianAIAssistant\Subscription\Service as Subscription;
 use PersianAIAssistant\Support\Status;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * تب «عمومی»: آمار کلی افزونه (فقط خواندنی، بدون JS).
+ * تب «عمومی» (صفحهٔ اصلی): آمار کلی افزونه (فقط خواندنی، بدون JS).
  * هر گروه با چند COUNT/SUM سبک خوانده می‌شود: پیام‌ها، اطلاعات استخراج‌شده، اسناد و لاگ سرور.
  */
 final class GeneralTab extends AbstractTab {
@@ -41,7 +40,6 @@ final class GeneralTab extends AbstractTab {
 			'extraction'           => ExtractionOverview::build(),
 			'docs'                 => DocsOverview::build(),
 			'logs'                 => LogStore::stats(),
-			'subscription'         => Subscription::present( Subscription::stored() ),
 			'budget_banner'        => BudgetState::banner(), // فقط get_option؛ بدون درخواست شبکه
 		);
 	}

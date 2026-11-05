@@ -3824,59 +3824,8 @@
 	}
 
 	/* ------------------------------------------------------------------ */
-	/* وضعیت چت‌بات (تب «عمومی»): روشن/خاموش‌کردن کل چت‌بات                */
+	/* وضعیت چت‌بات (صفحهٔ اصلی): روشن/خاموش‌کردن کل چت‌بات                */
 	/* ------------------------------------------------------------------ */
-
-	/* ------------------------------------------------------------------ */
-	/* وضعیت اشتراک (تب «عمومی»): دکمهٔ «همگام‌سازی با سرور»                */
-	/* ------------------------------------------------------------------ */
-
-	function initSubscription( root ) {
-		var box = root.querySelector( '[data-role="subscription"]' );
-		var btn = box ? box.querySelector( '[data-role="sub-sync"]' ) : null;
-		if ( ! box || ! btn ) {
-			return;
-		}
-		var foot = box.querySelector( '[data-role="sub-foot"]' );
-		var busy = false;
-
-		function field( name ) {
-			return box.querySelector( '[data-sub="' + name + '"]' );
-		}
-
-		function apply( d ) {
-			[ 'plan', 'remaining', 'expires', 'tokens_used', 'tokens_total', 'tokens_left' ].forEach( function ( key ) {
-				var node = field( key );
-				if ( node && d[ key ] !== undefined ) {
-					node.textContent = d[ key ];
-				}
-			} );
-			field( 'time_bar' ).style.width = ( d.time_pct || 0 ) + '%';
-			field( 'tokens_bar' ).style.width = ( d.tokens_pct || 0 ) + '%';
-			field( 'demo' ).hidden = ! d.demo;
-			box.classList.toggle( 'is-expired', !! d.expired );
-			foot.textContent = sprintf( i18n.subSynced, d.synced_label || '' );
-		}
-
-		btn.addEventListener( 'click', async function () {
-			if ( busy ) {
-				return;
-			}
-			busy = true;
-			btn.disabled = true;
-			btn.classList.add( 'is-loading' );
-			foot.textContent = i18n.subSyncing;
-			var res = await request( 'subscription/sync', 'POST', {} );
-			busy = false;
-			btn.disabled = false;
-			btn.classList.remove( 'is-loading' );
-			if ( res.ok && res.data && res.data.synced ) {
-				apply( res.data );
-			} else {
-				foot.textContent = ( res.data && res.data.message ) || i18n.subFailed;
-			}
-		} );
-	}
 
 	function initStatus( root ) {
 		var box = root.querySelector( '[data-role="status"]' );
@@ -3936,8 +3885,7 @@
 
 			if ( res.ok && res.data && typeof res.data.enabled !== 'undefined' && !! res.data.enabled === want ) {
 				show( want ? i18n.stOnDone : i18n.stOffDone, false );
-				// بارگذاری دوباره: ماژول‌های چت‌بات با وضعیت جدید ثبت/حذف می‌شوند و تب‌ها از سرور قفل/باز می‌شوند.
-				window.location.hash = '#general';
+				// بارگذاری دوباره: ماژول‌های چت‌بات با وضعیت جدید ثبت/حذف می‌شوند و صفحه‌ها از سرور قفل/باز می‌شوند.
 				window.location.reload();
 				return;
 			}
@@ -4012,7 +3960,6 @@
 		}
 		initTabs( root );
 		initStatus( root );
-		initSubscription( root );
 
 		// چت‌بات خاموش: محتوای تب‌ها ساخته نشده؛ هیچ بخش دیگری راه‌اندازی نمی‌شود.
 		if ( config.enabled === false ) {

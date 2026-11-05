@@ -226,7 +226,7 @@ final class AutoSyncController extends AbstractController {
 		// اگر اتصال به سرور اصلاً تنظیم نشده، چیزی در سرور نیست که حذف شود.
 		if ( AiBackend::is_configured() ) {
 			if ( ! AiBackend::delete( $id ) ) {
-				return new \WP_Error( 'paia_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در تب «لاگ سرور» است؛ دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 502 ) );
+				return new \WP_Error( 'paia_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در صفحهٔ «لاگ» است؛ دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 502 ) );
 			}
 
 			// سرور درخواست را پذیرفت (۲۰۰ = ۱): ردیف «در حال حذف» می‌شود و بعد از وب‌هوک `untrained` از لیست می‌رود.
