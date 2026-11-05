@@ -15,7 +15,8 @@ defined( 'ABSPATH' ) || exit;
  *
  * • exp زمان انقضا (ثانیهٔ یونیکس) است و داخل امضا هست؛ تغییر id یا exp امضا را باطل می‌کند.
  * • پیشوند «paia-file» جداسازی دامنه است: این امضا هرگز با امضای درخواست‌های API (timestamp + "\n" + body) یکی نمی‌شود.
- * • کلید همان api_key است (Client::shared_secret)؛ سرور هوش مصنوعی چیزی را امضا نمی‌کند و فقط لینک را باز می‌کند.
+ * • کلید ثابت PAIA_FILE_LINK_SECRET است (اختیاری)؛ در غیر این صورت همان کلید مشترک (Client::shared_secret). سرور هوش مصنوعی
+ *   چیزی را امضا نمی‌کند و فقط لینک را باز می‌کند.
  * • لینک فقط همان یک فایل را می‌دهد (GET) و بعد از exp کار نمی‌کند. عمر پیش‌فرض ۱ ساعت است (تا نوبت صف و تلاش مجدد
  *   سرور برسد)؛ با فیلتر paia_file_link_ttl بین ۵ دقیقه تا ۲۴ ساعت قابل تغییر است.
  */
@@ -35,7 +36,7 @@ final class FileLink {
 	}
 
 	private static function secret(): string {
-		return (string) apply_filters( 'paia_file_link_secret', Client::shared_secret() );
+		return (string) apply_filters( 'paia_file_link_secret', Client::file_link_secret() );
 	}
 
 	public static function sign( string $id, int $expires, string $secret ): string {

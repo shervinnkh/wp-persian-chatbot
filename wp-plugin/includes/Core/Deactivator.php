@@ -9,6 +9,9 @@ final class Deactivator {
 		// کرون بازبینی وضعیت رکوردهای هوش مصنوعی (apis/Reconciler.php).
 		\PersianAIAssistant\Apis\Reconciler::unschedule();
 
+		// پاک‌سازی روزانهٔ داده‌های چت (S-8).
+		\PersianAIAssistant\Chat\Retention::unschedule();
+
 		do_action( 'paia_deactivated' );
 	}
 }

@@ -17,6 +17,9 @@ defined( 'ABSPATH' ) || exit;
 final class ChatModule implements Module {
 
 	public function register(): void {
+		// S-5: با ثابت PAIA_API_SECRET کلیدِ قدیمیِ option پاک می‌شود (پیش از ثبت sanitize_callback در admin_init).
+		ChatSettings::scrub_stored_key();
+
 		add_action( 'admin_init', array( $this, 'register_setting' ) );
 		add_filter( 'option_page_capability_paia_chat', array( $this, 'capability' ) );
 
@@ -27,6 +30,7 @@ final class ChatModule implements Module {
 
 		add_action( 'init', array( ChatSchema::class, 'maybe_install' ), 5 );
 
+		( new Retention() )->register(); // پاک‌سازی روزانهٔ پیام‌ها/فایل‌ها (S-8)
 		( new WidgetRenderer() )->register();
 		( new ChatController() )->register();
 		( new Responder() )->register();

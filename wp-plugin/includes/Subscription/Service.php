@@ -42,7 +42,7 @@ final class Service {
 			LogStore::add( 'info', __( 'همگام‌سازی اشتراک: آدرس سرویس تنظیم نشده؛ داده‌ی نمایشی نشان داده شد.', 'persian-ai-assistant' ), array( 'endpoint' => 'subscription' ) );
 		} else {
 			$endpoint = (string) apply_filters( 'paia_subscription_url', untrailingslashit( $url ) . '/subscription' );
-			$key      = (string) ChatSettings::get( 'api_key', '' );
+			$key      = \PersianAIAssistant\Apis\Client::shared_secret(); // ثابت PAIA_API_SECRET یا کلید ذخیره‌شده (S-5)
 			$started  = microtime( true );
 
 			$response = wp_remote_get(

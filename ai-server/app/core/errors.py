@@ -47,6 +47,13 @@ class NotFoundError(AppError):
     code = "not_found"
 
 
+class ServiceUnavailableError(AppError):
+    """A needed internal component failed (the client may retry with a fresh request)."""
+
+    status_code = 503
+    code = "service_unavailable"
+
+
 class PayloadTooLargeError(AppError):
     status_code = 413
     code = "payload_too_large"

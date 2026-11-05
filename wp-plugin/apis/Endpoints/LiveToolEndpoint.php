@@ -27,7 +27,7 @@ final class LiveToolEndpoint extends AbstractEndpoint {
 			'/live/tool',
 			array(
 				'methods'             => \WP_REST_Server::CREATABLE,
-				'callback'            => array( $this, 'handle' ),
+				'callback'            => array( $this, 'dispatch' ),
 				'permission_callback' => array( $this, 'authorize' ),
 			)
 		);

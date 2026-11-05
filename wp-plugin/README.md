@@ -54,3 +54,21 @@ persian-ai-assistant/
 
 - دکمهٔ «استخراج اطلاعات» منبع‌های انتخاب‌شده (محصولات، وبلاگ، برگه‌ها، سوالات متداول، تماس) را دسته‌دسته از طریق `POST /wp-json/paia/v1/extraction` می‌خواند و خلاصه، دکمهٔ غیرفعال «آموزش هوش مصنوعی» و بخش موقت DEV-ONLY (نمایش کامل داده‌ها) را نشان می‌دهد. جزئیات: `ARCHITECTURE.md` بخش ۴-ب.
 - اتصال به سرویس پایتون و آموزش واقعی هوش مصنوعی هنوز پیاده نشده (دکمه‌های آموزش فقط ذخیره می‌کنند)؛ «صفحه اصلی» عمداً خالی است. تب «اسناد اضافه» فعلاً فقط افزودن متن را دارد (آپلود فایل هنوز نیست).
+
+## امنیت (۰.۵.۲۹)
+
+**کلیدها در wp-config.php (روش اصلی):**
+```php
+define( 'PAIA_API_URL',          'https://ai.example.com' );
+define( 'PAIA_API_SECRET',       '...' );  // = API_SHARED_SECRET سرور؛ با تعریفش کلید در دیتابیس/HTML نمی‌آید
+define( 'PAIA_CALLBACK_SECRET',  '...' );  // اختیاری؛ = PLUGIN_CALLBACK_SECRET سرور (امضای ورودی از سرور)
+define( 'PAIA_FILE_LINK_SECRET', '...' );  // اختیاری؛ امضای لینک دانلود فایل‌ها
+define( 'PAIA_GITHUB_REPO',      'owner/repo' ); // اختیاری؛ جای ثابت Updater::GITHUB_REPO
+```
+توصیه می‌شود سه کلید PAIA_API_SECRET / PAIA_CALLBACK_SECRET / PAIA_FILE_LINK_SECRET مقدارهای متفاوت داشته باشند. اگر دوتای آخر تعریف نشوند به کلید مشترک برمی‌گردند.
+
+**nginx** (Apache با `.htaccess` خودکار محافظت می‌شود):
+```nginx
+location ~* /uploads/paia-chat/.*\.php$ { deny all; }
+```
+فایل‌های چت عمداً عمومی‌اند (نام تصادفی ۱۶ نویسه‌ای). پیام‌ها و پیوست‌های قدیمی‌تر از ۹۰ روز با cron روزانهٔ `paia_daily_cleanup` پاک می‌شوند (فیلتر `paia_retention_days`).

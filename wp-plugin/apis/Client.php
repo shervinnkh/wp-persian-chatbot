@@ -15,11 +15,17 @@ defined( 'ABSPATH' ) || exit;
  * برای GET و DELETEِ بی‌بدنه، بدنه رشتهٔ خالی است (امضا روی «timestamp\n»).
  *
  * تنظیم اتصال (به ترتیب اولویت):
- *   - ثابت‌های wp-config.php:  PAIA_API_URL ، PAIA_API_SECRET
+ *   - ثابت‌های wp-config.php:  PAIA_API_URL ، PAIA_API_SECRET   ← روش اصلی و توصیه‌شده؛ با تعریف PAIA_API_SECRET کلید
+ *     هرگز در دیتابیس (option) ذخیره یا در صفحهٔ تنظیمات نمایش داده نمی‌شود (S-5).
  *   - تنظیمات افزونه: api_url ، api_key (ChatSettings)
  *   - فیلترها: paia_api_url ، paia_api_request_secret
  *
- * هر تلاش دوباره زمان تازه می‌گیرد و دوباره امضا می‌شود. فقط خطاهای موقت (timeout/408/429/5xx) تلاش مجدد دارند؛
+ * کلیدهای جدا (اختیاری؛ در صورت تعریف نشدن به کلید مشترک برمی‌گردند):
+ *   - PAIA_CALLBACK_SECRET  : امضای درخواست‌های ورودی از سرور (Auth\Signature) ← باید با PLUGIN_CALLBACK_SECRET سرور یکی باشد
+ *   - PAIA_FILE_LINK_SECRET : امضای لینک دانلود فایل‌ها (FileLink) ← فقط در همین افزونه استفاده می‌شود
+ *
+ * هر تلاش دوباره زمان تازه می‌گیرد و دوباره امضا می‌شود (S-6: سرور هر امضای تکراریِ POST/PUT/DELETE را replay می‌داند؛
+ * پس دو درخواست هم‌بدنه نباید زمان یکسان داشته باشند: next_timestamp()). فقط خطاهای موقت (timeout/408/429/5xx) تلاش مجدد دارند؛
  * 4xx (امضا، اعتبارسنجی، …) باگ/تنظیم است و تلاش مجدد بی‌فایده.
  */
 final class Client {
@@ -52,6 +58,60 @@ final class Client {
 		}
 
 		return trim( (string) ChatSettings::get( 'api_key', '' ) );
+	}
+
+	/**
+	 * آیا کلید اصلی از ثابت PAIA_API_SECRET (wp-config.php) خوانده می‌شود؟ (آن‌وقت UI چیزی ذخیره/نمایش نمی‌دهد.)
+	 */
+	public static function secret_from_constant(): bool {
+		return defined( 'PAIA_API_SECRET' ) && '' !== trim( (string) PAIA_API_SECRET );
+	}
+
+	/**
+	 * کلید امضای درخواست‌های ورودی از سرور (وب‌هوک‌ها). ثابت PAIA_CALLBACK_SECRET (= PLUGIN_CALLBACK_SECRET سرور)
+	 * یا، اگر تعریف نشده، همان کلید مشترک.
+	 */
+	public static function callback_secret(): string {
+		if ( defined( 'PAIA_CALLBACK_SECRET' ) && '' !== trim( (string) PAIA_CALLBACK_SECRET ) ) {
+			return trim( (string) PAIA_CALLBACK_SECRET );
+		}
+
+		return self::shared_secret();
+	}
+
+	/**
+	 * کلید امضای لینک دانلود فایل‌ها. ثابت PAIA_FILE_LINK_SECRET یا، اگر تعریف نشده، همان کلید مشترک.
+	 */
+	public static function file_link_secret(): string {
+		if ( defined( 'PAIA_FILE_LINK_SECRET' ) && '' !== trim( (string) PAIA_FILE_LINK_SECRET ) ) {
+			return trim( (string) PAIA_FILE_LINK_SECRET );
+		}
+
+		return self::shared_secret();
+	}
+
+	/**
+	 * نمایش ماسک‌شدهٔ یک کلید: •••••••• + ۴ نویسهٔ آخر (کلید کوتاه‌تر از ۸ نویسه کاملاً ماسک می‌شود).
+	 */
+	public static function mask_secret( string $secret ): string {
+		$secret = trim( $secret );
+		if ( '' === $secret ) {
+			return '';
+		}
+
+		return '••••••••' . ( strlen( $secret ) >= 8 ? substr( $secret, -4 ) : '' );
+	}
+
+	/**
+	 * زمان امضا برای یک تلاش: هرگز دو تلاش/درخواست هم‌بدنه در یک پردازش PHP یک ثانیهٔ یکسان نمی‌گیرند
+	 * (وگرنه امضایشان یکی می‌شود و سرور تلاش دوم را replay می‌داند). کلید = بدنه، یا متد+مسیر برای درخواست بی‌بدنه.
+	 */
+	private static function next_timestamp( string $key ): int {
+		static $last = array();
+		$ts          = max( time(), ( $last[ $key ] ?? 0 ) + 1 );
+		$last[ $key ] = $ts;
+
+		return $ts;
 	}
 
 	/**
@@ -126,7 +186,7 @@ final class Client {
 		$attempts = max( 1, $attempts );
 
 		for ( $try = 1; $try <= $attempts; $try++ ) {
-			$timestamp = (string) time(); // هر تلاش: زمان تازه + امضای تازه.
+			$timestamp = (string) self::next_timestamp( '' === $body ? $method . ' ' . $path : md5( $body ) ); // هر تلاش: زمان تازه (یکتا) + امضای تازه.
 			$signature = hash_hmac( 'sha256', $timestamp . "\n" . $body, $secret );
 
 			$args = array(

@@ -344,7 +344,7 @@ final class ReplyEngine {
 			return null;
 		}
 		$headers = array( 'Content-Type' => 'application/json' );
-		$key     = (string) ChatSettings::get( 'api_key', '' );
+		$key     = \PersianAIAssistant\Apis\Client::shared_secret(); // ثابت PAIA_API_SECRET یا کلید ذخیره‌شده (S-5)
 		if ( '' !== $key ) {
 			$headers['Authorization'] = 'Bearer ' . $key;
 		}

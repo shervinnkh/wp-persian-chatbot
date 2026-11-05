@@ -1,6 +1,7 @@
 <?php
 defined( 'ABSPATH' ) || exit;
 
+use PersianAIAssistant\Apis\Client;
 use PersianAIAssistant\Chat\ChatSettings;
 use PersianAIAssistant\Extraction\Sources;
 use PersianAIAssistant\Sync\SyncSettings;
@@ -78,6 +79,44 @@ $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-u
 						</label>
 						<small class="paia-chatset__hint paia-chatset__hint--under"><?php esc_html_e( 'اگه فعال باشه اگه هوش مصنوعی نتونه جوابی درباره پرسش کاربر بده هیچ جوابی نده و فقط صفحه چت رو مارک کنه تا پشتیبانان اون رو جواب بدن', 'persian-ai-assistant' ); ?></small>
 					</div>
+				</div>
+			</section>
+			<?php
+			// اتصال به سرور هوش مصنوعی (S-5): روش اصلی ثابت‌های wp-config.php است؛ با تعریف PAIA_API_SECRET هیچ مقداری از کلید
+			// در دیتابیس ذخیره یا در این صفحه چاپ نمی‌شود. وگرنه فقط شکل ماسک‌شده (•••• + ۴ نویسهٔ آخر) دیده می‌شود.
+			$paia_key_const = Client::secret_from_constant();
+			$paia_url_const = defined( 'PAIA_API_URL' ) && '' !== (string) PAIA_API_URL;
+			$paia_key_mask  = ChatSettings::masked_key();
+			?>
+			<section class="paia-card">
+				<div class="paia-card__head"><h2 class="paia-card__title"><?php esc_html_e( 'اتصال به سرور هوش مصنوعی', 'persian-ai-assistant' ); ?></h2></div>
+				<div class="paia-chatset__grid">
+					<label class="paia-chatset__f paia-chatset__wide">
+						<span><?php esc_html_e( 'آدرس سرور', 'persian-ai-assistant' ); ?></span>
+						<?php if ( $paia_url_const ) : ?>
+							<input type="text" dir="ltr" value="<?php esc_attr_e( 'از wp-config.php خوانده می‌شود', 'persian-ai-assistant' ); ?>" disabled>
+						<?php else : ?>
+							<input type="url" dir="ltr" autocomplete="off" name="<?php echo esc_attr( $paia_name( 'api_url' ) ); ?>" value="<?php echo esc_attr( (string) $paia_s['api_url'] ); ?>" placeholder="https://ai.example.com">
+						<?php endif; ?>
+					</label>
+					<label class="paia-chatset__f paia-chatset__wide">
+						<span><?php esc_html_e( 'کلید اتصال', 'persian-ai-assistant' ); ?></span>
+						<?php if ( $paia_key_const ) : ?>
+							<input type="text" dir="ltr" value="<?php esc_attr_e( 'از wp-config.php خوانده می‌شود', 'persian-ai-assistant' ); ?>" disabled>
+							<small class="paia-chatset__hint paia-chatset__hint--under"><?php esc_html_e( 'کلید با ثابت PAIA_API_SECRET در wp-config.php تعریف شده است؛ در دیتابیس ذخیره و در این صفحه نمایش داده نمی‌شود.', 'persian-ai-assistant' ); ?></small>
+						<?php else : ?>
+							<input type="password" dir="ltr" autocomplete="new-password" spellcheck="false" name="<?php echo esc_attr( $paia_name( 'api_key' ) ); ?>" value="" placeholder="<?php echo esc_attr( '' !== $paia_key_mask ? $paia_key_mask : __( 'کلید را وارد کنید', 'persian-ai-assistant' ) ); ?>">
+							<small class="paia-chatset__hint paia-chatset__hint--under"><?php esc_html_e( 'خالی گذاشتن یعنی کلید ذخیره‌شده تغییر نمی‌کند. روش امن‌تر: تعریف ثابت PAIA_API_SECRET در wp-config.php.', 'persian-ai-assistant' ); ?></small>
+						<?php endif; ?>
+					</label>
+					<?php if ( ! $paia_key_const && '' !== $paia_key_mask ) : ?>
+						<div class="paia-chatset__f paia-chatset__wide">
+							<label class="paia-check">
+								<input type="checkbox" class="paia-tick" name="<?php echo esc_attr( $paia_name( 'api_key_clear' ) ); ?>" value="1">
+								<span><?php esc_html_e( 'کلید ذخیره‌شده حذف شود', 'persian-ai-assistant' ); ?></span>
+							</label>
+						</div>
+					<?php endif; ?>
 				</div>
 			</section>
 			</div>
