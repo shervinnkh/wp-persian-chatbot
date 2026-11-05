@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from sqlalchemy import event, inspect
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -29,10 +30,43 @@ def _json_dumps(obj: object) -> str:
     return json.dumps(obj, ensure_ascii=False)  # keep Persian readable (and 6x smaller)
 
 
+def _pool_kwargs(
+    url: str, *, pool_size: int, max_overflow: int, pool_recycle: int, pre_ping: bool
+) -> dict:
+    """Pool options for PostgreSQL only; every other backend (SQLite) keeps the defaults."""
+    try:
+        backend = make_url(url).get_backend_name()
+    except Exception:  # noqa: BLE001 - an unparsable URL fails later in create_async_engine
+        return {}
+    if backend != "postgresql":
+        return {}
+    return {
+        "pool_pre_ping": pre_ping,  # test the connection on checkout (dropped while idle)
+        "pool_recycle": pool_recycle,  # never reuse a connection older than this (seconds)
+        "pool_size": pool_size,
+        "max_overflow": max_overflow,
+    }
+
+
 class Database:
-    def __init__(self, url: str):
+    def __init__(
+        self,
+        url: str,
+        *,
+        pool_size: int = 10,
+        max_overflow: int = 10,
+        pool_recycle: int = 1800,
+        pool_pre_ping: bool = True,
+    ):
         self.url = url
-        self.engine: AsyncEngine = create_async_engine(url, json_serializer=_json_dumps)
+        pool = _pool_kwargs(
+            url,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            pool_recycle=pool_recycle,
+            pre_ping=pool_pre_ping,
+        )
+        self.engine: AsyncEngine = create_async_engine(url, json_serializer=_json_dumps, **pool)
         self._sessions = async_sessionmaker(self.engine, expire_on_commit=False)
         if self.engine.dialect.name == "sqlite":
             event.listen(self.engine.sync_engine, "connect", _sqlite_pragmas)
@@ -40,7 +74,13 @@ class Database:
     @classmethod
     def from_settings(cls, settings: Settings) -> Database:
         settings.data_dir.mkdir(parents=True, exist_ok=True)
-        return cls(settings.database_url)
+        return cls(
+            settings.database_url,
+            pool_size=settings.DB_POOL_SIZE,
+            max_overflow=settings.DB_MAX_OVERFLOW,
+            pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
+            pool_pre_ping=settings.DB_POOL_PRE_PING,
+        )
 
     async def init(self) -> None:
         """Create missing tables (Alembic migrations arrive in a later step)."""
