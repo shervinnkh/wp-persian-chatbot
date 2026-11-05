@@ -124,7 +124,9 @@
 		busy: false, pending: null, rec: null, lastSugg: [], typingEl: null,
 		ids: {}, sig: '', pollT: 0, polling: false, adminTypingEl: null, muted: false,
 		unread: 0, typingSent: 0, pendingBot: false, lastInput: 0,
-		hasMore: false, loadingMore: false, locked: true, stick: true, typeT: 0, initP: null
+		hasMore: false, loadingMore: false, locked: true, stick: true, typeT: 0, initP: null,
+		// polling/realtime: engaged = بازدیدکننده پیام دارد (فقط آن‌وقت polling/WebSocket شروع می‌شود)
+		engaged: false, activityAt: Date.now(), rlMult: 1, retryAfter: 0, syncAgain: false, started: false
 	};
 
 	/* ---------- ابزارها ---------- */
@@ -230,6 +232,10 @@
 			if (!x.r.ok) {
 				var e = new Error((x.j && x.j.message) || t.loadError);
 				e.status = x.r.status;
+				e.code = (x.j && x.j.code) || '';
+				var ra = 0;
+				try { ra = parseInt(x.r.headers.get('Retry-After'), 10) || 0; } catch (err) { /* noop */ }
+				e.retryAfter = ra || ((x.j && parseInt(x.j.retry_after, 10)) || 0);
 				throw e;
 			}
 			return x.j;
@@ -536,9 +542,13 @@
 		showScreen('chat');
 		state.loaded = true;
 		setLocked(false);
+		applyRt(d);
 		applyThinking(d, true);
 		scrollDown(false);
-		schedulePoll();
+		// فقط بازدیدکنندهٔ دارای پیام polling/WebSocket می‌گیرد (uid خالی = هنوز هیچ پیامی نفرستاده؛ هیچ درخواستی نمی‌رود).
+		state.engaged = !!state.uid && (d.messages || []).length > 0;
+		bumpActivity();
+		if (state.engaged) { startTransport(); }
 		window.setTimeout(function () { ta.focus(); }, 380);
 		window.requestAnimationFrame(maybeFill);
 	}
@@ -641,12 +651,17 @@
 		Promise.all([api('chat/message', { method: 'POST', body: fd }), minWait]).then(function (res) {
 			var d = res[0];
 			row.classList.remove('is-sending');
+			// بازدیدکنندهٔ تازه: ردیف او همین‌جا (با اولین پیام) ساخته شده و uid در پاسخ است.
+			if (d.uid && d.uid !== state.uid) { state.uid = d.uid; lsSet(K_UID, d.uid); }
 			// تأخیر هوش مصنوعی: پیام فقط ذخیره شده و پاسخ بعد از چند ثانیه سکوتِ تایپ می‌آید (d.wait = ثانیه‌های باقی‌مانده).
 			if (d.user && d.user.id) { row.setAttribute('data-id', String(d.user.id)); state.ids[d.user.id] = true; }
 			(d.replies || (d.reply ? [d.reply] : [])).forEach(function (m) { addMsg(m); });
 			setSuggestions(d.suggestions || []);
 			applyThinking(d, true);
-			if (d.pending) { schedulePoll(); }
+			state.engaged = true;
+			bumpActivity();
+			startTransport();
+			afterServerState(d);
 		}).catch(function (e) {
 			hideTyping();
 			row.classList.remove('is-sending');
@@ -660,7 +675,10 @@
 			row.appendChild(retry);
 			lockSuggestions(false);
 			if (e && e.status && e.status !== 0 && e.message) { showToast(e.message); }
-		}).then(function () { state.busy = false; });
+		}).then(function () {
+			state.busy = false;
+			if (state.syncAgain) { state.syncAgain = false; requestSync(); } // در حین ارسال خبری رسیده بود
+		});
 	}
 
 	/* ---------- به‌روزرسانی دوره‌ای (polling) ---------- */
@@ -717,6 +735,7 @@
 		});
 
 		if (added) {
+			bumpActivity();
 			var last = list[list.length - 1];
 			setSuggestions(last && last.role === 'assistant' ? (last.suggestions || []) : []);
 			if (!state.open) { bumpUnread(added); showIncoming(lastNew); }
@@ -746,30 +765,224 @@
 		applyOnline(d.online);
 		state.muted = !!d.ai_muted;
 		setAdminTyping(d.admin_typing);
+		if (d.admin_typing) { bumpActivity(); }
 		if (d.changed && d.messages) { syncMessages(d.messages); }
 		if (d.sig) { state.sig = d.sig; }
+		applyRt(d);
 		// پیام‌های جمع‌شده منتظر پاسخ‌اند: تا وقتی کاربر دوباره تایپ نکرده نقطه‌های تایپ نشان داده می‌شود.
 		applyThinking(d);
+		if (d.pending) { bumpActivity(); }
 	}
 
-	/* فاصلهٔ polling: چت باز و تب مرورگر فعال = fast (۱ ثانیه)؛ چت بسته یا کاربر در تب دیگر = slow (۴ ثانیه).
-	   در حالت «بهینه‌شده» سرور هر دو را ۴ برابر کرده و تب پس‌زمینه اصلاً polling نمی‌کند (cfg.poll.hidden = false). */
+	/* ---------- به‌روزرسانی دوره‌ای (polling) ----------
+	 * چت بسته: هر cfg.poll.closed (۶۰ث). چت باز: cfg.poll.fast (۲ث)، بعد از cfg.poll.idle بی‌حرکتی ← mid (۵ث) ← max (۱۰ث)؛
+	 * با هر پیام جدید/ارسال/تایپ/تایپِ پشتیبان دوباره fast. تا وقتی پاسخ در راه است (pending) fast می‌ماند.
+	 * تب پنهان: هیچ درخواستی نمی‌رود (با برگشتن یک poll فوری). ۴۲۹ ← فاصله دو برابر (و حداقل Retry-After). */
+	function bumpActivity() { state.activityAt = Date.now(); }
+
+	function pollDelay() {
+		var P = cfg.poll, d;
+		if (state.pendingBot) { d = P.fast; }
+		else if (!state.open) { d = P.closed; }
+		else {
+			var idle = Date.now() - state.activityAt;
+			d = idle < P.idle ? P.fast : (idle < 2 * P.idle ? P.mid : P.max);
+		}
+		return Math.max(d * state.rlMult, state.retryAfter);
+	}
+
+	/* آیا الان polling دوره‌ای باید کار کند؟ (در فاز ۲/۳ فقط وقتی WebSocket در حال کار نیست) */
+	function pollingActive() { return rt.state === 'idle' || rt.state === 'fallback'; }
+
 	function schedulePoll() {
 		window.clearTimeout(state.pollT);
-		state.pollT = window.setTimeout(poll, (state.open && !document.hidden) ? cfg.poll.fast : cfg.poll.slow);
+		if (!state.loaded || !state.engaged || document.hidden || !pollingActive()) { return; }
+		state.pollT = window.setTimeout(poll, pollDelay());
+	}
+
+	/* یک درخواست poll (هم برای polling دوره‌ای هم «واکشی بعد از اعلان»). */
+	function fetchOnce() {
+		if (!state.loaded || !state.engaged) { return Promise.resolve(); }
+		if (state.busy || state.polling) { state.syncAgain = true; return Promise.resolve(); }
+		state.polling = true;
+		return api('chat/poll?sig=' + encodeURIComponent(state.sig) + '&limit=' + Math.min(50, Math.max(20, Object.keys(state.ids).length + 10)))
+			.then(function (d) {
+				state.rlMult = 1; state.retryAfter = 0;
+				applyPoll(d);
+				afterServerState(d);
+			})
+			.catch(function (e) {
+				if (e && e.status === 429) {
+					state.rlMult = Math.min(8, state.rlMult * 2);
+					state.retryAfter = Math.max(0, (e.retryAfter || 0) * 1000);
+				}
+				/* سایر خطاها: دور بعد دوباره تلاش می‌شود */
+			})
+			.then(function () {
+				state.polling = false;
+				if (state.syncAgain && !state.busy) { state.syncAgain = false; return fetchOnce(); }
+			});
 	}
 
 	function poll() {
-		if (!state.loaded || (document.hidden && !cfg.poll.hidden) || state.busy || state.polling) { schedulePoll(); return; }
-		state.polling = true;
-		api('chat/poll?sig=' + encodeURIComponent(state.sig) + '&limit=' + Math.min(200, Math.max(20, Object.keys(state.ids).length + 10)))
-			.then(applyPoll)
-			.catch(function () { /* noop: دور بعد دوباره تلاش می‌شود */ })
-			.then(function () { state.polling = false; schedulePoll(); });
+		if (document.hidden || !pollingActive()) { return; }
+		fetchOnce().then(schedulePoll);
+	}
+
+	/* درخواست یک واکشی (بعد از اعلان WebSocket، catch-up، یا نوبتِ پردازش تأخیر هوش مصنوعی) */
+	function requestSync() { fetchOnce(); }
+
+	/* بعد از هر پاسخ سرور (ارسال/poll): در حالت polling کاری لازم نیست؛ در حالت WebSocket نوبت بعدی واکشی (در صورت لزوم) تنظیم می‌شود. */
+	function afterServerState(d) {
+		if (pollingActive()) { window.clearTimeout(state.pollT); schedulePoll(); }
+		else if (typeof armWatch === 'function') { armWatch(d); }
+	}
+
+	/* kill switch سمت وردپرس (فاز ۲): پاسخ‌های init/poll فیلد rt دارند. */
+	/* ---------- WebSocket «فقط اعلان» + fallback خودکار به polling ----------
+	 * rt.state: idle (فقط polling؛ realtime خاموش/ناموجود) | connecting (تلاش‌های اتصال؛ polling دوره‌ای متوقف) |
+	 *           ws (متصل؛ هیچ polling دوره‌ای نیست) | fallback (polling فاز ۱ + تلاش مجدد پس‌زمینه).
+	 * WebSocket هیچ محتوایی نمی‌آورد: new_message ← یک poll (همان endpoint)؛ همیشه با sig و dedup روی id، پس پیامی گم/دوبار نمی‌شود. */
+	var rt = { state: 'idle', ws: null, fails: 0, authFails: 0, disabled: !cfg.realtime || typeof window.WebSocket === 'undefined',
+		serverOff: false, retryT: 0, connT: 0, hbT: 0, hiddenT: 0, watchT: 0, typingT: 0, lastRx: 0, lastTry: 0, sleep: false, gen: 0 };
+	var BACKOFF = [1000, 2000, 5000, 10000, 30000];
+
+	function jitter(ms) { return Math.round(ms * (0.8 + Math.random() * 0.4)); }
+
+	function applyRt(d) {
+		if (!d || typeof d.rt === 'undefined' || !cfg.realtime) { return; }
+		if (!d.rt) {
+			rt.serverOff = true;
+			rt.disabled = true;
+			if (rt.ws || rt.state === 'connecting') { closeWs(); enterFallback('rt-off', true); }
+		} else if (rt.serverOff) { rt.serverOff = false; rt.disabled = typeof window.WebSocket === 'undefined'; }
+	}
+
+	function startTransport() {
+		if (state.started) { return; }
+		state.started = true;
+		if (wsWanted()) { connect(); } else { schedulePoll(); }
+	}
+	function wsWanted() { return !rt.disabled && !document.hidden && state.engaged && state.loaded; }
+
+	function onOpenChange() {
+		window.clearTimeout(state.pollT);
+		if (state.engaged && pollingActive()) { schedulePoll(); }
+	}
+
+	function closeWs() {
+		rt.gen++;
+		window.clearTimeout(rt.connT); window.clearInterval(rt.hbT);
+		var w = rt.ws; rt.ws = null;
+		if (w) { w.onopen = w.onmessage = w.onclose = w.onerror = null; try { w.close(1000); } catch (e) { /* noop */ } }
+	}
+
+	function connect() {
+		if (rt.disabled || rt.state === 'ws' || rt.ws || !state.engaged) { return; }
+		var prev = rt.state;
+		rt.state = prev === 'fallback' ? 'fallback' : 'connecting'; // در fallback polling ادامه دارد تا ready
+		window.clearTimeout(state.pollT);
+		if (rt.state === 'fallback') { schedulePoll(); }
+		window.clearTimeout(rt.retryT);
+		rt.lastTry = Date.now();
+		var gen = ++rt.gen;
+		api('chat/ws-token', { method: 'POST', body: {} }).then(function (d) {
+			if (gen !== rt.gen) { return; }
+			openWs(d, gen);
+		}).catch(function (e) {
+			if (gen !== rt.gen) { return; }
+			if (e && (e.status === 403 || e.status === 404)) { rt.serverOff = e.status === 403; rt.disabled = rt.serverOff; if (rt.disabled) { enterFallback('token-' + e.status, true); return; } }
+			onFail(e && e.status === 429 ? Math.max(1000, (e.retryAfter || 0) * 1000) : 0);
+		});
+	}
+
+	function openWs(d, gen) {
+		var url = d && d.ws_url, ws;
+		if (!url || !/^wss?:\/\//i.test(url) || (location.protocol === 'https:' && /^ws:/i.test(url))) { onFail(0); return; }
+		try { ws = new window.WebSocket(url); } catch (e) { rt.disabled = true; enterFallback('nows', true); return; }
+		rt.ws = ws;
+		var ready = false;
+		rt.connT = window.setTimeout(function () { if (!ready && rt.ws === ws) { try { ws.close(); } catch (e) { /* noop */ } } }, 6000);
+		ws.onopen = function () { try { ws.send(JSON.stringify({ type: 'auth', token: d.token })); } catch (e) { /* noop */ } };
+		ws.onmessage = function (ev) {
+			var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+			if (!m || typeof m.type !== 'string') { return; }
+			rt.lastRx = Date.now();
+			if (m.type === 'ready') {
+				ready = true; window.clearTimeout(rt.connT);
+				rt.state = 'ws'; rt.fails = 0; rt.authFails = 0;
+				window.clearTimeout(state.pollT); window.clearTimeout(rt.retryT);
+				window.clearInterval(rt.hbT);
+				rt.hbT = window.setInterval(function () { if (Date.now() - rt.lastRx > 55000) { try { ws.close(); } catch (e) { /* noop */ } } }, 10000);
+				requestSync(); // catch-up بعد از هر اتصال
+			} else if (m.type === 'new_message') { requestSync(); }
+			else if (m.type === 'typing') {
+				window.clearTimeout(rt.typingT);
+				setAdminTyping(m.on ? 'support' : '');
+				if (m.on) { bumpActivity(); rt.typingT = window.setTimeout(function () { setAdminTyping(''); }, 8000); }
+			} else if (m.type === 'ping') { try { ws.send('{"type":"pong"}'); } catch (e) { /* noop */ } }
+		};
+		ws.onclose = function (ev) {
+			if (rt.ws !== ws) { return; }
+			rt.ws = null; window.clearTimeout(rt.connT); window.clearInterval(rt.hbT);
+			if (rt.sleep || !state.engaged) { return; }
+			var code = ev && ev.code;
+			if (code === 4403 || code === 4429 || code === 4503) { enterFallback('code-' + code); }
+			else if (code === 4401) { if (++rt.authFails >= 2) { enterFallback('auth'); } else { rt.state = 'connecting'; connect(); } }
+			else if (code === 1000 && ready) { rt.state = 'connecting'; connect(); } // سقف عمر اتصال: با توکن تازه
+			else { if (ready) { rt.fails = 0; } onFail(0); }
+		};
+	}
+
+	/* شکست اتصال: تلاش مجدد با backoff؛ بعد از ۳ شکست پشت‌سرهم fallback. */
+	function onFail(minDelay) {
+		rt.ws = null;
+		rt.fails++;
+		if (rt.fails >= 3) { enterFallback('fails'); return; }
+		rt.state = rt.state === 'fallback' ? 'fallback' : 'connecting';
+		window.clearTimeout(rt.retryT);
+		rt.retryT = window.setTimeout(connect, Math.max(minDelay || 0, jitter(BACKOFF[Math.min(rt.fails - 1, BACKOFF.length - 1)])));
+	}
+
+	function enterFallback(reason, noRetry) {
+		window.clearTimeout(rt.retryT); window.clearTimeout(rt.watchT);
+		rt.state = 'fallback'; rt.fails = 0;
+		if (window.console && cfg.debug) { window.console.debug('paia: fallback to polling (' + reason + ')'); }
+		if (state.engaged && !document.hidden) { window.clearTimeout(state.pollT); poll(); } // catch-up فوری + polling فاز ۱
+		if (!noRetry) { rt.retryT = window.setTimeout(retryWs, jitter(cfg.poll.retry)); }
+	}
+
+	function retryWs() {
+		if (rt.state !== 'fallback' || rt.disabled || rt.ws) { return; }
+		if (document.hidden) { return; } // با برگشت به تب امتحان می‌شود
+		connect();
+		rt.retryT = window.setTimeout(retryWs, jitter(cfg.poll.retry));
+	}
+
+	/* نوبت بعدی واکشی در حالت WebSocket: تأخیر هوش مصنوعی (پردازش فقط با poll شروع می‌شود) و شبکهٔ ایمنی اگر اعلان گم شد. */
+	function armWatch(d) {
+		window.clearTimeout(rt.watchT);
+		if (!d || !d.pending || d.ai_muted) { return; }
+		var delay = d.thinking ? 45000 : (Math.max(0, parseInt(d.wait, 10) || 0) * 1000 + 1000);
+		rt.watchT = window.setTimeout(requestSync, delay);
 	}
 
 	document.addEventListener('visibilitychange', function () {
-		if (!document.hidden && state.loaded) { window.clearTimeout(state.pollT); poll(); }
+		if (document.hidden) {
+			window.clearTimeout(state.pollT);
+			if (rt.state === 'ws') { window.clearTimeout(rt.hiddenT); rt.hiddenT = window.setTimeout(function () { rt.sleep = true; closeWs(); rt.state = 'idle'; }, 60000); }
+			return;
+		}
+		window.clearTimeout(rt.hiddenT);
+		if (!state.loaded || !state.engaged) { return; }
+		bumpActivity();
+		if (rt.sleep) { rt.sleep = false; rt.state = 'idle'; rt.fails = 0; if (!rt.disabled) { connect(); } else { poll(); } return; }
+		if (rt.state === 'fallback') { poll(); if (Date.now() - rt.lastTry > 5000) { connect(); } }
+		else if (rt.state === 'idle') { poll(); }
+	});
+	window.addEventListener('online', function () {
+		if (rt.state === 'fallback' && Date.now() - rt.lastTry > 5000) { connect(); }
+		else if (state.engaged && pollingActive()) { poll(); }
 	});
 
 	/* ---------- composer ---------- */
@@ -782,7 +995,7 @@
 		composer.classList.toggle('has-content', !!(ta.value.trim() || state.pending));
 	}
 
-	ta.addEventListener('input', function () { state.lastInput = Date.now(); window.clearTimeout(state.typeT); if (state.pendingBot) { hideTyping(); } autoGrow(); notifyTyping(); });
+	ta.addEventListener('input', function () { state.lastInput = Date.now(); bumpActivity(); window.clearTimeout(state.typeT); if (state.pendingBot) { hideTyping(); } autoGrow(); notifyTyping(); });
 	ta.addEventListener('keydown', function (e) {
 		if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(ta.value); }
 	});
@@ -910,7 +1123,8 @@
 		root.classList.toggle('is-open', on);
 		launcher.setAttribute('aria-expanded', on ? 'true' : 'false');
 		launcher.setAttribute('aria-label', on ? t.close : t.open);
-		if (state.loaded) { schedulePoll(); }
+		if (on) { bumpActivity(); }
+		if (state.loaded) { onOpenChange(); }
 		if (on) {
 			root.classList.remove('show-teaser');
 			root.classList.add('is-seen');

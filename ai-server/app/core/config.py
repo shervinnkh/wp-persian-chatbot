@@ -231,6 +231,26 @@ class Settings(BaseSettings):
     CALLBACK_PING_INTERVAL_SECONDS: int = Field(300, ge=10, le=86400)
     CALLBACK_WORKER_POLL_SECONDS: float = Field(2.0, ge=0.2, le=300)
 
+    # --- Realtime (WebSocket, notify-only; 0.8.0) ---
+    # The widget connects to /v1/ws with a short-lived token signed by the plugin; the socket only
+    # carries "something changed, fetch from WordPress" events. SINGLE API PROCESS only (in-memory
+    # connection table): with WORKERS > 1 realtime is switched off (clients fall back to polling).
+    WS_ENABLED: bool = True  # kill switch: false -> /v1/ws closes with 4503, /v1/push is a no-op
+    WS_ALLOWED_ORIGINS: str = ""  # comma list (https://shop.com); empty = PLUGIN_BASE_URL, else the token's site
+    WS_MAX_PER_VISITOR: int = Field(3, ge=1, le=20)  # tabs per visitor, over it -> 4429
+    WS_MAX_TOTAL: int = Field(2000, ge=1, le=100_000)
+    WS_MAX_UNAUTH: int = Field(200, ge=1, le=10_000)  # sockets waiting for their auth message
+    WS_MAX_LIFETIME_SEC: int = Field(1800, ge=60, le=86_400)  # then close 1000; client reconnects
+    WS_AUTH_TIMEOUT_SEC: float = Field(5.0, ge=1, le=30)
+    WS_PING_INTERVAL_SEC: float = Field(25.0, ge=5, le=120)
+    WS_IDLE_TIMEOUT_SEC: float = Field(70.0, ge=10, le=600)
+    WS_MAX_MESSAGE_BYTES: int = Field(1024, ge=256, le=8192)  # client -> server frame
+    WS_MAX_MSG_PER_SEC: int = Field(10, ge=1, le=100)
+    WS_TOKEN_MAX_TTL_SEC: int = Field(900, ge=60, le=3600)
+    WS_PUSH_MAX_SKEW_SECONDS: int = Field(60, ge=5, le=300)  # anti-replay window of /v1/push
+    # Where the delivery worker (separate process) reaches this API to announce answers.
+    WS_INTERNAL_URL: str = ""  # empty = http://127.0.0.1:<PORT>
+
     # --- Monitoring (JSON Lines; see MONITORING.md) ---
     # One JSON object per line in <MONITOR_DIR>/<YYYY>/<MM>/<day>.<process>.jsonl. Storage is
     # bounded by the SAME knobs as the text logs: a file part is at most LOG_MAX_MB and one
@@ -362,6 +382,23 @@ class Settings(BaseSettings):
     def allowed_networks(self) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
         items = (x.strip() for x in self.ALLOWED_IPS.split(",") if x.strip())
         return [ipaddress.ip_network(i, strict=False) for i in items]
+
+    @property
+    def ws_active(self) -> bool:
+        """Realtime really runs (kill switch on AND a single API process)."""
+        return self.WS_ENABLED and self.WORKERS == 1
+
+    @property
+    def ws_origins(self) -> list[str]:
+        raw = [x.strip().rstrip("/").lower() for x in self.WS_ALLOWED_ORIGINS.split(",") if x.strip()]
+        if not raw and self.PLUGIN_BASE_URL:
+            m = re.match(r"^(https?://[^/\s]+)", self.PLUGIN_BASE_URL.strip(), re.I)
+            raw = [m.group(1).lower()] if m else []
+        return raw
+
+    @property
+    def ws_internal_url(self) -> str:
+        return (self.WS_INTERNAL_URL.strip().rstrip("/")) or f"http://127.0.0.1:{self.PORT}"
 
     @property
     def ingest_in_api(self) -> bool:

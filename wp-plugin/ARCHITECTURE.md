@@ -797,3 +797,13 @@ persian-ai-assistant/
 - سرور بلافاصله پس از ذخیرهٔ پیام‌ها و **قبل از تولید پاسخ** یک وب‌هوک با آیتم `kind = "chat_messages_saved"` می‌فرستد (`conversation_id`، `visitor_uid`، `received_count`، `total_count`، `messages[{index, message_id, external_id}]`). وب‌هوک دوم، فقط وقتی `generate_ai_answer` بوده، خودِ پاسخ است (`kind = "chat_answer"`).
 - `ResultsEndpoint` آیتم‌های `chat_messages_saved` را جدا می‌کند و `ChatAnswers::apply_saved` همهٔ `external_id`ها را با `ChatStore::mark_sent` به `ai_sent = 1` تبدیل می‌کند (تکرار وب‌هوک بی‌ضرر است). این مسیر مستقل از پاسخ HTTP درخواست است: حتی اگر timeout شود یا تولید پاسخ شکست بخورد، سایت می‌داند چه چیزی در سرور ثبت شده و آن را دوباره نمی‌فرستد. مسیر `received_count` در پاسخ HTTP هم مثل قبل کار می‌کند.
 >>>>>>> send-groupe-messages
+
+---
+
+## ۳۸. نسخهٔ ۰.۵.۲۸: polling سبک/امن، WebSocket «فقط اعلان» و fallback خودکار
+
+**فاز ۱:** چت بسته هر ۶۰ث (فقط اگر بازدیدکننده پیام دارد)؛ باز ۲ث ← ۵ث ← ۱۰ث؛ تا رسیدن پاسخ سریع؛ تب پنهان متوقف؛ `429`+`Retry-After` ← فاصله دو برابر. `poll()` بدون کوئری تکراری، با قفل `paia_run_<uid>`، حداکثر ۵۰ پیام. **S-1:** `ensure_visitor(.., $create=false)` در مسیرهای GET/poll؛ ردیف فقط در `message`/`profile` (سقف ساخت هر IP؛ `uid` در پاسخ `message`). `Chat\RateLimit`. تنظیمات `poll_*`, `ws_retry`, `rl_*`, `realtime_enabled`, `ws_url`.
+
+**فاز ۲:** `POST /paia/v1/chat/ws-token`؛ وب‌هوک غیرمسدودکنندهٔ `Realtime::push` → `/v1/push` بعد از پیام/حذف/پاک‌کردن/mute/تایپ پشتیبان. `new_message` ← ویجت یک `chat/poll` می‌زند. پردازش تأخیر AI فقط با poll شروع می‌شود، پس در حالت WS ویجت پس از `wait+1` ثانیه یک واکشی تکی و تا رسیدن پاسخ هر ۴۵ث شبکهٔ ایمنی دارد. توکن فقط در حافظه. WS مثل polling قبلی بعد از اولین init شروع می‌شود.
+
+**فاز ۳:** ۳ شکست اتصال (backoff ۱،۲،۵،۱۰،۳۰ث)، کد `4403/4429/4503`، `4401` تکراری، ping مرده، نبود WebSocket یا `rt=0` ← polling؛ تلاش مجدد هر ۶۰ث و با `visibilitychange`/`online`؛ با `ready` polling متوقف + یک catch-up. kill switch: `realtime_enabled` و `WS_ENABLED`.

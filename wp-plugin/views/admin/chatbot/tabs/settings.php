@@ -290,6 +290,39 @@ $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-u
 				</div>
 				<p class="paia-chatset__hint paia-chatset__hint--block"><?php esc_html_e( 'در حالت «بهینه شده» تمام polling‌ها و به‌طور کلی کوئری‌های مربوط به چت‌بات حدود ۳ تا ۴ برابر کندتر انجام می‌شوند (پیام‌ها کمی دیرتر نمایش داده می‌شوند)، پنل و ویجت در تب پس‌زمینه درخواست نمی‌فرستند و شمارندهٔ پیام‌های نخوانده کش می‌شود تا فشار کمتری به سرور بیاید.', 'persian-ai-assistant' ); ?></p>
 			</section>
+			<section class="paia-card">
+				<div class="paia-card__head"><h2 class="paia-card__title"><?php esc_html_e( 'پیام‌رسانی لحظه‌ای (WebSocket)', 'persian-ai-assistant' ); ?></h2></div>
+				<div class="paia-chatset__grid">
+					<label class="paia-check paia-chatset__wide">
+						<input type="checkbox" class="paia-tick" name="<?php echo esc_attr( $paia_name( 'realtime_enabled' ) ); ?>" value="1" <?php checked( ! empty( $paia_s['realtime_enabled'] ) ); ?>>
+						<span><?php esc_html_e( 'فعال (اگر خاموش باشد ویجت فقط با polling کار می‌کند)', 'persian-ai-assistant' ); ?></span>
+					</label>
+					<label class="paia-chatset__f paia-chatset__wide">
+						<span><?php esc_html_e( 'آدرس WebSocket (اختیاری؛ خالی = wss://آدرس-سرور/v1/ws)', 'persian-ai-assistant' ); ?></span>
+						<input type="text" dir="ltr" name="<?php echo esc_attr( $paia_name( 'ws_url' ) ); ?>" value="<?php echo esc_attr( (string) $paia_s['ws_url'] ); ?>" placeholder="wss://ai.example.com/v1/ws">
+					</label>
+					<?php
+					$paia_num = array(
+						'poll_closed' => __( 'polling چت بسته (ثانیه)', 'persian-ai-assistant' ),
+						'poll_fast'   => __( 'polling چت باز (ثانیه)', 'persian-ai-assistant' ),
+						'poll_mid'    => __( 'بعد از بی‌حرکتی (ثانیه)', 'persian-ai-assistant' ),
+						'poll_max'    => __( 'سقف backoff (ثانیه)', 'persian-ai-assistant' ),
+						'poll_idle'   => __( 'مدت بی‌حرکتی تا backoff (ثانیه)', 'persian-ai-assistant' ),
+						'ws_retry'    => __( 'تلاش مجدد WebSocket در fallback (ثانیه)', 'persian-ai-assistant' ),
+						'rl_poll_per_min'    => __( 'سقف poll در دقیقه (هر بازدیدکننده)', 'persian-ai-assistant' ),
+						'rl_token_per_min'   => __( 'سقف توکن WebSocket در دقیقه', 'persian-ai-assistant' ),
+						'rl_create_per_hour' => __( 'سقف گفتگوی جدید در ساعت (هر IP)', 'persian-ai-assistant' ),
+					);
+					foreach ( $paia_num as $paia_k => $paia_label ) :
+						?>
+						<label class="paia-chatset__f">
+							<span><?php echo esc_html( $paia_label ); ?></span>
+							<input type="number" min="1" name="<?php echo esc_attr( $paia_name( $paia_k ) ); ?>" value="<?php echo esc_attr( (string) $paia_s[ $paia_k ] ); ?>">
+						</label>
+					<?php endforeach; ?>
+				</div>
+				<p class="paia-chatset__hint paia-chatset__hint--block"><?php esc_html_e( 'WebSocket فقط «اعلان» می‌فرستد؛ پیام‌ها همچنان از وردپرس خوانده می‌شوند. اگر سرور در دسترس نباشد ویجت خودکار به polling برمی‌گردد.', 'persian-ai-assistant' ); ?></p>
+			</section>
 			</div>
 
 		<div class="paia-actions">

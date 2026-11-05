@@ -67,7 +67,8 @@ final class WidgetRenderer {
 			'offlineText' => (string) ChatSettings::get( 'offline_text' ),
 			'aiDelay'  => ChatSettings::ai_delay(), // ثانیه؛ ۰ = هوش مصنوعی بلافاصله جواب می‌دهد (نقطه‌های تایپ فوراً)
 			'loggedIn' => is_user_logged_in(), // کاربر واردشده نیازی به فرم نام ندارد؛ ویجت صفحهٔ چت را فوراً باز می‌کند
-			'poll'     => ChatSettings::widget_poll(), // fast: چت باز و تب فعال (۱ثانیه)، slow: چت بسته/تب دیگر (۴ثانیه)
+			'poll'     => ChatSettings::widget_poll(), // closed/fast/mid/max/idle/retry (میلی‌ثانیه)
+			'realtime' => Realtime::enabled(), // kill switch + اتصال تنظیم‌شده؛ false = فقط polling
 			'teaser'   => array(
 				'title' => (string) ChatSettings::get( 'teaser_title' ),
 				'text'  => (string) ChatSettings::get( 'teaser_text' ),

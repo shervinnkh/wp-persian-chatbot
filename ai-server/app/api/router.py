@@ -5,12 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api.deps import require_signed_request
-from app.api.v1 import health, jobs, knowledge, logs, messaging, monitoring, storage, system
+from app.api.v1 import health, jobs, knowledge, logs, messaging, monitoring, realtime, storage, system
 
 api_router = APIRouter()
 
 # Public
 api_router.include_router(health.router)
+api_router.include_router(realtime.ws_router)  # WebSocket: token auth inside the socket
 
 # Authenticated (add new v1 routers here)
 v1_router = APIRouter(prefix="/v1", dependencies=[Depends(require_signed_request)])
@@ -21,4 +22,5 @@ v1_router.include_router(messaging.router)
 v1_router.include_router(logs.router)
 v1_router.include_router(monitoring.router)
 v1_router.include_router(storage.router)
+v1_router.include_router(realtime.push_router)
 api_router.include_router(v1_router)

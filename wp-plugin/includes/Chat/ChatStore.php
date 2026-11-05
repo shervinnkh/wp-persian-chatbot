@@ -35,8 +35,11 @@ final class ChatStore {
 	/**
 	 * بازدیدکنندهٔ فعلی را پیدا/ایجاد/به کاربر وردپرس وصل می‌کند.
 	 * ممکن است uid جدید برگرداند (مثلاً وقتی uid قبلی متعلق به کاربر دیگری است).
+	 *
+	 * @param bool $create false = فقط بازدیدکنندهٔ موجود (هرگز ردیف جدید نمی‌سازد؛ برای مسیرهای GET/poll — رفع S-1)؛
+	 *                     اگر پیدا نشود null برمی‌گرداند. ساخت ردیف فقط هنگام ارسال پیام یا ذخیرهٔ پروفایل (create = true).
 	 */
-	public function ensure_visitor( string $uid, int $user_id ): object {
+	public function ensure_visitor( string $uid, int $user_id, bool $create = true ): ?object {
 		global $wpdb;
 		$table = ChatSchema::visitors_table();
 		$row   = $this->visitor( $uid );
@@ -49,6 +52,10 @@ final class ChatStore {
 		if ( ! $row && $user_id > 0 ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 			$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE wp_user_id = %d ORDER BY last_seen DESC LIMIT 1", $user_id ) );
+		}
+
+		if ( ! $row && ! $create ) {
+			return null;
 		}
 
 		if ( ! $row ) {
@@ -87,6 +94,7 @@ final class ChatStore {
 
 		// برای کم‌کردن بار پایگاه‌داده (polling) فقط هر ۳۰ ثانیه (در حالت بهینه‌شده ۱۲۰ ثانیه) یک‌بار ثبت می‌شود.
 		if ( time() - (int) strtotime( $row->last_seen . ' UTC' ) > ( ChatSettings::is_optimized() ? 120 : 30 ) ) {
+			$row->last_seen = self::now();
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->update( $table, array( 'last_seen' => self::now() ), array( 'uid' => $row->uid ) );
 		}

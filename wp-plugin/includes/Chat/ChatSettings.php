@@ -43,6 +43,21 @@ final class ChatSettings {
 			'allow_voice'         => 1,
 			'max_upload_mb'       => 5,
 			'optimize'            => 'advanced',
+			// پیام‌رسانی لحظه‌ای (WebSocket، فقط اعلان؛ نسخهٔ ۰.۵.۲۸). realtime_enabled = kill switch: خاموش = ویجت اصلاً WebSocket نمی‌زند و فقط polling.
+			'realtime_enabled'    => 1,
+			'ws_url'              => '', // خالی = wss://<آدرس سرور هوش مصنوعی>/v1/ws
+			// polling (ثانیه): چت بسته / چت باز (سریع) / پس از بی‌حرکتی اول / سقف backoff / مدت بی‌حرکتی تا شروع backoff.
+			// همین مقدارها هنگام fallback از WebSocket هم استفاده می‌شوند.
+			'poll_closed'         => 60,
+			'poll_fast'           => 2,
+			'poll_mid'            => 5,
+			'poll_max'            => 10,
+			'poll_idle'           => 30,
+			'ws_retry'            => 60, // fallback: هر چند ثانیه یک‌بار در پس‌زمینه دوباره WebSocket امتحان شود
+			// سقف نرخ (برای هر بازدیدکننده/IP).
+			'rl_poll_per_min'     => 60,
+			'rl_token_per_min'    => 10,
+			'rl_create_per_hour'  => 20,
 			// تم دارک چت (از ۰.۵.۱۲): همان ۵ رنگ، نسخهٔ تیره. فقط وقتی dark_enabled روشن باشد و صفحهٔ سایت تیره باشد اعمال می‌شود.
 			'dark_enabled'        => 0,
 			'dark_primary'        => '#8B5CF6',
@@ -133,18 +148,63 @@ final class ChatSettings {
 	}
 
 	/**
+	 * عددی صحیح از تنظیمات با حد پایین/بالا.
+	 */
+	private static function int_setting( string $key, int $min, int $max ): int {
+		return max( $min, min( $max, (int) self::get( $key, 0 ) ) );
+	}
+
+	/**
+	 * آیا پیام‌رسانی لحظه‌ای (WebSocket) اجازه دارد؟ kill switch سمت وردپرس.
+	 * فقط وقتی اتصال به سرور هوش مصنوعی تنظیم شده باشد معنا دارد (کلید امضا + آدرس).
+	 */
+	public static function realtime_enabled(): bool {
+		return (bool) apply_filters( 'paia_realtime_enabled', ! empty( self::get( 'realtime_enabled' ) ) );
+	}
+
+	/**
 	 * تنظیمات polling ویجت سایت (میلی‌ثانیه).
-	 * fast: چت باز و تب فعال (۱ ثانیه) — slow: چت بسته یا کاربر در تب دیگر (۴ ثانیه).
 	 *
-	 * @return array{fast:int,slow:int,typing:int,hidden:bool}
+	 *  closed : چت بسته (و پیامی در انتظار نیست) — پیش‌فرض ۶۰ ثانیه
+	 *  fast   : چت باز و فعال — پیش‌فرض ۲ ثانیه
+	 *  mid    : پس از idle میلی‌ثانیه بی‌حرکتی — پیش‌فرض ۵ ثانیه
+	 *  max    : سقف backoff — پیش‌فرض ۱۰ ثانیه
+	 *  idle   : مدت بی‌حرکتی تا شروع backoff — پیش‌فرض ۳۰ ثانیه
+	 *  retry  : فاصلهٔ تلاش مجدد WebSocket در حالت fallback — پیش‌فرض ۶۰ ثانیه
+	 *
+	 * تب پنهان همیشه متوقف است (در هر دو حالت). حالت «بهینه‌شده» همهٔ فاصله‌ها را دو برابر می‌کند.
+	 *
+	 * @return array{closed:int,fast:int,mid:int,max:int,idle:int,retry:int,typing:int}
 	 */
 	public static function widget_poll(): array {
-		$f = self::slow_factor();
+		$k    = self::is_optimized() ? 2 : 1;
+		$fast = self::int_setting( 'poll_fast', 1, 30 );
+		$max  = max( $fast, self::int_setting( 'poll_max', 2, 120 ) );
+
 		return array(
-			'fast'   => 1000 * $f,
-			'slow'   => 4000 * $f,
+			'closed' => 1000 * $k * self::int_setting( 'poll_closed', 15, 900 ),
+			'fast'   => 1000 * $k * $fast,
+			'mid'    => 1000 * $k * min( $max, max( $fast, self::int_setting( 'poll_mid', 2, 60 ) ) ),
+			'max'    => 1000 * $k * $max,
+			'idle'   => 1000 * self::int_setting( 'poll_idle', 5, 600 ),
+			'retry'  => 1000 * self::int_setting( 'ws_retry', 15, 900 ),
 			'typing' => self::is_optimized() ? 5000 : 3000,
-			'hidden' => ! self::is_optimized(), // در حالت بهینه‌شده تب پس‌زمینه اصلاً polling نمی‌کند.
+		);
+	}
+
+	/**
+	 * سقف نرخ‌ها (هر مقدار قابل‌تنظیم از تنظیمات؛ فیلتر paia_rate_limits برای override در کد).
+	 *
+	 * @return array{poll_per_min:int,token_per_min:int,create_per_hour:int}
+	 */
+	public static function rate_limits(): array {
+		return (array) apply_filters(
+			'paia_rate_limits',
+			array(
+				'poll_per_min'    => self::int_setting( 'rl_poll_per_min', 10, 600 ),
+				'token_per_min'   => self::int_setting( 'rl_token_per_min', 3, 120 ),
+				'create_per_hour' => self::int_setting( 'rl_create_per_hour', 3, 500 ),
+			)
 		);
 	}
 
@@ -291,6 +351,26 @@ final class ChatSettings {
 
 		$out['max_upload_mb'] = isset( $in['max_upload_mb'] ) ? max( 1, min( 20, (int) $in['max_upload_mb'] ) ) : $def['max_upload_mb'];
 		$out['optimize']      = ( isset( $in['optimize'] ) && 'optimized' === $in['optimize'] ) ? 'optimized' : 'advanced';
+
+		// پیام‌رسانی لحظه‌ای + polling + سقف نرخ.
+		$out['realtime_enabled'] = empty( $in['realtime_enabled'] ) ? 0 : 1;
+		$ws_url                  = isset( $in['ws_url'] ) ? esc_url_raw( trim( (string) $in['ws_url'] ), array( 'wss', 'ws' ) ) : '';
+		$out['ws_url']           = $ws_url;
+		foreach (
+			array(
+				'poll_closed'        => array( 15, 900 ),
+				'poll_fast'          => array( 1, 30 ),
+				'poll_mid'           => array( 2, 60 ),
+				'poll_max'           => array( 2, 120 ),
+				'poll_idle'          => array( 5, 600 ),
+				'ws_retry'           => array( 15, 900 ),
+				'rl_poll_per_min'    => array( 10, 600 ),
+				'rl_token_per_min'   => array( 3, 120 ),
+				'rl_create_per_hour' => array( 3, 500 ),
+			) as $key => $range
+		) {
+			$out[ $key ] = ( isset( $in[ $key ] ) && '' !== $in[ $key ] ) ? max( $range[0], min( $range[1], (int) $in[ $key ] ) ) : $def[ $key ];
+		}
 
 		// فرم دیگر فیلد آدرس/کلید API ندارد؛ مقدار قبلی را نگه می‌داریم (ReplyEngine هنوز از آن‌ها می‌خواند).
 		$prev           = get_option( self::OPTION, array() );

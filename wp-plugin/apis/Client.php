@@ -80,9 +80,10 @@ final class Client {
 	 * @param array<string, mixed>|null $payload  null = بدون بدنه
 	 * @param int                       $timeout  ثانیه (چت sync باید ≥ ۶۰ باشد؛ ثبت رکورد ۱۵ کافی است)
 	 * @param int                       $attempts حداکثر تعداد تلاش برای خطاهای موقت
+	 * @param bool                      $blocking false = «بفرست و منتظر پاسخ نمان» (مثل اعلان realtime): پاسخ سرور خوانده نمی‌شود و نتیجه همیشه ok/202 است مگر ارسال محلی شکست بخورد
 	 * @return array{ok:bool, code:int, body:array<string, mixed>, error_code:string, error:string, request_id:string, duration_ms:int, attempts:int}
 	 */
-	public static function request( string $method, string $path, ?array $payload = null, int $timeout = 15, int $attempts = 2 ): array {
+	public static function request( string $method, string $path, ?array $payload = null, int $timeout = 15, int $attempts = 2, bool $blocking = true ): array {
 		$method = strtoupper( $method );
 		$result = self::result( 0, array(), '', '' );
 
@@ -145,8 +146,18 @@ final class Client {
 			if ( '' !== $body ) {
 				$args['body'] = $body;
 			}
+			if ( ! $blocking ) {
+				$args['blocking'] = false;
+			}
 
 			$response = wp_remote_request( $url, $args );
+
+			if ( ! $blocking && ! is_wp_error( $response ) ) {
+				// ارسال شد؛ پاسخ را منتظر نمی‌مانیم (ok/202).
+				$result             = self::result( 202, array(), '', '' );
+				$result['attempts'] = $try;
+				break;
+			}
 
 			if ( is_wp_error( $response ) ) {
 				$result = self::result( 0, array(), self::ERR_NETWORK, $response->get_error_message() );

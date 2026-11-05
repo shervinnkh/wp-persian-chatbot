@@ -59,6 +59,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     for directory in (settings.data_dir, settings.uploads_dir, settings.log_dir):
         directory.mkdir(parents=True, exist_ok=True)
+    if settings.WS_ENABLED and settings.WORKERS > 1:
+        logger.warning("Realtime (WebSocket) is OFF: WORKERS > 1 needs pub/sub (not implemented); clients use polling")
     logger.info(
         "Starting %s v%s env=%s https_required=%s ip_allowlist=%d docs=%s",
         settings.APP_NAME,

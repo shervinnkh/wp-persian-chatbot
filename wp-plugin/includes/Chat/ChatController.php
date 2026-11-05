@@ -11,6 +11,12 @@
  *
  * هویت: هدر X-PAIA-Visitor (UUID). برای کاربر واردشده، کاربر وردپرس ملاک است.
  *
+ * امنیت/سبک‌سازی (۰.۵.۲۸):
+ *  - مسیرهای GET و poll/typing/history هرگز بازدیدکننده نمی‌سازند (رفع S-1)؛ ردیف فقط هنگام ارسال پیام یا ذخیرهٔ پروفایل ساخته می‌شود
+ *    (با سقف نرخ ساخت برای هر IP). uid ناشناخته = «بازدیدکنندهٔ خالی» و هیچ دادهٔ دیگری برنمی‌گردد.
+ *  - poll فقط پیام‌های همان بازدیدکننده را برمی‌گرداند (uid پارامتر دسترسی نیست؛ UUID تصادفی ۱۲۲ بیتی که فقط مرورگر همان کاربر دارد)،
+ *    سقف نرخ دارد (۴۲۹ + Retry-After) و حداکثر ۵۰ پیام در هر پاسخ می‌دهد.
+ *
  * @package PersianAIAssistant
  */
 
@@ -18,6 +24,7 @@ namespace PersianAIAssistant\Chat;
 
 use WP_Error;
 use WP_REST_Request;
+use WP_REST_Response;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -25,6 +32,9 @@ final class ChatController {
 
 	/** تعداد پیام در هر بار بارگذاری تاریخچه (۱۰ پیام آخر؛ با اسکرول به بالا ۱۰ تای قبلی). */
 	public const PAGE_SIZE = 10;
+
+	/** حداکثر تعداد پیام در هر پاسخ poll. */
+	public const POLL_MAX = 50;
 
 	/** @var ChatStore */
 	private $store;
@@ -80,6 +90,15 @@ final class ChatController {
 		);
 		register_rest_route(
 			'paia/v1',
+			'/chat/ws-token',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'ws_token' ),
+				'permission_callback' => array( $this, 'allowed' ),
+			)
+		);
+		register_rest_route(
+			'paia/v1',
 			'/chat/history',
 			array(
 				'methods'             => 'GET',
@@ -128,12 +147,76 @@ final class ChatController {
 	}
 
 	/**
-	 * @return array{0:object,1:int} [visitor, user_id]
+	 * بازدیدکنندهٔ «موجود» (هرگز ردیف جدید نمی‌سازد). برای GET/poll/history/typing/ws-token.
+	 *
+	 * @return array{0:?object,1:int} [visitor|null, user_id]
 	 */
-	private function identity( WP_REST_Request $request ): array {
+	private function existing( WP_REST_Request $request ): array {
 		$uid     = $this->clean_uid( (string) $request->get_header( 'x_paia_visitor' ) );
 		$user_id = get_current_user_id();
-		return array( $this->store->ensure_visitor( $uid, $user_id ), $user_id );
+		return array( $this->store->ensure_visitor( $uid, $user_id, false ), $user_id );
+	}
+
+	/**
+	 * بازدیدکننده را می‌یابد و اگر نبود می‌سازد (فقط برای ارسال پیام و ذخیرهٔ پروفایل). ساخت ردیف جدید سقف نرخ هر IP دارد.
+	 *
+	 * @return array{0:object,1:int}|WP_REST_Response [visitor, user_id] یا پاسخ ۴۲۹
+	 */
+	private function identity( WP_REST_Request $request ) {
+		$uid     = $this->clean_uid( (string) $request->get_header( 'x_paia_visitor' ) );
+		$user_id = get_current_user_id();
+		$visitor = $this->store->ensure_visitor( $uid, $user_id, false );
+		if ( ! $visitor ) {
+			$limits = ChatSettings::rate_limits();
+			$hit    = RateLimit::hit( 'create', RateLimit::ip(), (int) $limits['create_per_hour'], HOUR_IN_SECONDS );
+			if ( ! $hit['ok'] ) {
+				return $this->too_many( (int) $hit['retry_after'], __( 'تعداد گفتگوهای جدید از این شبکه زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-ai-assistant' ) );
+			}
+			$visitor = $this->store->ensure_visitor( $uid, $user_id, true );
+		}
+		return array( $visitor, $user_id );
+	}
+
+	private function too_many( int $retry_after, string $message ): WP_REST_Response {
+		$res = new WP_REST_Response(
+			array(
+				'code'        => 'paia_rate',
+				'message'     => $message,
+				'data'        => array( 'status' => 429 ),
+				'retry_after' => $retry_after,
+			),
+			429
+		);
+		$res->header( 'Retry-After', (string) max( 1, $retry_after ) );
+		return $res;
+	}
+
+	/**
+	 * پاسخ init برای کسی که هنوز بازدیدکنندهٔ ثبت‌شده نیست (هیچ ردیفی ساخته نمی‌شود).
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function empty_payload( int $user_id ): array {
+		$user = $user_id > 0 ? get_userdata( $user_id ) : false;
+		return array(
+			'uid'           => '',
+			'user'          => array(
+				'logged_in' => $user_id > 0,
+				'name'      => $user ? (string) $user->display_name : '',
+			),
+			'needs_profile' => $user_id <= 0,
+			'sig'           => '',
+			'online'        => ChatSettings::is_online(),
+			'ai_muted'      => false,
+			'pending'       => false,
+			'thinking'      => false,
+			'wait'          => 0,
+			'has_more'      => false,
+			'messages'      => array(),
+			'welcome'       => (string) ChatSettings::get( 'welcome_message' ),
+			'suggestions'   => ChatSettings::default_suggestions(),
+			'rt'            => Realtime::enabled() ? 1 : 0,
+		);
 	}
 
 	/**
@@ -174,6 +257,7 @@ final class ChatController {
 			'messages'      => $messages,
 			'welcome'       => $welcome,
 			'suggestions'   => $suggestions,
+			'rt'            => Realtime::enabled() ? 1 : 0, // kill switch سمت وردپرس؛ ویجت با rt = 0 اصلاً WebSocket نمی‌زند
 		);
 	}
 
@@ -199,47 +283,123 @@ final class ChatController {
 	}
 
 	public function init( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		list( $visitor, $user_id ) = $this->existing( $request );
+		if ( ! $visitor ) {
+			return rest_ensure_response( $this->empty_payload( $user_id ) );
+		}
 		return rest_ensure_response( $this->payload( $visitor, $user_id ) );
 	}
 
 	/**
-	 * به‌روزرسانی دوره‌ای. اگر امضای گفتگو تغییر نکرده باشد فقط وضعیت‌ها برمی‌گردد (سبک).
+	 * به‌روزرسانی دوره‌ای (و «واکشی بعد از اعلان WebSocket»). اگر امضای گفتگو تغییر نکرده باشد فقط وضعیت‌ها برمی‌گردد (سبک).
+	 *
+	 * سقف نرخ: ۶۰ در دقیقه برای هر بازدیدکننده (+ سقف سخاوتمندانه‌تر برای IP) ← ۴۲۹ با Retry-After؛ ویجت هنگام ۴۲۹ فاصله را دو برابر می‌کند.
 	 */
 	public function poll( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$limits = ChatSettings::rate_limits();
+		$uid_h  = $this->clean_uid( (string) $request->get_header( 'x_paia_visitor' ) );
+		$per    = (int) $limits['poll_per_min'];
+		$hit    = $uid_h ? RateLimit::hit( 'poll', $uid_h, $per, MINUTE_IN_SECONDS ) : array( 'ok' => true, 'retry_after' => 0 );
+		if ( $hit['ok'] ) {
+			$hit = RateLimit::hit( 'pollip', RateLimit::ip(), $per * 5, MINUTE_IN_SECONDS ); // کمکی: چند بازدیدکنندهٔ پشت یک IP
+		}
+		if ( ! $hit['ok'] ) {
+			return $this->too_many( (int) $hit['retry_after'], __( 'درخواست‌ها زیاد است؛ کمی صبر کنید.', 'persian-ai-assistant' ) );
+		}
+
+		list( $visitor, $user_id ) = $this->existing( $request );
+		if ( ! $visitor ) {
+			// بازدیدکنندهٔ ناشناخته: چیزی ساخته یا خوانده نمی‌شود.
+			return rest_ensure_response(
+				array(
+					'pending'      => false,
+					'thinking'     => false,
+					'wait'         => 0,
+					'sig'          => '',
+					'changed'      => false,
+					'online'       => ChatSettings::is_online(),
+					'ai_muted'     => false,
+					'admin_typing' => '',
+					'rt'           => Realtime::enabled() ? 1 : 0,
+				)
+			);
+		}
 		$uid = (string) $visitor->uid;
 
+		// پیام‌های منتظر یک‌بار خوانده می‌شوند و بین مراحل پایین دست‌به‌دست می‌شوند (کوئری تکراری نداریم).
+		$rows = $this->responder->pending_rows( $visitor );
+		$wait = $rows ? $this->responder->wait_seconds( $visitor, $rows ) : 0;
+
 		// اگر کاربر ai_delay ثانیه تایپ نکرده، پیام‌های جمع‌شده همین‌جا پاسخ داده می‌شوند.
-		// فقط وقتی چیزی پردازش شد ردیف بازدیدکننده دوباره خوانده می‌شود (کم‌کردن کوئری در هر polling).
-		if ( null !== $this->responder->maybe_run( $visitor ) ) {
-			$visitor = $this->store->visitor( $uid );
+		// فقط وقتی پیامی منتظر است و نوبتش رسیده، و با قفل کوتاه (چند poll هم‌زمان یک کار را شروع نکنند؛ برندهٔ واقعی ChatStore::claim است).
+		if ( $rows && 0 === $wait && RateLimit::lock( 'paia_run_' . $uid, 10 ) ) {
+			if ( null !== $this->responder->maybe_run( $visitor, false, $rows ) ) {
+				$visitor = $this->store->visitor( $uid );
+				$rows    = array();
+			}
+			RateLimit::unlock( 'paia_run_' . $uid );
 		}
-		$sig = $this->store->sig( $uid, $user_id );
+		$sig   = $this->store->sig( $uid, $user_id );
+		$muted = (int) $visitor->ai_muted > 0;
 
 		$out = array(
-			'pending'      => (int) $visitor->ai_muted <= 0 && $this->is_pending( $visitor ),
+			'pending'      => ! $muted && ( ! empty( $rows ) || ChatAnswers::is_waiting( $uid ) ),
 			'thinking'     => $this->is_thinking( $visitor ),
-			'wait'         => $this->wait_for( $visitor ),
+			'wait'         => $muted || ! $rows ? 0 : $this->responder->wait_seconds( $visitor, $rows ),
 			'sig'          => $sig,
 			'changed'      => $sig !== (string) $request->get_param( 'sig' ),
 			'online'       => ChatSettings::is_online(),
-			'ai_muted'     => (int) $visitor->ai_muted > 0,
+			'ai_muted'     => $muted,
 			'admin_typing' => $this->store->typing( $uid )['admin'],
+			'rt'           => Realtime::enabled() ? 1 : 0,
 		);
 		if ( $out['changed'] ) {
-			// فقط به‌اندازهٔ پیام‌هایی که ویجت نشان می‌دهد (پیش‌فرض ۳۰): پیام‌های جدید و حذف‌شده در همین بازه تشخیص داده می‌شوند.
-			$limit           = max( 10, min( 200, (int) $request->get_param( 'limit' ) ) );
+			// فقط به‌اندازهٔ پیام‌هایی که ویجت نشان می‌دهد (حداکثر ۵۰ در هر پاسخ): پیام‌های جدید و حذف‌شده در همین بازه تشخیص داده می‌شوند.
+			$limit           = max( 10, min( self::POLL_MAX, (int) $request->get_param( 'limit' ) ) );
 			$out['messages'] = $this->store->thread( $uid, $user_id, $limit );
 		}
 		return rest_ensure_response( $out );
 	}
 
 	/**
+	 * توکن کوتاه‌عمر اتصال WebSocket. فقط برای بازدیدکنندهٔ موجود (با همان هویتِ poll)، با سقف نرخ.
+	 */
+	public function ws_token( WP_REST_Request $request ) {
+		if ( ! Realtime::enabled() || '' === Realtime::ws_url() ) {
+			return new WP_Error( 'paia_realtime_off', __( 'پیام‌رسانی لحظه‌ای فعال نیست.', 'persian-ai-assistant' ), array( 'status' => 403 ) );
+		}
+		list( $visitor ) = $this->existing( $request );
+		if ( ! $visitor ) {
+			return new WP_Error( 'paia_no_visitor', __( 'گفتگویی وجود ندارد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+		}
+		$limits = ChatSettings::rate_limits();
+		$hit    = RateLimit::hit( 'wstoken', (string) $visitor->uid . '|' . RateLimit::ip(), (int) $limits['token_per_min'], MINUTE_IN_SECONDS );
+		if ( ! $hit['ok'] ) {
+			return $this->too_many( (int) $hit['retry_after'], __( 'درخواست‌ها زیاد است؛ کمی صبر کنید.', 'persian-ai-assistant' ) );
+		}
+		$t = Realtime::issue( (string) $visitor->uid );
+		return rest_ensure_response(
+			array(
+				'token'      => $t['token'],
+				'ws_url'     => Realtime::ws_url(),
+				'expires_in' => $t['expires_in'],
+			)
+		);
+	}
+
+	/**
 	 * پیام‌های قدیمی‌تر برای اسکرول به بالا: ۱۰ پیام قبل از شناسهٔ `before`.
 	 */
 	public function history( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		list( $visitor, $user_id ) = $this->existing( $request );
+		if ( ! $visitor ) {
+			return rest_ensure_response(
+				array(
+					'messages' => array(),
+					'has_more' => false,
+				)
+			);
+		}
 
 		$page = $this->store->page(
 			(string) $visitor->uid,
@@ -257,8 +417,10 @@ final class ChatController {
 	}
 
 	public function typing( WP_REST_Request $request ) {
-		list( $visitor ) = $this->identity( $request );
-		$this->store->touch_user_typing( (string) $visitor->uid );
+		list( $visitor ) = $this->existing( $request );
+		if ( $visitor ) { // بازدیدکنندهٔ ناشناخته هنوز پیامی نفرستاده؛ ردیف وضعیت هم ساخته نمی‌شود.
+			$this->store->touch_user_typing( (string) $visitor->uid );
+		}
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
 
@@ -278,7 +440,11 @@ final class ChatController {
 	}
 
 	public function profile( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$who = $this->identity( $request );
+		if ( $who instanceof WP_REST_Response ) {
+			return $who;
+		}
+		list( $visitor, $user_id ) = $who;
 
 		// کاربر واردشده: پروفایل از حساب وردپرس است.
 		if ( $user_id > 0 ) {
@@ -319,7 +485,11 @@ final class ChatController {
 	}
 
 	public function message( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$who = $this->identity( $request );
+		if ( $who instanceof WP_REST_Response ) {
+			return $who;
+		}
+		list( $visitor, $user_id ) = $who;
 		$uid = (string) $visitor->uid;
 
 		if ( ! $this->throttle( $uid ) ) {
@@ -386,6 +556,7 @@ final class ChatController {
 
 		return rest_ensure_response(
 			array(
+				'uid'         => $uid, // ویجت uid را از همین‌جا می‌گیرد (init برای بازدیدکنندهٔ تازه ردیفی نمی‌سازد)
 				'user'        => $user_msg,
 				'reply'       => $replies ? $replies[0] : null,
 				'replies'     => $replies,
