@@ -214,7 +214,7 @@
 	function api(path, opts, noNonce) {
 		opts = opts || {};
 		var headers = {};
-		if (!noNonce && cfg.nonce) { headers['X-WP-Nonce'] = cfg.nonce; }
+		if (!noNonce && !state.noNonce && cfg.nonce) { headers['X-WP-Nonce'] = cfg.nonce; }
 		if (state.uid) { headers['X-PAIA-Visitor'] = state.uid; }
 		var init = { method: opts.method || 'GET', headers: headers, credentials: 'same-origin' };
 		if (opts.body) {
@@ -227,6 +227,7 @@
 			return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; });
 		}).then(function (x) {
 			if (x.r.status === 403 && !noNonce && x.j && x.j.code === 'rest_cookie_invalid_nonce') {
+				state.noNonce = true; // دفعات بعد دیگر nonce نامعتبر را نفرست (بدون ۴۰۳ اضافه)
 				return api(path, opts, true); // nonce قدیمی (کش صفحه): به‌عنوان مهمان ادامه بده
 			}
 			if (x.r.status === 400 && x.j && x.j.code === 'paia_bad_visitor' && path.indexOf('chat/init') !== 0 && !opts._retried) {

@@ -49,6 +49,40 @@ final class ChatController {
 
 	public function register(): void {
 		add_action( 'rest_api_init', array( $this, 'routes' ) );
+		// بعد از بررسی کوکی/nonce هستهٔ وردپرس اجرا شود (اولویت بالا).
+		add_filter( 'rest_authentication_errors', array( $this, 'tolerate_stale_nonce' ), 200 );
+	}
+
+	/**
+	 * مسیرهای عمومی چت (/paia/v1/chat/*) با شناسهٔ بازدیدکننده (X-PAIA-Visitor) کار می‌کنند، نه با nonce.
+	 * nonce داخل HTML صفحه چاپ می‌شود و با کش صفحه، تغییر نشست ورود یا انقضا نامعتبر می‌شود و
+	 * وردپرس خطای 403 «rest_cookie_invalid_nonce» می‌دهد. برای همین‌ها خطا را نادیده می‌گیریم و
+	 * درخواست را مهمان حساب می‌کنیم (مسیرهای مدیریتی /chat-admin/* و بقیهٔ API دست‌نخورده می‌مانند).
+	 *
+	 * @param mixed $result نتیجهٔ بررسی‌های قبلی احراز هویت.
+	 * @return mixed
+	 */
+	public function tolerate_stale_nonce( $result ) {
+		if ( ! is_wp_error( $result ) || 'rest_cookie_invalid_nonce' !== $result->get_error_code() ) {
+			return $result;
+		}
+
+		$route = isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? (string) $GLOBALS['wp']->query_vars['rest_route'] : '';
+		if ( '' === $route ) {
+			$uri   = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$path  = (string) wp_parse_url( $uri, PHP_URL_PATH );
+			$pos   = strpos( $path, '/' . rest_get_url_prefix() . '/' );
+			$route = false !== $pos ? substr( $path, $pos + strlen( rest_get_url_prefix() ) + 1 ) : '';
+		}
+		$route = '/' . ltrim( $route, '/' );
+
+		if ( 0 !== strpos( $route, '/paia/v1/chat/' ) ) {
+			return $result;
+		}
+
+		wp_set_current_user( 0 ); // مهمان؛ مثل رفتار خودِ وردپرس وقتی nonce اصلاً فرستاده نشود.
+
+		return null;
 	}
 
 	public function routes(): void {
