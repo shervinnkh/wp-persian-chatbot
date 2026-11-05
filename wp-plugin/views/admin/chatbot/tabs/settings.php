@@ -66,6 +66,16 @@ $paia_saved = isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-u
 							<?php endforeach; ?>
 						</select>
 					</label>
+					<label class="paia-chatset__f">
+						<span><?php esc_html_e( 'سقف مصرف روزانه (دلار)', 'persian-ai-assistant' ); ?></span>
+						<input type="number" min="0" max="100000" step="0.01" name="<?php echo esc_attr( $paia_name( 'budget_daily_usd' ) ); ?>" value="<?php echo esc_attr( (string) $paia_s['budget_daily_usd'] ); ?>">
+						<small class="paia-chatset__hint paia-chatset__hint--under"><?php esc_html_e( '۰ = بدون محدودیت. مصرف به دلار حساب می‌شود.', 'persian-ai-assistant' ); ?></small>
+					</label>
+					<label class="paia-chatset__f">
+						<span><?php esc_html_e( 'سقف مصرف ماهانه (دلار)', 'persian-ai-assistant' ); ?></span>
+						<input type="number" min="0" max="100000" step="0.01" name="<?php echo esc_attr( $paia_name( 'budget_monthly_usd' ) ); ?>" value="<?php echo esc_attr( (string) $paia_s['budget_monthly_usd'] ); ?>">
+						<small class="paia-chatset__hint paia-chatset__hint--under"><?php esc_html_e( '۰ = بدون محدودیت. مصرف به دلار حساب می‌شود.', 'persian-ai-assistant' ); ?></small>
+					</label>
 					<label class="paia-chatset__f paia-chatset__wide">
 						<span><?php esc_html_e( 'توضیحات مهم', 'persian-ai-assistant' ); ?></span>
 						<textarea class="paia-chatset__notes" rows="6" maxlength="<?php echo esc_attr( (string) ChatSettings::NOTES_MAX ); ?>" name="<?php echo esc_attr( $paia_name( 'important_notes' ) ); ?>"><?php echo esc_textarea( $paia_s['important_notes'] ); ?></textarea>

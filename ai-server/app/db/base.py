@@ -49,6 +49,7 @@ class Database:
             ingest_models,
             messaging_models,
             models,
+            security_models,
         )
 
         async with self.engine.begin() as conn:

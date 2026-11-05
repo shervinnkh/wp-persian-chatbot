@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import logging
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -252,6 +253,23 @@ class Settings(BaseSettings):
     MONITOR_STORAGE_SNAPSHOT_SECONDS: int = Field(600, ge=0, le=86400)  # disk/db sizes; 0 = off
     MONITOR_LOG_IP: bool = True  # client IP in http.request / auth.rejected events
 
+    # --- Security (S-1 rate limits, S-2 cost cap) ---
+    # Fixed one-minute windows, counted atomically in the database (table rate_limits). The plugin
+    # sends the visitor's validated IP (`client_ip`, signed body); only an HMAC of it is stored.
+    RATE_PER_IP_PER_MIN: int = Field(30, ge=1, le=1_000_000)  # chat messages per IP per minute
+    RATE_PER_VISITOR_PER_MIN: int = Field(10, ge=1, le=1_000_000)  # ... per visitor uid
+    IP_HASH_RETENTION_DAYS: int = Field(30, ge=1, le=3650)  # then messages.ip_hash is cleared
+    ANSWER_QUEUE_MAX: int = Field(500, ge=1, le=10_000_000)  # waiting/running answers; more = 503
+    # JSON: USD per 1,000,000 tokens ("in", "cached_in", "out"); STT: "per_minute". Every model of
+    # AI_ALLOWED_MODELS, SUMMARY_MODEL, EMBEDDING_MODEL and STT_MODEL needs a price (production:
+    # startup error). Take the real prices from the provider's pricing page.
+    MODEL_PRICES_JSON: str = ""
+    # Operator hard caps in USD (0 = none). Effective cap = the smaller non-zero of this value
+    # and the one the site owner set in the plugin.
+    BUDGET_DAILY_USD_MAX: float = Field(0.0, ge=0, le=10_000_000)
+    BUDGET_MONTHLY_USD_MAX: float = Field(0.0, ge=0, le=100_000_000)
+    BUDGET_TIMEZONE: str = "UTC"  # where a "day" / "month" starts, e.g. Asia/Tehran
+
     # ---------- validators ----------
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod
@@ -331,6 +349,55 @@ class Settings(BaseSettings):
                 raise ValueError(f"Invalid IP/CIDR in ALLOWED_IPS: {item!r}") from exc
         return v
 
+    @field_validator("BUDGET_TIMEZONE")
+    @classmethod
+    def _check_budget_tz(cls, v: str) -> str:
+        v = (v or "UTC").strip() or "UTC"
+        if v.upper() == "UTC":
+            return "UTC"
+        try:
+            from zoneinfo import ZoneInfo
+
+            ZoneInfo(v)
+        except Exception as exc:  # noqa: BLE001 - missing tzdata (Windows) or a wrong name
+            raise ValueError(
+                f"BUDGET_TIMEZONE {v!r} is not a known time zone "
+                "(on Windows run: pip install tzdata)"
+            ) from exc
+        return v
+
+    @model_validator(mode="after")
+    def _price_rules(self) -> Settings:
+        from app.core.pricing import PriceConfigError, parse_prices, price_problems, required_keys
+
+        try:
+            prices = parse_prices(self.MODEL_PRICES_JSON)
+        except PriceConfigError as exc:
+            raise ValueError(str(exc)) from exc
+        need = required_keys(
+            [*self.allowed_models, self.SUMMARY_MODEL.strip()],
+            self.EMBEDDING_MODEL.strip(),
+            self.STT_MODEL.strip(),
+        )
+        missing, zero = price_problems(prices, need)
+        if missing and self.APP_ENV == "production":
+            raise ValueError(
+                "MODEL_PRICES_JSON has no price for: " + ", ".join(missing)
+                + " (every model in AI_ALLOWED_MODELS, SUMMARY_MODEL, EMBEDDING_MODEL and "
+                "STT_MODEL needs one; production refuses to start without them)"
+            )
+        if missing:
+            logging.getLogger(__name__).warning(
+                "MODEL_PRICES_JSON misses prices for: %s - their cost is counted as 0",
+                ", ".join(missing),
+            )
+        if zero:
+            logging.getLogger(__name__).warning(
+                "MODEL_PRICES_JSON has price 0 for: %s - fill in the provider's real prices, "
+                "or the cost cap will not see this spending", ", ".join(zero),
+            )
+        return self
+
     @model_validator(mode="after")
     def _production_rules(self) -> Settings:
         if self.APP_ENV == "production":
@@ -373,6 +440,12 @@ class Settings(BaseSettings):
     @property
     def allowed_models(self) -> list[str]:
         return [x.strip() for x in self.AI_ALLOWED_MODELS.split(",") if x.strip()]
+
+    @property
+    def model_prices(self):
+        from app.core.pricing import parse_prices
+
+        return parse_prices(self.MODEL_PRICES_JSON)
 
     @property
     def default_model(self) -> str:

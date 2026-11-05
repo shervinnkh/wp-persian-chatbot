@@ -34,6 +34,17 @@ if ( ! $enabled ) {
 	return;
 }
 
+if ( ! empty( $budget_banner ) ) :
+	$paia_bb = 'limit100' === $budget_banner['level'] ? array( '#fee2e2', '#b91c1c', '🔴' ) : array( '#fef9c3', '#a16207', '🟡' );
+	?>
+	<div class="paia-budget-banner" role="alert" style="margin:12px 0;padding:12px 16px;border-radius:10px;background:<?php echo esc_attr( $paia_bb[0] ); ?>;color:<?php echo esc_attr( $paia_bb[1] ); ?>;font-weight:600">
+		<?php foreach ( $budget_banner['lines'] as $paia_line ) : ?>
+			<div><?php echo esc_html( $paia_bb[2] . ' ' . $paia_line ); ?></div>
+		<?php endforeach; ?>
+	</div>
+<?php endif; ?>
+<?php
+
 $paia_n = static function ( $number ): string {
 	return number_format_i18n( (int) $number );
 };

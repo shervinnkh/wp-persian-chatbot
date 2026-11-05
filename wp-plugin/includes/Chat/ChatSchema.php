@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class ChatSchema {
 
-	public const VERSION = '1.4.0'; // 1.4.0: ستون refs (ارجاع‌های پاسخ هوش مصنوعی) در جدول پیام‌ها
+	public const VERSION = '1.5.0'; // 1.5.0: جدول paia_rl (محدودیت نرخ، S-1)؛ 1.4.0: ستون refs (ارجاع‌های پاسخ هوش مصنوعی) در جدول پیام‌ها
 	public const OPTION  = 'paia_chat_db_version';
 
 	public static function visitors_table(): string {
@@ -97,6 +97,17 @@ final class ChatSchema {
 ) {$charset};"
 		);
 
+		// S-1: شمارندهٔ اتمیک محدودیت نرخ.
+		$rl = RateLimit::table();
+		dbDelta(
+			"CREATE TABLE {$rl} (
+  k varchar(64) NOT NULL,
+  w int(10) unsigned NOT NULL DEFAULT 0,
+  n int(10) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY  (k)
+) {$charset};"
+		);
+
 		// ارتقا از نسخه‌های قبل: پیام‌های قدیمی دوباره به هوش مصنوعی داده نشوند.
 		if ( $prev && version_compare( (string) $prev, '1.2.0', '<' ) ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
@@ -123,7 +134,10 @@ final class ChatSchema {
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::visitors_table() );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::status_table() );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( 'DROP TABLE IF EXISTS ' . RateLimit::table() );
 		delete_option( self::OPTION );
 		delete_option( ChatSettings::OPTION );
+		delete_option( BudgetState::OPTION );
 	}
 }

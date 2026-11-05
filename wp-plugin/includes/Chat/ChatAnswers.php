@@ -66,6 +66,10 @@ final class ChatAnswers {
 			$job = isset( $item['job_id'] ) && is_scalar( $item['job_id'] ) ? preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $item['job_id'] ) : '';
 			if ( 'answered' !== ( $item['status'] ?? '' ) ) {
 				++$out['failed'];
+				if ( 'budget_exceeded' === ( $item['code'] ?? '' ) ) {
+					// سقف مصرف تمام است: پیام بی‌پاسخ برای پشتیبان انسانی می‌ماند (رفتار فعلی)، فقط وضعیت بنر به‌روز می‌شود.
+					BudgetState::mark_limit100( isset( $item['period'] ) ? (string) $item['period'] : '', (int) ( $item['period_end'] ?? 0 ) );
+				}
 				LogStore::add(
 					LogStore::ERROR,
 					__( 'سرور هوش مصنوعی نتوانست به پیام کاربر پاسخ بدهد.', 'persian-ai-assistant' ),

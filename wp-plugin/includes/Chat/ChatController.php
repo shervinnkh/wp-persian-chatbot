@@ -17,7 +17,9 @@
 namespace PersianAIAssistant\Chat;
 
 use WP_Error;
+use PersianAIAssistant\Support\ClientIp;
 use WP_REST_Request;
+use WP_REST_Response;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -127,12 +129,39 @@ final class ChatController {
 		return preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uid ) ? strtolower( $uid ) : '';
 	}
 
+	/** خطای JSON با هدر Retry-After (برای 429). */
+	private function limited( string $code, string $message, int $retry ): WP_REST_Response {
+		return new WP_REST_Response(
+			array(
+				'code'    => $code,
+				'message' => $message,
+				'data'    => array( 'status' => 429 ),
+			),
+			429,
+			array( 'Retry-After' => (string) max( 1, $retry ) )
+		);
+	}
+
 	/**
-	 * @return array{0:object,1:int} [visitor, user_id]
+	 * هویت درخواست (S-1). فقط init (و profile فقط برای uid موجود) می‌تواند بازدیدکنندهٔ تازه بسازد — init با سقف ۱۰ بازدیدکنندهٔ
+	 * تازه در ساعت برای هر IP. بقیه با uid نامعتبر/ناموجود 400 با کد paia_bad_visitor می‌دهند (ویجت init را دوباره صدا می‌زند).
+	 *
+	 * @return array{0:object,1:int}|WP_Error|WP_REST_Response [visitor, user_id]
 	 */
-	private function identity( WP_REST_Request $request ): array {
+	private function identity( WP_REST_Request $request, bool $create = false ) {
 		$uid     = $this->clean_uid( (string) $request->get_header( 'x_paia_visitor' ) );
 		$user_id = get_current_user_id();
+		$visitor = $this->store->resolve_visitor( $uid, $user_id );
+		if ( $visitor ) {
+			return array( $visitor, $user_id );
+		}
+		if ( ! $create ) {
+			return new WP_Error( 'paia_bad_visitor', __( 'هویت بازدیدکننده نامعتبر است.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+		}
+		list( $n, $wait ) = RateLimit::hit( 'new|' . ClientIp::hash( ClientIp::get() ), HOUR_IN_SECONDS );
+		if ( $n > 10 ) {
+			return $this->limited( 'paia_rate', __( 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-ai-assistant' ), $wait );
+		}
 		return array( $this->store->ensure_visitor( $uid, $user_id ), $user_id );
 	}
 
@@ -199,7 +228,11 @@ final class ChatController {
 	}
 
 	public function init( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$paia_id = $this->identity( $request, true );
+		if ( ! is_array( $paia_id ) ) {
+			return $paia_id;
+		}
+		list( $visitor, $user_id ) = $paia_id;
 		return rest_ensure_response( $this->payload( $visitor, $user_id ) );
 	}
 
@@ -207,7 +240,11 @@ final class ChatController {
 	 * به‌روزرسانی دوره‌ای. اگر امضای گفتگو تغییر نکرده باشد فقط وضعیت‌ها برمی‌گردد (سبک).
 	 */
 	public function poll( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$paia_id = $this->identity( $request, false );
+		if ( ! is_array( $paia_id ) ) {
+			return $paia_id;
+		}
+		list( $visitor, $user_id ) = $paia_id;
 		$uid = (string) $visitor->uid;
 
 		// اگر کاربر ai_delay ثانیه تایپ نکرده، پیام‌های جمع‌شده همین‌جا پاسخ داده می‌شوند.
@@ -239,7 +276,11 @@ final class ChatController {
 	 * پیام‌های قدیمی‌تر برای اسکرول به بالا: ۱۰ پیام قبل از شناسهٔ `before`.
 	 */
 	public function history( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$paia_id = $this->identity( $request, false );
+		if ( ! is_array( $paia_id ) ) {
+			return $paia_id;
+		}
+		list( $visitor, $user_id ) = $paia_id;
 
 		$page = $this->store->page(
 			(string) $visitor->uid,
@@ -257,7 +298,11 @@ final class ChatController {
 	}
 
 	public function typing( WP_REST_Request $request ) {
-		list( $visitor ) = $this->identity( $request );
+		$paia_id = $this->identity( $request );
+		if ( ! is_array( $paia_id ) ) {
+			return $paia_id;
+		}
+		list( $visitor ) = $paia_id;
 		$this->store->touch_user_typing( (string) $visitor->uid );
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
@@ -278,7 +323,11 @@ final class ChatController {
 	}
 
 	public function profile( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$paia_id = $this->identity( $request, false );
+		if ( ! is_array( $paia_id ) ) {
+			return $paia_id;
+		}
+		list( $visitor, $user_id ) = $paia_id;
 
 		// کاربر واردشده: پروفایل از حساب وردپرس است.
 		if ( $user_id > 0 ) {
@@ -307,23 +356,31 @@ final class ChatController {
 		return rest_ensure_response( $this->payload( $this->store->visitor( $uid ), 0 ) );
 	}
 
-	private function throttle( string $uid ): bool {
-		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		$key = 'paia_rl_' . md5( $uid . '|' . $ip );
-		$n   = (int) get_transient( $key );
-		if ( $n >= 20 ) {
-			return false;
+	/**
+	 * دو شمارندهٔ اتمیک، هر دو باید زیر سقف باشند: ۳۰ پیام/دقیقه برای هر IP و ۱۰ پیام/دقیقه برای هر uid.
+	 *
+	 * @return int 0 = مجاز؛ وگرنه ثانیه‌های Retry-After.
+	 */
+	private function throttle( string $uid ): int {
+		list( $n, $wait ) = RateLimit::hit( 'msg|' . ClientIp::hash( ClientIp::get() ), 60 );
+		if ( $n > 30 ) {
+			return $wait;
 		}
-		set_transient( $key, $n + 1, 5 * MINUTE_IN_SECONDS );
-		return true;
+		list( $n, $wait ) = RateLimit::hit( 'uid|' . $uid, 60 );
+		return $n > 10 ? $wait : 0;
 	}
 
 	public function message( WP_REST_Request $request ) {
-		list( $visitor, $user_id ) = $this->identity( $request );
+		$paia_id = $this->identity( $request, false );
+		if ( ! is_array( $paia_id ) ) {
+			return $paia_id;
+		}
+		list( $visitor, $user_id ) = $paia_id;
 		$uid = (string) $visitor->uid;
 
-		if ( ! $this->throttle( $uid ) ) {
-			return new WP_Error( 'paia_rate', __( 'تعداد پیام‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 429 ) );
+		$retry = $this->throttle( $uid );
+		if ( $retry > 0 ) {
+			return $this->limited( 'paia_rate', __( 'تعداد پیام‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-ai-assistant' ), $retry );
 		}
 
 		$text = sanitize_textarea_field( (string) $request->get_param( 'text' ) );

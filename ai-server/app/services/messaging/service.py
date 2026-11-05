@@ -16,11 +16,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.core.config import Settings
+from app.core.errors import BudgetExceededError, BusyError
 from app.core.monitoring import answer_stats, emit, note_answer_error
 from app.db.base import Database
 from app.db.messaging_models import Message, utcnow
 from app.db.messaging_repository import MessagingRepository
-from app.schemas.messaging import SendMessageRequest, SendMessagesBatchRequest
+from app.schemas.messaging import BudgetIn, SendMessageRequest, SendMessagesBatchRequest
+from app.services.budget import BudgetService, set_default
 from app.services.chunking.tokens import TokenCounter
 from app.services.conversation.answer import (
     AiAnswerResult,
@@ -36,6 +38,7 @@ from app.services.ingestion.callback import validate_callback
 from app.services.messaging import storage
 from app.services.messaging.answers import AnswerQueue
 from app.services.messaging.errors import ConversationNotFoundError, MessageNotFoundError
+from app.services.ratelimit import RateLimiter
 from app.services.speech import Transcriber, UnusableAudioError
 
 logger = logging.getLogger(__name__)
@@ -85,6 +88,9 @@ class MessagingService:
         self.transcriber = transcriber or Transcriber(settings)
         self.summaries = SummaryService(settings=settings, repo=self.repo)  # enqueue only
         self.answers = AnswerQueue(self)
+        self.limiter = RateLimiter(settings, db)  # S-1
+        self.budget = BudgetService(settings, db)  # S-2
+        set_default(self.budget)  # the LLM / embedding / STT calls of this process report here
         self._ready = False
         self._ready_lock = asyncio.Lock()
 
@@ -117,7 +123,38 @@ class MessagingService:
             )
         return None
 
-    async def _save(self, req: SendMessageRequest):
+    async def _admit(
+        self,
+        *,
+        role: str,
+        visitor_uid: str | None,
+        wants_answer: bool,
+        queued: bool,
+        ip_hash: str | None,
+        budget: BudgetIn | None,
+    ) -> None:
+        """Everything that may refuse a visitor message BEFORE anything is saved:
+        1. the site owner's caps are remembered (S-2)   2. IP counter, then visitor counter (S-1)
+        3. spending cap used up -> budget_exceeded      4. answer queue full -> busy"""
+        if budget is not None:
+            await self.budget.set_plugin_limits(budget.daily_usd, budget.monthly_usd)
+        if role != "user":
+            return
+        await self.limiter.check_message(ip_hash=ip_hash, visitor_uid=visitor_uid)
+        if not wants_answer:
+            return
+        exceeded = await self.budget.check()
+        if exceeded is not None:
+            emit("budget.rejected", period=exceeded.period)
+            raise BudgetExceededError(
+                f"The {exceeded.period}ly AI spending cap is used up",
+                retry_after=exceeded.retry_after, period=exceeded.period,
+            )  # fmt: skip
+        if queued and await self.answers.backlog() >= self.settings.ANSWER_QUEUE_MAX:
+            emit("answer.busy", limit=self.settings.ANSWER_QUEUE_MAX)
+            raise BusyError()
+
+    async def _save(self, req: SendMessageRequest, ip_hash: str | None = None):
         """Find/create the conversation, save the message (+ its attachment).
         -> (conversation, created, message, attachment_status)"""
         if req.conversation_id is not None:
@@ -141,6 +178,7 @@ class MessagingService:
             suggestions=req.suggestions,
             admin_user_id=req.admin_user_id,
             admin_name=req.admin_name,
+            ip_hash=ip_hash if req.role.value == "user" else None,
         )
         logger.info(
             "messaging.message_saved conversation_id=%s message_id=%s role=%s has_attachment=%s",
@@ -193,16 +231,23 @@ class MessagingService:
             return AiAnswerResult(status="queued", job_id=job_id, model=ctx.model)
         return await self._generate_answer(conv_id, msg, ctx)
 
-    async def send(self, req: SendMessageRequest) -> SendResult:
+    async def send(self, req: SendMessageRequest, ip_hash: str | None = None) -> SendResult:
         await self.ensure_ready()
         cb = await self._validated_cb(req)
-        conv, created, msg, status = await self._save(req)
+        await self._admit(
+            role=req.role.value, visitor_uid=req.visitor_uid,
+            wants_answer=self._wants_answer(req), queued=cb is not None,
+            ip_hash=ip_hash, budget=req.budget,
+        )  # fmt: skip
+        conv, created, msg, status = await self._save(req, ip_hash)
         wants_answer = self._wants_answer(req)
         self._emit_message(req, conv, msg, created, status, wants_answer=wants_answer, cb=cb)
         ai = await self._answer(req, conv.id, msg, cb)
         return SendResult(conv.id, created, status, msg, ai)
 
-    async def send_batch(self, batch: SendMessagesBatchRequest) -> BatchResult:
+    async def send_batch(
+        self, batch: SendMessagesBatchRequest, ip_hash: str | None = None
+    ) -> BatchResult:
         """Save a list of messages in order (oldest first); the last one may also get an AI answer.
 
         Each message is committed on its own (so the order of ids == the order of the list). The
@@ -224,11 +269,18 @@ class MessagingService:
                 self.settings, batch.callback, locked_site=await self.answers.ingest.locked_site()
             )
 
+        last_req = reqs[-1]
+        await self._admit(
+            role=last_req.role.value, visitor_uid=batch.visitor_uid,
+            wants_answer=self._wants_answer(last_req), queued=cb is not None,
+            ip_hash=ip_hash, budget=batch.budget,
+        )  # fmt: skip
+
         saved: list[tuple] = []  # (conversation, created, message, attachment_status)
         error: str | None = None
         for i, req in enumerate(reqs):
             try:
-                one = await self._save(req)
+                one = await self._save(req, ip_hash)
             except Exception as exc:  # noqa: BLE001
                 if not saved:
                     raise
@@ -441,6 +493,7 @@ class MessagingService:
             msg.attachment_type != "voice"
             or not msg.attachment_path
             or (msg.transcript or "").strip()
+            or not self.settings.STT_MODEL.strip()  # empty STT_MODEL = voice transcription off
             or not self.settings.OPENAI_API_KEY.get_secret_value()
         ):
             return msg

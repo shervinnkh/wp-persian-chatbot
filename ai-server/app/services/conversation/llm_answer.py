@@ -32,6 +32,7 @@ from openai import AsyncOpenAI
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
 from app.core.monitoring import emit, note_answer_error
+from app.services.budget import Usage, get_budget
 from app.services.conversation.history import PreparedHistory
 from app.services.conversation.history import HistoryMessage
 from app.services.conversation.prompt import (
@@ -138,6 +139,11 @@ class LLMAnswerGenerator:
             finish=getattr(choice, "finish_reason", None),
             tool_calls=len(getattr(getattr(choice, "message", None), "tool_calls", None) or []),
         )  # fmt: skip
+        # S-2: every round of the answer (tool rounds included) is paid -> counted
+        await get_budget(self.settings).record(
+            kwargs.get("model") or meta.get("model", ""), Usage.from_response(usage),
+            kind="chat", purpose="answer",
+        )
         return response
 
     async def generate(

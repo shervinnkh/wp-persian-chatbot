@@ -18,6 +18,7 @@ from openai import AsyncOpenAI
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
 from app.core.monitoring import emit
+from app.services.budget import Usage, get_budget
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,8 @@ class Transcriber:
             )  # fmt: skip
             raise
         kwargs: dict = {"model": self.s.STT_MODEL, "file": (name, data)}
+        if self.s.STT_MODEL.lower().startswith("whisper"):
+            kwargs["response_format"] = "verbose_json"  # also returns the audio `duration`
         if self.s.STT_LANGUAGE.strip():
             kwargs["language"] = self.s.STT_LANGUAGE.strip()
         try:
@@ -82,6 +85,12 @@ class Transcriber:
         if text is None and isinstance(result, str):
             text = result
         text = " ".join((text or "").split())
+        duration = getattr(result, "duration", None)
+        if not isinstance(duration, (int, float)):  # no duration reported: estimate (~16 kB/s)
+            duration = max(1.0, len(data) / 16_000)
+        await get_budget(self.s).record(
+            self.s.STT_MODEL, Usage(audio_seconds=float(duration)), kind="stt", purpose="stt"
+        )
         emit(
             "stt.transcribe", model=self.s.STT_MODEL, status="ok", ext=ext, bytes=len(data),
             chars=len(text), ms=(time.perf_counter() - t0) * 1000,

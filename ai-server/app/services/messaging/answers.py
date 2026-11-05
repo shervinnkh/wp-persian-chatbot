@@ -22,10 +22,11 @@ import dataclasses
 import json
 import logging
 import secrets
+import time
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 
 from app.core.monitoring import emit
 from app.db.answer_models import AnswerJob
@@ -70,6 +71,19 @@ class AnswerQueue:
 
     def notify(self) -> None:
         self._wake.set()
+
+    async def backlog(self) -> int:
+        """Answers waiting or being generated (ANSWER_QUEUE_MAX guards this number)."""
+        async with self.db.session() as s:
+            return int(
+                (
+                    await s.execute(
+                        select(func.count())
+                        .select_from(AnswerJob)
+                        .where(AnswerJob.status.in_(("pending", "processing")))
+                    )
+                ).scalar_one()
+            )
 
     # ------------------------------------------------------------------ API side
     async def enqueue(
@@ -273,6 +287,17 @@ class AnswerQueue:
             if conv is None or question is None:  # deleted meanwhile: nothing to answer
                 await self._close(job, "failed", "conversation or message no longer exists")
                 return
+            exceeded = await self.service.budget.check()  # S-2: queued before the cap was hit
+            if exceeded is not None:
+                logger.warning("answer.budget_exceeded job=%s period=%s", job.job_id, exceeded.period)
+                await self._close(
+                    job, "failed", "budget_exceeded", conv=conv,
+                    extra={
+                        "code": "budget_exceeded", "period": exceeded.period,
+                        "period_end": int(time.time()) + exceeded.retry_after,
+                    },
+                )  # fmt: skip
+                return
             ctx = PromptContext(**job.ctx)
             ai = await self.service._generate_answer(  # noqa: SLF001
                 conv.id, question, ctx, mode="async", job_id=job.job_id, attempt=job.attempts
@@ -370,7 +395,8 @@ class AnswerQueue:
         )
 
     async def _close(
-        self, job: AnswerJob, status: str, error: str, *, conv: Conversation | None = None
+        self, job: AnswerJob, status: str, error: str, *, conv: Conversation | None = None,
+        extra: dict | None = None,
     ) -> None:
         """Final failure. When the conversation still exists the site is told (status failed)."""
         error = error[:_MAX_ERROR_CHARS]
@@ -393,6 +419,8 @@ class AnswerQueue:
                     "question_message_id": job.question_message_id,
                     "error": error,
                 }
+                if extra:
+                    item.update(extra)  # budget_exceeded: code/period/period_end
                 s.add(self._delivery(job, item, "failed", error))
             await s.commit()
         logger.error("answer.failed job=%s error=%s", job.job_id, error)
@@ -414,7 +442,7 @@ class AnswerQueue:
             expired = await s.execute(  # an answer the site could not take for too long
                 update(CallbackDelivery)
                 .where(
-                    CallbackDelivery.kind == "answer",
+                    CallbackDelivery.kind.in_(("answer", "budget")),
                     CallbackDelivery.state == "pending",
                     CallbackDelivery.created_at < ttl,
                 )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 from datetime import datetime, timezone
 from typing import Literal
@@ -30,6 +31,24 @@ REFERENCE_TYPES = ("product", "blog", "page")  # site content an answer can poin
 MAX_REFERENCES = 8
 MARK_CHAT_REPLY = "Mark-Chat"  # the whole answer text when the AI hands the chat over to humans
 _TOOL_ID_RE = re.compile(r"^[A-Za-z0-9_.:\-]{1,40}$")
+MAX_USER_MESSAGE_CHARS = 4000  # a visitor's message (role=user); admin/assistant keep 20000
+
+
+def _clean_ip(v):
+    """client_ip: a literal IP address, else None (never an error: the signed body is trusted)."""
+    if not isinstance(v, str):
+        return None
+    try:
+        return str(ipaddress.ip_address(v.strip()))
+    except ValueError:
+        return None
+
+
+class BudgetIn(BaseModel):
+    """The spending caps the site owner set in the plugin (USD; 0 = no cap from the plugin)."""
+
+    daily_usd: float | None = Field(None, ge=0, le=100000)
+    monthly_usd: float | None = Field(None, ge=0, le=100000)
 
 
 class ChatSite(BaseModel):
@@ -103,6 +122,12 @@ def _loose_bool(v):
 class SendMessageRequest(BaseModel):
     # `mark-the-conversation` has dashes, so it is read through an alias (the field name works too).
     model_config = ConfigDict(populate_by_name=True)
+
+    # S-1 / S-2 (set by the plugin; the body is signed, so the server trusts them):
+    # client_ip = the visitor's validated IP (rate limits; only an HMAC of it is stored),
+    # budget    = the site owner's daily / monthly USD caps.
+    client_ip: str | None = None
+    budget: BudgetIn | None = None
 
     # Conversation lookup: either conversation_id, or visitor_uid (+ wp_user_id when logged in)
     conversation_id: int | None = Field(None, ge=1)
@@ -190,6 +215,16 @@ class SendMessageRequest(BaseModel):
             out.append(t)
         return out
 
+    @field_validator("client_ip", mode="before")
+    @classmethod
+    def _client_ip(cls, v):
+        return _clean_ip(v)
+
+    @field_validator("budget", mode="before")
+    @classmethod
+    def _budget_loose(cls, v):
+        return v if isinstance(v, (dict, BudgetIn)) else None
+
     @field_validator("wp_user_id")
     @classmethod
     def _guest_zero(cls, v: int | None) -> int | None:
@@ -232,6 +267,8 @@ class SendMessageRequest(BaseModel):
         self.content = self.content.strip()
         if not self.content and self.attachment_url is None:
             raise ValueError("content or attachment is required")
+        if self.role == MessageRole.user and len(self.content) > MAX_USER_MESSAGE_CHARS:
+            raise ValueError(f"content is longer than {MAX_USER_MESSAGE_CHARS} characters")
         if self.role == MessageRole.admin:
             if self.admin_user_id is None:
                 raise ValueError("admin_user_id is required for role=admin")
@@ -278,6 +315,9 @@ class SendMessagesBatchRequest(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    client_ip: str | None = None  # same meaning as in POST /v1/chat/messages
+    budget: BudgetIn | None = None
+
     messages: list[BatchMessageIn] = Field(..., min_length=1, max_length=MAX_BATCH_MESSAGES)
     request_id: str | None = Field(None, max_length=64)  # echoed in the "messages saved" callback
 
@@ -305,6 +345,16 @@ class SendMessagesBatchRequest(BaseModel):
     def _mark_bool(cls, v):
         return _loose_bool(v)
 
+    @field_validator("client_ip", mode="before")
+    @classmethod
+    def _client_ip(cls, v):
+        return _clean_ip(v)
+
+    @field_validator("budget", mode="before")
+    @classmethod
+    def _budget_loose(cls, v):
+        return v if isinstance(v, (dict, BudgetIn)) else None
+
     @model_validator(mode="after")
     def _build(self) -> SendMessagesBatchRequest:
         if self.generate_ai_answer and self.messages[-1].role != MessageRole.user:
@@ -316,6 +366,8 @@ class SendMessagesBatchRequest(BaseModel):
                 "conversation_id": self.conversation_id,
                 "visitor_uid": self.visitor_uid,
                 "wp_user_id": self.wp_user_id,
+                "client_ip": self.client_ip,
+                "budget": self.budget,
                 **m.model_dump(exclude={"external_id"}),
             }
             if self.generate_ai_answer and i == last:

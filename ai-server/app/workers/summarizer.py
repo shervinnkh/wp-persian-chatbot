@@ -17,6 +17,7 @@ from app.core.logging import setup_logging
 from app.core.monitoring import shutdown_monitoring, start_snapshots, stop_snapshots
 from app.db.base import Database
 from app.db.messaging_repository import MessagingRepository
+from app.services.budget import get_budget
 from app.services.conversation.summarizer import OpenAISummarizer, Summarizer
 from app.services.conversation.summary_service import SummaryService
 
@@ -42,6 +43,14 @@ async def run(
     )  # fmt: skip
     try:
         while not stop.is_set():
+            exceeded = await get_budget(settings).check()  # S-2: summaries are blocked too
+            if exceeded is not None:
+                logger.warning("summarizer paused: %s budget is used up", exceeded.period)
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=60)
+                except asyncio.TimeoutError:
+                    pass
+                continue
             try:
                 worked = await service.process_next()
             except Exception:  # noqa: BLE001 - DB hiccup: wait and continue
@@ -57,6 +66,7 @@ async def run(
                 pass
     finally:
         await summarizer.close()
+        await get_budget(settings).close()
         await db.dispose()
         logger.info("summarizer worker stopped")
 

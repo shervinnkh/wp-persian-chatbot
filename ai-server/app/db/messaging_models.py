@@ -84,6 +84,9 @@ class Message(Base):
     admin_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     # Speech-to-text of a voice message (filled when the AI answer is generated).
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # HMAC of the visitor's IP (user messages only; never the raw IP). Cleared by the janitor
+    # after IP_HASH_RETENTION_DAYS.
+    ip_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

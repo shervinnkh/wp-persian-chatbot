@@ -14,6 +14,7 @@ from openai import AsyncOpenAI
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
 from app.core.monitoring import emit
+from app.services.budget import Usage, get_budget
 from app.services.conversation.history import HistoryMessage
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ class Summarizer(Protocol):
 
 class OpenAISummarizer:
     def __init__(self, settings: Settings):
+        self.settings = settings
         self.model = settings.SUMMARY_MODEL
         self._key = settings.OPENAI_API_KEY.get_secret_value()
         self._base_url = settings.OPENAI_BASE_URL or None
@@ -127,6 +129,9 @@ class OpenAISummarizer:
             ) from exc
         text = (response.choices[0].message.content or "").strip() if response.choices else ""
         usage = getattr(response, "usage", None)
+        await get_budget(self.settings).record(  # S-2: the summary call is paid too
+            self.model, Usage.from_response(usage), kind="chat", purpose="summary"
+        )
         pd = getattr(usage, "prompt_tokens_details", None)
         cd = getattr(usage, "completion_tokens_details", None)
         emit(

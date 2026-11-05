@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class AppError(Exception):
     status_code = 400
     code = "bad_request"
+    headers: dict[str, str] | None = None  # extra response headers (e.g. Retry-After)
 
     def __init__(self, message: str | None = None, *, details: Any = None):
         self.message = message or self.__class__.__name__
@@ -100,6 +101,45 @@ class ServiceUnavailableError(AppError):
     code = "service_unavailable"
 
 
+class RateLimitedError(AppError):
+    """Too many chat messages from one IP / one visitor in a minute (S-1)."""
+
+    status_code = 429
+    code = "rate_limited"
+
+    def __init__(self, message: str, *, retry_after: int):
+        super().__init__(message)
+        self.headers = {"Retry-After": str(max(1, int(retry_after)))}
+
+
+class BudgetExceededError(AppError):
+    """The daily or monthly spending cap is used up (S-2)."""
+
+    status_code = 429
+    code = "budget_exceeded"
+
+    def __init__(self, message: str, *, retry_after: int, period: str):
+        import time as _t
+
+        super().__init__(
+            message,
+            details={"period": period, "period_end": int(_t.time()) + max(1, int(retry_after))},
+        )
+        self.period = period
+        self.headers = {"Retry-After": str(max(1, int(retry_after)))}
+
+
+class BusyError(AppError):
+    """The answer queue is full (S-2)."""
+
+    status_code = 503
+    code = "busy"
+
+    def __init__(self, message: str = "The AI queue is full, try again shortly"):
+        super().__init__(message)
+        self.headers = {"Retry-After": "30"}
+
+
 _HTTP_CODES = {
     400: "bad_request",
     401: "unauthorized",
@@ -126,7 +166,9 @@ def error_response(
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return error_response(exc.status_code, exc.code, exc.message, exc.details)
+        return error_response(
+            exc.status_code, exc.code, exc.message, exc.details, headers=exc.headers
+        )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:

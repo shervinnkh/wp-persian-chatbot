@@ -37,6 +37,31 @@ final class ChatStore {
 	 * ممکن است uid جدید برگرداند (مثلاً وقتی uid قبلی متعلق به کاربر دیگری است).
 	 */
 	public function ensure_visitor( string $uid, int $user_id ): object {
+		$row = $this->resolve_visitor( $uid, $user_id );
+		if ( $row ) {
+			return $row;
+		}
+		global $wpdb;
+		$table = ChatSchema::visitors_table();
+		$user  = $user_id > 0 ? get_userdata( $user_id ) : false;
+		$new   = array(
+			'uid'          => wp_generate_uuid4(),
+			'wp_user_id'   => $user_id,
+			'name'         => $user ? (string) $user->display_name : '',
+			'contact'      => $user ? (string) $user->user_email : '',
+			'profile_done' => $user ? 1 : 0,
+			'created_at'   => self::now(),
+			'last_seen'    => self::now(),
+		);
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->insert( $table, $new );
+		return $this->visitor( $new['uid'] );
+	}
+
+	/**
+	 * بازدیدکنندهٔ موجود را پیدا (و در صورت لزوم به کاربر وردپرس وصل) می‌کند؛ هرگز بازدیدکنندهٔ تازه نمی‌سازد (S-1).
+	 */
+	public function resolve_visitor( string $uid, int $user_id ): ?object {
 		global $wpdb;
 		$table = ChatSchema::visitors_table();
 		$row   = $this->visitor( $uid );
@@ -52,19 +77,7 @@ final class ChatStore {
 		}
 
 		if ( ! $row ) {
-			$user = $user_id > 0 ? get_userdata( $user_id ) : false;
-			$new  = array(
-				'uid'          => wp_generate_uuid4(),
-				'wp_user_id'   => $user_id,
-				'name'         => $user ? (string) $user->display_name : '',
-				'contact'      => $user ? (string) $user->user_email : '',
-				'profile_done' => $user ? 1 : 0,
-				'created_at'   => self::now(),
-				'last_seen'    => self::now(),
-			);
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$wpdb->insert( $table, $new );
-			return $this->visitor( $new['uid'] );
+			return null;
 		}
 
 		// مهمان قبلی حالا وارد شده: به حساب وردپرس وصل می‌شود، پیام‌ها می‌مانند.

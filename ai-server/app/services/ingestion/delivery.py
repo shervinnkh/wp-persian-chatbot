@@ -336,6 +336,10 @@ class DeliveryService:
         rows = await self.repo.claim_delivery_batch(host, limit)
         if not rows:
             return
+        if rows[0].kind == "budget":  # S-2 push: own URL (.../ai/budget), one event per request
+            for r in rows:
+                await self._send_budget(site, r)
+            return
         ids = [r.id for r in rows]
         delivery_id = rows[0].batch_id or str(uuid.uuid4())
         body = self._payload(rows, delivery_id)
@@ -364,6 +368,31 @@ class DeliveryService:
             error=None if verdict.kind == "ok" else (verdict.detail or result.error),
         )  # fmt: skip
         await self._apply(site, rows, ids, verdict, result)
+
+    async def _send_budget(self, site: CallbackSite, row: CallbackDelivery) -> None:
+        """POST one budget event ({period, level, used_usd, limit_usd, percent, period_end}) with the
+        standard callback signature. A plugin without the endpoint (404) must NOT stop the site's
+        other callbacks, so that answer only drops the event."""
+        body = (row.payload or "{}").encode("utf-8")
+        delivery_id = row.batch_id or str(uuid.uuid4())
+        result = await self._call(site, "POST", row.callback_url, body, delivery_id)
+        verdict = classify(result)
+        if verdict.kind == "stale_ts" and verdict.server_time is not None:
+            offset = verdict.server_time - int(time.time())
+            await self.repo.update_site(site.host, clock_offset=offset)
+            site.clock_offset = offset
+            result = await self._call(site, "POST", row.callback_url, body, delivery_id)
+            verdict = classify(result)
+        emit(
+            "callback.send", kind="budget", site=site.host, outcome=verdict.kind,
+            http_status=result.status, ms=result.elapsed_ms,
+            error=None if verdict.kind == "ok" else (verdict.detail or result.error),
+        )  # fmt: skip
+        if verdict.kind in ("suspended", "bad_request") and result.status in (400, 404, 503):
+            await self.repo.kill_deliveries([row.id], error=verdict.detail or "budget rejected")
+            logger.warning("callback.budget_dropped site=%s error=%s", site.host, verdict.detail)
+            return
+        await self._apply(site, [row], [row.id], verdict, result)
 
     async def _split(self, site: CallbackSite, rows: list[CallbackDelivery]) -> None:
         half = max(1, len(rows) // 2)

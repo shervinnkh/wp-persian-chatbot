@@ -93,6 +93,7 @@ class MessagingRepository:
         suggestions: list[str] | None = None,
         admin_user_id: int | None = None,
         admin_name: str | None = None,
+        ip_hash: str | None = None,
     ) -> Message:
         """Insert + commit immediately; returns the stored row."""
         async with self.db.session() as s:
@@ -107,6 +108,7 @@ class MessagingRepository:
                 suggestions=suggestions,
                 admin_user_id=admin_user_id,
                 admin_name=admin_name,
+                ip_hash=ip_hash,
             )
             s.add(msg)
             conv = await s.get(Conversation, conversation_id)

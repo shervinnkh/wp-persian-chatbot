@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailableError, UpstreamError
 from app.core.monitoring import emit, op_var
+from app.services.budget import Usage, get_budget
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ class Embedder(Protocol):
 
 class OpenAIEmbedder:
     def __init__(self, settings: Settings):
+        self._settings = settings
         self.model = settings.EMBEDDING_MODEL
         self.dimensions = settings.EMBEDDING_DIMENSIONS
         self._batch = settings.EMBEDDING_BATCH_SIZE
@@ -99,6 +101,11 @@ class OpenAIEmbedder:
             result.prompt_tokens += prompt
             result.total_tokens += total
             result.requests += 1
+            # S-2: counted (questions AND ingestion); only answering/summaries are ever blocked
+            await get_budget(self._settings).record(
+                self.model, Usage(prompt_tokens=prompt, total_tokens=total or prompt),
+                kind="embedding", purpose="embedding",
+            )
             emit(
                 "embedding.request", model=self.model, op=op_var.get(), status="ok",
                 inputs=len(batch), prompt_tokens=prompt, total_tokens=total,

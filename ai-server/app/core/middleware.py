@@ -68,6 +68,7 @@ class RequestContextMiddleware:
             duration_ms = (time.perf_counter() - started) * 1000
             client = scope.get("client")
             ip = client[0] if client else "-"
+            ip_hash = (scope.get("state") or {}).get("ip_hash")  # set by the chat handlers (S-1)
             path = scope.get("path", "")
             level = logging.DEBUG if path in self.quiet_paths else logging.INFO
             if status >= 500:
@@ -92,7 +93,9 @@ class RequestContextMiddleware:
                     ms=round(duration_ms, 1),
                     bytes_in=int(declared) if declared.isdigit() else None,
                     bytes_out=bytes_out,
-                    ip=ip if ip != "-" else None,
+                    # chat requests: the visitor's IP hash; the TCP peer is only the WordPress host
+                    ip=None if ip_hash else (ip if ip != "-" else None),
+                    ip_hash=ip_hash,
                 )
             request_id_var.reset(token)
 

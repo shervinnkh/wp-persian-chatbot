@@ -21,6 +21,7 @@ from app.schemas.messaging import (
 )
 from app.services.conversation.answer import AiAnswerResult
 from app.services.messaging import MessagingService
+from app.services.ratelimit import hash_ip
 
 router = APIRouter(tags=["messaging"])
 
@@ -28,7 +29,17 @@ _RESPONSES = {
     401: {"model": ErrorResponse},
     403: {"model": ErrorResponse},
     404: {"model": ErrorResponse},
+    429: {"model": ErrorResponse},  # rate_limited | budget_exceeded (Retry-After)
+    503: {"model": ErrorResponse},  # busy (answer queue full)
 }
+
+
+def _ip_hash(request: Request, client_ip: str | None) -> str | None:
+    """HMAC of the visitor's IP (S-1). Also put on the request so the access/monitoring event of
+    this call carries the hash instead of the raw address."""
+    value = hash_ip(request.app.state.settings, client_ip)
+    request.state.ip_hash = value
+    return value
 
 
 def get_messaging_service(request: Request) -> MessagingService:
@@ -72,9 +83,9 @@ def _ai_out(ai: AiAnswerResult) -> AiAnswerOut:
     "(with a callback: queued, the answer is POSTed to the callback when ready)",
 )
 async def send_message(
-    body: SendMessageRequest, service: Service, background: BackgroundTasks
+    body: SendMessageRequest, service: Service, background: BackgroundTasks, request: Request
 ) -> SendMessageResponse:
-    result = await service.send(body)
+    result = await service.send(body, ip_hash=_ip_hash(request, body.client_ip))
     ai = result.ai
     if ai.summarize_upto_message_id is not None:
         # Runs AFTER the response reached the client, so the visitor never waits for it.
@@ -98,9 +109,9 @@ async def send_message(
     "the last one (must be a user message). `received_count` = messages saved from the start of the list",
 )
 async def send_messages_batch(
-    body: SendMessagesBatchRequest, service: Service, background: BackgroundTasks
+    body: SendMessagesBatchRequest, service: Service, background: BackgroundTasks, request: Request
 ) -> SendMessagesBatchResponse:
-    result = await service.send_batch(body)
+    result = await service.send_batch(body, ip_hash=_ip_hash(request, body.client_ip))
     ai = result.ai
     if ai.summarize_upto_message_id is not None:
         background.add_task(

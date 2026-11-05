@@ -201,6 +201,12 @@ class IngestProcessor:
                         logger.info("ingest.purged jobs=%d deliveries=%d", jobs, deliveries)
                 except Exception:  # noqa: BLE001
                     logger.exception("ingest purge failed")
+                try:  # S-1/S-2: old rate-limit rows, IP hashes (IP_HASH_RETENTION_DAYS), periods
+                    from app.services.ratelimit import purge as purge_security
+
+                    await purge_security(self.repo.db, self.settings)
+                except Exception:  # noqa: BLE001
+                    logger.exception("security purge failed")
                 try:
                     await asyncio.wait_for(stop.wait(), timeout=3600)
                 except asyncio.TimeoutError:

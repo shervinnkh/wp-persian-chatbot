@@ -8,7 +8,6 @@
  *     از نسخهٔ ۰.۵.۲۶ هیچ پیامی جداگانه یا فوری به سرور نمی‌رود: هر پیام با ai_sent = 0 ذخیره می‌شود و فقط وقتی هوش مصنوعی
  *     باید جواب بدهد، «همهٔ پیام‌های ارسال‌نشده + پیام جدید کاربر» با ترتیب شناسه (قدیمی ← جدید) در یک درخواست فرستاده می‌شوند
  *     (روی آخرین پیام generate_ai_answer = true). پیامی که سرور «دریافت شد» بگوید ai_sent = 1 می‌گیرد.
- *  3) (قدیمی) آدرس سرویس در تنظیمات ویجت بدون کلید (POST JSON) — فقط وقتی اتصال امضادار تنظیم نباشد
  *  (بدون سرویس/پاسخ: null؛ پاسخ پیش‌فرض به پیام اول در Responder است)
  *
  * خروجی: ['text' => string, 'suggestions' => string[], 'references' => array] یا null (یعنی هیچ پیامی ارسال نشود؛
@@ -24,6 +23,7 @@ use PersianAIAssistant\Apis\Client;
 use PersianAIAssistant\Database\LiveStore;
 use PersianAIAssistant\Database\LogStore;
 use PersianAIAssistant\Extraction\PostTypes;
+use PersianAIAssistant\Support\ClientIp;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -44,8 +44,6 @@ final class ReplyEngine {
 
 		if ( ( ! is_array( $reply ) || empty( $reply['text'] ) ) && Client::is_configured() ) {
 			$reply = $this->via_server( $ctx );
-		} elseif ( ! is_array( $reply ) || empty( $reply['text'] ) ) {
-			$reply = $this->remote( $ctx );
 		}
 		if ( ! is_array( $reply ) || empty( $reply['text'] ) ) {
 			// سرویس پاسخی نداد: ساکت می‌مانیم. «پاسخ پیش‌فرض به پیام اول» را Responder می‌فرستد، نه اینجا.
@@ -226,6 +224,15 @@ final class ReplyEngine {
 			// وب‌هوک دوم (فقط با generate_ai_answer): خودِ پاسخ (kind = chat_answer).
 			'callback'    => Callback::descriptor(),
 		);
+		// S-1: IP معتبر بازدیدکننده (بدنه امضا می‌شود، پس سرور به آن اعتماد می‌کند). S-2: سقف‌های دلاری مدیر سایت.
+		$ip = ClientIp::get();
+		if ( '' !== $ip ) {
+			$payload['client_ip'] = $ip;
+		}
+		$payload['budget'] = array(
+			'daily_usd'   => ChatSettings::budget( 'daily' ),
+			'monthly_usd' => ChatSettings::budget( 'monthly' ),
+		);
 		if ( $generate && 'user' === $messages[ count( $messages ) - 1 ]['role'] ) {
 			$payload['generate_ai_answer'] = true;
 			// فقط همراه درخواست پاسخ: مدل، لحن، اطلاعات سایت و صفحهٔ جاری (برای پراپمت).
@@ -255,6 +262,11 @@ final class ReplyEngine {
 
 		// attempts = 1: تلاش دوباره پس از timeout ممکن است پیام‌ها را در سرور دوبار ذخیره کند (وب‌هوک «ثبت شدند» این خطر را کم می‌کند).
 		$res = Client::request( 'POST', '/v1/chat/messages/batch', $payload, $timeout, 1 );
+
+		if ( ! $res['ok'] && 'budget_exceeded' === (string) $res['error_code'] ) {
+			$det = isset( $res['body']['error']['details'] ) && is_array( $res['body']['error']['details'] ) ? $res['body']['error']['details'] : array();
+			BudgetState::mark_limit100( (string) ( $det['period'] ?? '' ), (int) ( $det['period_end'] ?? 0 ) );
+		}
 
 		if ( ! $res['ok'] ) {
 			LogStore::add(
@@ -327,71 +339,5 @@ final class ReplyEngine {
 			}
 		}
 		return $out;
-	}
-
-	/**
-	 * قرارداد (فعلاً پیشنهادی): POST JSON به api_url
-	 *   { visitor_id, user_id, name, contact, message, attachment:{type,url}|null,
-	 *     history:[{role,text}], site:{name,url} }
-	 * پاسخ مورد انتظار: { "reply": "...", "suggestions": ["...", "..."] }
-	 *
-	 * @param array<string,mixed> $ctx زمینه.
-	 * @return array<string,mixed>|null
-	 */
-	private function remote( array $ctx ): ?array {
-		$url = (string) ChatSettings::get( 'api_url', '' );
-		if ( '' === $url ) {
-			return null;
-		}
-		$headers = array( 'Content-Type' => 'application/json' );
-		$key     = (string) ChatSettings::get( 'api_key', '' );
-		if ( '' !== $key ) {
-			$headers['Authorization'] = 'Bearer ' . $key;
-		}
-
-		$res = wp_remote_post(
-			$url,
-			array(
-				'timeout' => 25,
-				'headers' => $headers,
-				'body'    => wp_json_encode(
-					array(
-						'visitor_id' => $ctx['visitor_uid'] ?? '',
-						'user_id'    => $ctx['user_id'] ?? 0,
-						'name'       => $ctx['name'] ?? '',
-						'contact'    => $ctx['contact'] ?? '',
-						'message'    => $ctx['message'] ?? '',
-						'attachment' => $ctx['attachment'] ?? null,
-						'history'    => $ctx['history'] ?? array(),
-						'site'       => array(
-							'name'        => ChatSettings::site_title(),
-							'url'         => home_url( '/' ),
-							'description' => (string) ChatSettings::get( 'site_desc', '' ),
-						),
-						'ai'         => array(
-							'service' => (string) ChatSettings::get( 'ai_service', 'gpt-5-4' ),
-							'tone'    => (string) ChatSettings::get( 'tone', 'formal' ),
-							'notes'   => (string) ChatSettings::get( 'important_notes', '' ),
-						),
-					),
-					JSON_UNESCAPED_UNICODE
-				),
-			)
-		);
-		if ( is_wp_error( $res ) || (int) wp_remote_retrieve_response_code( $res ) >= 300 ) {
-			return null;
-		}
-		$data = json_decode( wp_remote_retrieve_body( $res ), true );
-		if ( ! is_array( $data ) ) {
-			return null;
-		}
-		$text = $data['reply'] ?? ( $data['answer'] ?? ( $data['text'] ?? '' ) );
-		if ( ! is_string( $text ) || '' === trim( $text ) ) {
-			return null;
-		}
-		return array(
-			'text'        => $text,
-			'suggestions' => $data['suggestions'] ?? array(),
-		);
 	}
 }

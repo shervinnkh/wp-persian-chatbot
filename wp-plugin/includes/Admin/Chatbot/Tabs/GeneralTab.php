@@ -1,6 +1,7 @@
 <?php
 namespace PersianAIAssistant\Admin\Chatbot\Tabs;
 
+use PersianAIAssistant\Chat\BudgetState;
 use PersianAIAssistant\Chat\Unread;
 use PersianAIAssistant\Database\LogStore;
 use PersianAIAssistant\Documents\Overview as DocsOverview;
@@ -41,6 +42,7 @@ final class GeneralTab extends AbstractTab {
 			'docs'                 => DocsOverview::build(),
 			'logs'                 => LogStore::stats(),
 			'subscription'         => Subscription::present( Subscription::stored() ),
+			'budget_banner'        => BudgetState::banner(), // فقط get_option؛ بدون درخواست شبکه
 		);
 	}
 }

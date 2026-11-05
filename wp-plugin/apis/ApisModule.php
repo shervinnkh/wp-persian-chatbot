@@ -2,6 +2,7 @@
 namespace PersianAIAssistant\Apis;
 
 use PersianAIAssistant\Apis\Endpoints\AbstractEndpoint;
+use PersianAIAssistant\Apis\Endpoints\BudgetEndpoint;
 use PersianAIAssistant\Apis\Endpoints\FileEndpoint;
 use PersianAIAssistant\Apis\Endpoints\LiveProductsEndpoint;
 use PersianAIAssistant\Apis\Endpoints\LiveToolEndpoint;
@@ -36,6 +37,7 @@ final class ApisModule implements Module {
 				ResultsEndpoint::class,
 				FileEndpoint::class,
 				LiveProductsEndpoint::class, // ابزار هوش مصنوعی: قیمت/موجودی زندهٔ محصولات (LIVE_TOOLS_API.md §5)
+				BudgetEndpoint::class, // وضعیت ۸۰٪/۱۰۰٪ سقف مصرف دلاری (S-2)
 				LiveToolEndpoint::class, // ابزار هوش مصنوعی: متن زندهٔ ابزارهای داینامیک (LIVE_TOOLS_API.md §6)
 			)
 		);

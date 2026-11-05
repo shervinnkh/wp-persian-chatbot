@@ -15,6 +15,7 @@ final class Upgrader {
 	public function maybe_upgrade(): void {
 		// جدول اطلاعات استخراج‌شده (روی نصب تازه و روی ارتقا از نسخه‌های قدیمی).
 		Schema::maybe_install();
+		\PersianAIAssistant\Chat\ChatSchema::maybe_install(); // جدول paia_rl (S-1)
 
 		$installed = (string) get_option( self::OPTION, '0' );
 

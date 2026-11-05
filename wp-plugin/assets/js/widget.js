@@ -227,6 +227,12 @@
 			if (x.r.status === 403 && !noNonce && x.j && x.j.code === 'rest_cookie_invalid_nonce') {
 				return api(path, opts, true); // nonce قدیمی (کش صفحه): به‌عنوان مهمان ادامه بده
 			}
+			if (x.r.status === 400 && x.j && x.j.code === 'paia_bad_visitor' && path.indexOf('chat/init') !== 0 && !opts._retried) {
+				// uid نامعتبر/ناموجود (S-1): فقط init بازدیدکنندهٔ تازه می‌سازد؛ یک‌بار init و بعد تکرار همین درخواست.
+				state.uid = ''; lsSet(K_UID, '');
+				if (!state.reinitP) { state.reinitP = api('chat/init', {}, noNonce).then(applyInit).then(function () { state.reinitP = null; }, function (err) { state.reinitP = null; throw err; }); }
+				return state.reinitP.then(function () { return api(path, Object.assign({}, opts, { _retried: true }), noNonce); });
+			}
 			if (!x.r.ok) {
 				var e = new Error((x.j && x.j.message) || t.loadError);
 				e.status = x.r.status;

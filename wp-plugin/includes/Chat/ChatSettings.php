@@ -59,10 +59,18 @@ final class ChatSettings {
 			// مارک کردن چت توسط هوش مصنوعی (از ۰.۵.۲۸): روشن = با هر پیام `mark-the-conversation: true` به سرور می‌رود و اگر هوش مصنوعی
 			// نتواند جواب بدهد (پاسخ دقیقاً «Mark-Chat») هیچ پیامی نمایش داده نمی‌شود و فقط گفتگو مارک می‌شود.
 			'ai_mark'             => 0,
+			// سقف مصرف دلاری هوش مصنوعی (S-2). 0 = بدون سقف از سمت افزونه.
+			'budget_daily_usd'    => 0,
+			'budget_monthly_usd'  => 0,
 			// قدیمی: فرم دیگر نشانشان نمی‌دهد ولی ReplyEngine هنوز می‌خواندشان؛ مقدارشان هنگام ذخیره حفظ می‌شود.
 			'api_url'             => '',
 			'api_key'             => '',
 		);
+	}
+
+	/** سقف دلاری هر دوره ('daily'|'monthly'). */
+	public static function budget( string $which ): float {
+		return (float) self::get( 'daily' === $which ? 'budget_daily_usd' : 'budget_monthly_usd', 0 );
 	}
 
 	/** حداکثر طول «توضیحات مهم» (نویسه) برای جلوگیری از مصرف زیاد توکن. */
@@ -318,6 +326,11 @@ final class ChatSettings {
 		$out['ai_service']    = array_key_exists( $service, self::ai_services() ) ? $service : $def['ai_service'];
 		$tone                 = isset( $in['tone'] ) ? (string) $in['tone'] : '';
 		$out['tone']          = array_key_exists( $tone, self::tones() ) ? $tone : $def['tone'];
+
+		foreach ( array( 'budget_daily_usd', 'budget_monthly_usd' ) as $key ) {
+			$v           = isset( $in[ $key ] ) ? (float) str_replace( ',', '.', (string) $in[ $key ] ) : 0.0;
+			$out[ $key ] = round( max( 0.0, min( 100000.0, $v ) ), 2 );
+		}
 
 		$notes                  = isset( $in['important_notes'] ) ? sanitize_textarea_field( (string) $in['important_notes'] ) : '';
 		$out['important_notes'] = self::cut( $notes, self::NOTES_MAX );

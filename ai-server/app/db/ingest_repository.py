@@ -464,7 +464,7 @@ class IngestRepository:
                 .where(CallbackDelivery.id.in_(ids))
                 .values(attempts=CallbackDelivery.attempts + 1, last_error=error, updated_at=now)
             )
-            is_answer = CallbackDelivery.kind == "answer"
+            is_answer = CallbackDelivery.kind.in_(("answer", "budget"))
             limit = (
                 case((is_answer, answer_max_attempts), else_=max_attempts)
                 if answer_max_attempts is not None
