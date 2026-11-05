@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     # Empty = SQLite file at <DATA_DIR>/app.db. Any SQLAlchemy async URL works
     # (e.g. postgresql+asyncpg://user:pass@host/db).
     DATABASE_URL: str = ""
+    # Connection pool, used ONLY for PostgreSQL URLs (SQLite keeps SQLAlchemy's defaults).
+    # pre_ping + recycle make a connection that died while idle (firewall / PgBouncer / server
+    # restart) get replaced instead of failing the request. Keep (pool_size + max_overflow) per
+    # process below Postgres `max_connections` divided by the number of processes (API + workers).
+    DB_POOL_SIZE: int = Field(10, ge=1, le=200)
+    DB_MAX_OVERFLOW: int = Field(10, ge=0, le=200)
+    DB_POOL_RECYCLE_SECONDS: int = Field(1800, ge=30, le=86400)
+    DB_POOL_PRE_PING: bool = True
 
     # --- Qdrant (vector DB) ---
     # QDRANT_PATH set = embedded local mode (no server needed; data in this folder, one process
@@ -79,6 +87,10 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: SecretStr = SecretStr("")
     QDRANT_COLLECTION: str = "knowledge"
     QDRANT_TIMEOUT: int = Field(30, ge=1, le=600)
+    # Optional int8 scalar quantization (about 4x less RAM for the vectors, small recall loss).
+    # Off by default. It is applied ONLY when the collection is CREATED; an existing collection
+    # is never touched (see the vector-size notes in the README before changing the embedding).
+    QDRANT_SCALAR_QUANTIZATION: bool = False
 
     # --- Embeddings (OpenAI-compatible API) ---
     OPENAI_API_KEY: SecretStr = SecretStr("")

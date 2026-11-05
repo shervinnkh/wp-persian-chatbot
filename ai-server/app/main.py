@@ -68,6 +68,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         len(settings.allowed_networks),
         settings.docs_enabled,
     )
+    if settings.QDRANT_PATH:
+        logger.warning(
+            "Embedded Qdrant فقط برای توسعه است؛ برای production از Qdrant سرور جدا "
+            "و worker ingestion جدا استفاده کنید."
+        )
     service = getattr(app.state, "knowledge_service", None)
     if service is None:
         # Build now so tokenizer/DB/Qdrant problems show up in the log at startup, not on the

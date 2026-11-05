@@ -122,6 +122,9 @@ async def download_attachment(*, url: str, kind: str, settings: Settings) -> tup
 
     buf = bytearray()
     ext: str | None = None
+    # NOTE (anti-SSRF, deliberate): a short-lived client per download, redirects OFF. The URL was
+    # just validated by `_check_url` (host == PLUGIN_BASE_URL host, no private IP literal); do not
+    # "optimize" this into a shared client or enable redirects without redoing that review.
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout, connect=10.0), follow_redirects=False

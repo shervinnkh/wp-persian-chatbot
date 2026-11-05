@@ -105,6 +105,10 @@ class PinnedHttpTransport:
         timeout = httpx.Timeout(
             self.settings.CALLBACK_TOTAL_TIMEOUT, connect=self.settings.CALLBACK_CONNECT_TIMEOUT
         )
+        # NOTE (anti-SSRF, deliberate): a NEW client per call. The request goes to the IP we just
+        # verified (`ip`, DNS-rebinding defence) with SNI/Host kept as the real host, so a
+        # shared/pooled client would reuse sockets to a stale or unchecked address. Do not
+        # "optimize" this into a long-lived client.
         try:
             async with httpx.AsyncClient(
                 timeout=timeout, follow_redirects=False, trust_env=False

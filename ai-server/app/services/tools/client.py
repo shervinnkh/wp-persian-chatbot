@@ -100,6 +100,10 @@ class SiteToolClient:
             H_REQUEST: request_id,
         }
         t0 = time.monotonic()
+        # NOTE (anti-SSRF, deliberate): a short-lived client per call (`self._http` is only for
+        # tests), redirects OFF; the URL comes from PLUGIN_BASE_URL, never from a request (see
+        # `_url`). Do not "optimize" this into a shared client or enable redirects without
+        # redoing that review.
         client = self._http or httpx.AsyncClient(
             timeout=httpx.Timeout(self.s.TOOLS_TIMEOUT, connect=min(5.0, self.s.TOOLS_TIMEOUT)),
             follow_redirects=False,

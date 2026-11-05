@@ -43,6 +43,7 @@ ALLOWED_FILE_EXTENSIONS: tuple[str, ...] = (".pdf", ".txt", ".docx")
 _SAFE_DIR = re.compile(r"[^A-Za-z0-9_.\-]")
 _ALLOWED_PORTS = (443, 8443)
 _EXPIRY_GRACE_SECONDS = 5
+_USAGE_CACHE_SECONDS = 10.0
 
 
 @dataclass(slots=True)
@@ -136,6 +137,7 @@ class DownloadManager:
         self.root.mkdir(parents=True, exist_ok=True)
         self._reserved: dict[str, int] = {}  # record id -> bytes promised to a running download
         self._quota_lock = asyncio.Lock()
+        self._usage_cache: tuple[float, int, int] | None = None  # (monotonic time, bytes, files)
         self.cleanup_partials()
 
     # ---------------- paths / quota ----------------
@@ -146,6 +148,7 @@ class DownloadManager:
         return self.root / name
 
     def used_bytes(self) -> int:
+        """Blocking folder walk. From async code call it as `await asyncio.to_thread(...)`."""
         total = 0
         for dirpath, _dirs, files in os.walk(self.root):
             for name in files:
@@ -155,9 +158,28 @@ class DownloadManager:
                     continue
         return total
 
+    @staticmethod
+    def _dir_bytes(d: Path) -> int:
+        """Blocking: size of one record folder (0 if it does not exist)."""
+        if not d.exists():
+            return 0
+        return sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
+
+    def _invalidate_usage(self) -> None:
+        self._usage_cache = None
+
     def usage(self) -> dict:
-        used = self.used_bytes()
-        files = sum(1 for d in self.root.iterdir() if d.is_dir()) if self.root.exists() else 0
+        """Blocking (folder walk): call it via `asyncio.to_thread`. The walk result is cached for
+        a few seconds because this feeds the display only; the quota check in `_reserve` always
+        measures fresh. Changes made by THIS instance drop the cache at once."""
+        now = time.monotonic()
+        cached = self._usage_cache
+        if cached is not None and now - cached[0] < _USAGE_CACHE_SECONDS:
+            used, files = cached[1], cached[2]
+        else:
+            used = self.used_bytes()
+            files = sum(1 for d in self.root.iterdir() if d.is_dir()) if self.root.exists() else 0
+            self._usage_cache = (now, used, files)
         cap = self.s.uploads_max_total_bytes
         return {
             "used_bytes": used,
@@ -171,12 +193,13 @@ class DownloadManager:
         """Reserve room for this download and return how many bytes it may write at most."""
         async with self._quota_lock:
             own = self.record_dir(record_id)
-            replaced = 0
-            if own.exists():  # a re-download of the same record replaces its old copy
-                replaced = sum(p.stat().st_size for p in own.rglob("*") if p.is_file())
+            # A re-download of the same record replaces its old copy. Both folder walks run in a
+            # thread so thousands of files never block the event loop (health checks etc.).
+            replaced = await asyncio.to_thread(self._dir_bytes, own)
+            used = await asyncio.to_thread(self.used_bytes)
             free = (
                 self.s.uploads_max_total_bytes
-                - self.used_bytes()
+                - used
                 + replaced
                 - sum(self._reserved.values())
             )
@@ -195,6 +218,7 @@ class DownloadManager:
 
     def _release(self, record_id: str) -> None:
         self._reserved.pop(record_id, None)
+        self._invalidate_usage()  # the download just finished (or failed): sizes changed
 
     # ---------------- download ----------------
     async def download(
@@ -272,6 +296,10 @@ class DownloadManager:
             write=30.0,
             pool=10.0,
         )
+        # NOTE (anti-SSRF, deliberate): a NEW client per download. The connection goes to the IP
+        # we just verified (`ip`, DNS-rebinding defence) with SNI/Host kept as the real host, so a
+        # shared/pooled client would reuse sockets to a stale or unchecked address. Do not
+        # "optimize" this into a long-lived client.
         try:
             async with httpx.AsyncClient(
                 timeout=timeout, follow_redirects=False, trust_env=False
@@ -357,6 +385,7 @@ class DownloadManager:
         d = self.record_dir(record_id)
         if d.exists():
             shutil.rmtree(d, ignore_errors=True)
+            self._invalidate_usage()
             return True
         return False
 

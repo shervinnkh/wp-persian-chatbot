@@ -37,6 +37,7 @@ class VectorStore:
     def __init__(self, settings: Settings):
         self.collection = settings.QDRANT_COLLECTION
         self.dimensions = settings.EMBEDDING_DIMENSIONS
+        self._quantize = settings.QDRANT_SCALAR_QUANTIZATION
         url = settings.QDRANT_URL
         path = settings.qdrant_path
         if path is not None:
@@ -70,11 +71,22 @@ class VectorStore:
                     vectors_config=models.VectorParams(
                         size=self.dimensions, distance=models.Distance.COSINE
                     ),
+                    # QDRANT_SCALAR_QUANTIZATION (default off): only for NEW collections.
+                    quantization_config=(
+                        models.ScalarQuantization(
+                            scalar=models.ScalarQuantizationConfig(
+                                type=models.ScalarType.INT8, quantile=0.99, always_ram=True
+                            )
+                        )
+                        if self._quantize
+                        else None
+                    ),
                 )
                 logger.info(
-                    "qdrant.collection_created name=%s dims=%d distance=cosine",
+                    "qdrant.collection_created name=%s dims=%d distance=cosine quantization=%s",
                     self.collection,
                     self.dimensions,
+                    "int8" if self._quantize else "off",
                 )
             else:
                 info = await self._client.get_collection(self.collection)
