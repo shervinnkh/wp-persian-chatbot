@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * قرارداد پاسخ (§4): برای هر نتیجهٔ «کاری» (حتی «پیدا نشد») HTTP 200؛ فقط احراز هویت ناموفق 401 می‌دهد (permission_callback).
  * هیچ args برای مسیر تعریف نشده تا وردپرس خودش 400 برنگرداند؛ اعتبارسنجی دستی است و خطا همیشه {ok:false} با 200 می‌شود.
- * کش نمی‌شود (Cache-Control: no-store).
+ * کش HTTP ندارد (Cache-Control: no-store)، ولی پاسخ موفق ۶۰ ثانیه با transient وردپرس کش می‌شود (option: paia_tool_cache_ttl؛ ۰ = خاموش).
  */
 final class LiveProductsEndpoint extends AbstractEndpoint {
 
@@ -69,12 +69,23 @@ final class LiveProductsEndpoint extends AbstractEndpoint {
 				);
 			}
 
-			return $this->respond(
-				array(
-					'ok'      => true,
-					'message' => LiveProducts::render( $groups, array_slice( $products, 0, LiveProducts::MAX_REQUESTS ) ),
-				)
+			// کش ۶۰ ثانیه‌ای (کلید = فیلدهای فعال + محصولات درخواستی): درخواست یکسان، کوئری تازه به دیتابیس نمی‌زند.
+			$products = array_slice( $products, 0, LiveProducts::MAX_REQUESTS );
+			$parts    = array(
+				'groups'   => $groups,
+				'products' => $products,
 			);
+			$cached   = $this->cache_get( 'products', $parts );
+			if ( null !== $cached ) {
+				return $this->respond( $cached );
+			}
+			$result = array(
+				'ok'      => true,
+				'message' => LiveProducts::render( $groups, $products ),
+			);
+			$this->cache_put( 'products', $parts, $result );
+
+			return $this->respond( $result );
 		} catch ( \Throwable $e ) {
 			// جزئیات داخلی (مسیر/SQL) هرگز به AI نمی‌رسد؛ فقط در لاگ سایت می‌ماند.
 			LogStore::add(

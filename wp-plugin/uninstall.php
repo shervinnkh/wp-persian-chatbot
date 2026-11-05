@@ -20,6 +20,9 @@ $paia_options = array(
 	'paia_subscription',
 	'paia_budget_state',
 	'paia_update_info_last',
+	'paia_retention_days',
+	'paia_cleanup_batch',
+	'paia_tool_cache_ttl',
 );
 
 foreach ( $paia_options as $paia_option ) {

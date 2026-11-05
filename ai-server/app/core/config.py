@@ -159,6 +159,10 @@ class Settings(BaseSettings):
     # matches; tune it with the `rag.retrieved` log lines (they show the scores).
     RAG_TOP_K: int = Field(3, ge=1, le=10)
     RAG_MIN_SCORE: float = Field(0.0, ge=0.0, le=1.0)
+    # P-3: small in-memory LRU of question embeddings (key = sha256 of the normalized question), so
+    # a repeated question costs no new embedding call. Visitor questions only (never ingestion).
+    # Per process, no invalidation needed (a text always has the same vector). 0 = off.
+    EMBEDDING_CACHE_SIZE: int = Field(500, ge=0, le=20000)
     # Reasoning models count their hidden reasoning inside this limit: keep it generous.
     ANSWER_MAX_OUTPUT_TOKENS: int = Field(2000, ge=200, le=32000)
     ANSWER_LLM_TIMEOUT: int = Field(90, ge=10, le=900)
@@ -170,7 +174,12 @@ class Settings(BaseSettings):
     ANSWER_REASONING_EFFORT: str = ""
     # Maximum number of AI calls per visitor message (K). Round 1 may ask for tools (live data);
     # the LAST round never gets tools and must produce the final answer. 1 = tools are disabled.
-    ANSWER_MAX_LLM_ROUNDS: int = Field(2, ge=1, le=5)
+    ANSWER_MAX_LLM_ROUNDS: int = Field(3, ge=1, le=5)
+    # Prompt caching (OpenAI `prompt_cache_key`): a constant routing key so requests that share the
+    # static prompt prefix reach the same cache. site = one key for the whole site (default);
+    # conversation = one key per conversation; off = do not send it (use for gateways that reject
+    # unknown parameters). The cache itself works by identical prefix; see prompt.py.
+    ANSWER_PROMPT_CACHE_KEY: Literal["site", "conversation", "off"] = "site"
 
     # --- Live-data tools (backend -> WordPress site, signed like the completion callbacks) ---
     # The two endpoints live on PLUGIN_BASE_URL (never taken from the client request).
@@ -220,6 +229,9 @@ class Settings(BaseSettings):
     INGEST_RETRY_DELAY_SECONDS: int = Field(30, ge=1, le=3600)  # x attempt number
     INGEST_STALE_SECONDS: int = Field(900, ge=30, le=86400)  # job stuck in "processing" (crash)
     INGEST_RETENTION_DAYS: int = Field(7, ge=1, le=365)  # finished jobs/deliveries are purged
+    # P-2: conversations (+ messages, summaries, answer jobs, attachment files) with no activity for
+    # this many days are deleted by a daily janitor in the answer loop. 0 = off (keep forever).
+    CONVERSATION_RETENTION_DAYS: int = Field(90, ge=0, le=3650)
 
     # --- Completion callbacks (AI server -> WordPress plugin; sent by the delivery worker) ---
     # Signing key for callbacks. Empty = API_SHARED_SECRET (the plugin's api_key).

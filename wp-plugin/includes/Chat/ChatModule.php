@@ -23,12 +23,17 @@ final class ChatModule implements Module {
 		add_action( 'admin_init', array( $this, 'register_setting' ) );
 		add_filter( 'option_page_capability_paia_chat', array( $this, 'capability' ) );
 
+		// هندلر پاک‌سازی روزانه (P-2) همیشه بسته می‌شود تا رویداد زمان‌بندی‌شده‌ای که مانده بی‌صدا از بین نرود؛
+		// خودِ زمان‌بندی فقط وقتی چت‌بات روشن است (پایین) یا در فعال‌سازی انجام می‌شود.
+		( new Cleanup() )->register();
+
 		// چت‌بات خاموش: هیچ جدول/مسیر/کرون/ویجتی ثبت نمی‌شود و هیچ رکوردی ساخته نمی‌شود.
 		if ( ! Status::is_enabled() ) {
 			return;
 		}
 
 		add_action( 'init', array( ChatSchema::class, 'maybe_install' ), 5 );
+		add_action( 'init', array( Cleanup::class, 'schedule' ), 20 );
 
 		( new Retention() )->register(); // پاک‌سازی روزانهٔ پیام‌ها/فایل‌ها (S-8)
 		( new WidgetRenderer() )->register();

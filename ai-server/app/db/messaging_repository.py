@@ -353,3 +353,53 @@ class MessagingRepository:
     async def get_summary_request(self, request_id: int) -> SummaryRequest | None:
         async with self.db.session() as s:
             return await s.get(SummaryRequest, request_id)
+
+    # ------------------------------------------------------------------ retention (P-2)
+    async def purge_idle_conversations(
+        self, retention_days: int, *, limit: int = 200
+    ) -> tuple[int, int, list[str]]:
+        """Delete (at most `limit`) conversations with no activity for `retention_days` days, with
+        their messages, summary requests and answer jobs.
+
+        Returns (conversations, messages, attachment paths to delete from disk). 0 days = off.
+        Activity = `conversations.updated_at` (touched on every new message). One bounded batch per
+        call; the caller repeats while a full batch came back.
+        """
+        if retention_days <= 0:
+            return 0, 0, []
+        from app.db.answer_models import AnswerJob  # local: avoids an import cycle at module load
+
+        cutoff = utcnow() - timedelta(days=retention_days)
+        async with self.db.session() as s:
+            ids = list(
+                (
+                    await s.execute(
+                        select(Conversation.id)
+                        .where(Conversation.updated_at < cutoff, Conversation.created_at < cutoff)
+                        .order_by(Conversation.id.asc())
+                        .limit(limit)
+                    )
+                ).scalars()
+            )
+            if not ids:
+                return 0, 0, []
+            paths = [
+                p
+                for p in (
+                    await s.execute(
+                        select(Message.attachment_path).where(
+                            Message.conversation_id.in_(ids), Message.attachment_path.is_not(None)
+                        )
+                    )
+                ).scalars()
+                if p
+            ]
+            # explicit deletes: do not rely on ON DELETE CASCADE (PostgreSQL/SQLite pragma aside)
+            n_msgs = (
+                await s.execute(delete(Message).where(Message.conversation_id.in_(ids)))
+            ).rowcount or 0
+            await s.execute(delete(SummaryRequest).where(SummaryRequest.conversation_id.in_(ids)))
+            await s.execute(delete(AnswerJob).where(AnswerJob.conversation_id.in_(ids)))
+            await s.execute(delete(Conversation).where(Conversation.id.in_(ids)))
+            await s.commit()
+        return len(ids), n_msgs, paths

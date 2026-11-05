@@ -68,6 +68,8 @@ class AnswerQueue:
         self._wake = asyncio.Event()
         self._tasks: set[asyncio.Task] = set()
         self._last_housekeeping = 0.0
+        self._last_retention: float | None = None  # loop time of the last daily purge
+        self._retention_more = False  # the last purge batch was full: run again soon
 
     def notify(self) -> None:
         self._wake.set()
@@ -460,3 +462,31 @@ class AnswerQueue:
         if expired.rowcount:
             logger.warning("answer.delivery_expired count=%d", expired.rowcount)
             emit("answer.job", phase="expired", count=expired.rowcount)
+        await self._retention(loop_time)
+
+    async def _retention(self, loop_time: float) -> None:
+        """P-2 janitor: once a day (and again at once while a batch came back full) delete the
+        conversations idle for CONVERSATION_RETENTION_DAYS, with their messages/summaries/files.
+        Same pattern as INGEST_RETENTION_DAYS; 0 = off."""
+        days = self.settings.CONVERSATION_RETENTION_DAYS
+        if days <= 0:
+            return
+        due = self._last_retention is None or loop_time - self._last_retention >= 86400
+        if not (due or self._retention_more):
+            return
+        self._last_retention = loop_time
+        try:
+            convs, msgs, paths = await self.service.repo.purge_idle_conversations(days)
+            self._retention_more = convs >= 200
+            if paths:
+                from app.services.messaging import storage
+
+                await asyncio.to_thread(storage.delete_files, self.settings, paths)
+            if convs:
+                logger.info(
+                    "retention.purged conversations=%d messages=%d files=%d", convs, msgs, len(paths)
+                )
+                emit("retention.purge", conversations=convs, messages=msgs, files=len(paths))
+        except Exception:  # noqa: BLE001 - housekeeping must never break the answer loop
+            self._retention_more = False
+            logger.exception("retention purge failed")

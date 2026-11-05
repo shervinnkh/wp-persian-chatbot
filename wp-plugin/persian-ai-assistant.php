@@ -3,7 +3,7 @@
  * Plugin Name:       دستیار هوشمند
  * Description:       سیستم مدیریت هوشمند وب‌سایت با هوش مصنوعی؛ شروع با چت‌بات مبتنی بر اطلاعات سایت و توسعه به ابزارهای مدیریتی بیشتر.
  * Version:           0.5.29
- * 
+
  * Update URI:         https://github.com/OWNER/REPO
  * Requires at least: 6.0
  * Requires PHP:      7.4

@@ -46,6 +46,12 @@ class DynamicTool:
     description: str = ""
 
 
+def stable_definition(definition: dict) -> dict:
+    """Canonical form of a tool definition: JSON keys sorted, so the same tool is serialized
+    byte-for-byte identically in every request (prompt caching needs an identical prefix)."""
+    return json.loads(json.dumps(definition, sort_keys=True, ensure_ascii=False))
+
+
 def product_tool_definition(fields: Sequence[str], *, max_products: int) -> dict:
     live = "; ".join(_FIELD_TEXT[f] for f in fields if f in _FIELD_TEXT)
     return {
@@ -151,11 +157,16 @@ class ToolKit:
             if live_product_datas or tools:
                 logger.warning("tools.disabled reason=PLUGIN_BASE_URL_empty")
             return kit
-        fields = [f for f in (live_product_datas or []) if f in _FIELD_TEXT]
+        requested = set(live_product_datas or [])
+        fields = [f for f in _FIELD_TEXT if f in requested]  # canonical order, not request order
         if fields:
             kit.product_fields = fields
             kit.definitions.append(
-                product_tool_definition(fields, max_products=settings.TOOLS_MAX_PRODUCTS_PER_CALL)
+                stable_definition(
+                    product_tool_definition(
+                        fields, max_products=settings.TOOLS_MAX_PRODUCTS_PER_CALL
+                    )
+                )
             )
         for raw in list(tools or [])[: settings.TOOLS_MAX_DYNAMIC]:
             try:
@@ -172,7 +183,12 @@ class ToolKit:
             if name in kit.dynamic:
                 continue
             kit.dynamic[name] = tool
-            kit.definitions.append(dynamic_tool_definition(name, tool))
+        # fixed order (by function name), whatever order the site listed its tools in
+        kit.dynamic = dict(sorted(kit.dynamic.items()))
+        kit.definitions.extend(
+            stable_definition(dynamic_tool_definition(name, tool))
+            for name, tool in kit.dynamic.items()
+        )
         return kit
 
     @property
