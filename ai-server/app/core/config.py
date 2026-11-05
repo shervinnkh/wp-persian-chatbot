@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     MAX_BODY_BYTES: int = Field(5_000_000, ge=1_000)
     REQUIRE_HTTPS: bool = True
     ALLOWED_IPS: str = ""
+    # Replay protection (S-6): a signed POST/PUT/PATCH/DELETE is accepted ONCE; an identical
+    # request (same signature) inside the timestamp window is rejected with 401 (reason=replayed).
+    # Only turn this off for debugging.
+    REPLAY_PROTECTION: bool = True
 
     # --- Paths ---
     DATA_DIR: Path = Path("data")
@@ -102,7 +106,8 @@ class Settings(BaseSettings):
 
     # --- Messaging (conversations + chat attachments) ---
     # WordPress site address. Chat attachments (image/voice) are downloaded ONLY from this
-    # host (SSRF protection). Empty = attachments are not downloaded.
+    # host (SSRF protection). Empty = attachments are not downloaded (development only:
+    # REQUIRED when APP_ENV=production, the server refuses to start without it).
     PLUGIN_BASE_URL: str = ""
     MESSAGE_ATTACHMENT_MAX_MB: int = Field(20, ge=1, le=100)
     MESSAGE_DOWNLOAD_TIMEOUT: int = Field(30, ge=5, le=300)
@@ -407,6 +412,11 @@ class Settings(BaseSettings):
                 raise ValueError("RELOAD must be false when APP_ENV=production")
         if self.APP_ENV == "production" and self.CALLBACK_ALLOW_PRIVATE_NETWORKS:
             raise ValueError("CALLBACK_ALLOW_PRIVATE_NETWORKS must be false in production")
+        if self.APP_ENV == "production" and not self.PLUGIN_BASE_URL:
+            raise ValueError(
+                "PLUGIN_BASE_URL is required when APP_ENV=production "
+                "(the WordPress site address, e.g. https://your-site.com)"
+            )
         if not (self.CHUNK_MIN_TOKENS < self.CHUNK_TARGET_TOKENS <= self.CHUNK_MAX_TOKENS):
             raise ValueError(
                 "Chunk sizes must satisfy CHUNK_MIN_TOKENS < CHUNK_TARGET_TOKENS "

@@ -7,6 +7,8 @@
 
 namespace PersianAIAssistant\Chat;
 
+use PersianAIAssistant\Apis\Client;
+
 defined( 'ABSPATH' ) || exit;
 
 final class ChatSettings {
@@ -63,6 +65,8 @@ final class ChatSettings {
 			'budget_daily_usd'    => 0,
 			'budget_monthly_usd'  => 0,
 			// قدیمی: فرم دیگر نشانشان نمی‌دهد ولی ReplyEngine هنوز می‌خواندشان؛ مقدارشان هنگام ذخیره حفظ می‌شود.
+			// آدرس و کلید اتصال به سرور هوش مصنوعی (S-5). روش اصلی: ثابت‌های PAIA_API_URL و PAIA_API_SECRET در wp-config.php؛
+			// با تعریف PAIA_API_SECRET مقدار api_key هرگز در دیتابیس ذخیره نمی‌شود (sanitize آن را خالی می‌کند).
 			'api_url'             => '',
 			'api_key'             => '',
 		);
@@ -175,8 +179,39 @@ final class ChatSettings {
 	 * @return array<string,mixed>
 	 */
 	public static function all(): array {
-		$saved = get_option( self::OPTION, array() );
-		return wp_parse_args( is_array( $saved ) ? $saved : array(), self::defaults() );
+		$saved  = get_option( self::OPTION, array() );
+		$merged = wp_parse_args( is_array( $saved ) ? $saved : array(), self::defaults() );
+		if ( Client::secret_from_constant() ) {
+			$merged['api_key'] = ''; // کلید فقط از wp-config.php خوانده می‌شود؛ مقدار قدیمیِ option به هیچ‌جا نمی‌رسد.
+		}
+
+		return $merged;
+	}
+
+	/**
+	 * اگر PAIA_API_SECRET در wp-config.php تعریف شده، کلیدِ احتمالاً ذخیره‌شدهٔ قبلی را از دیتابیس پاک می‌کند (S-5).
+	 * باید پیش از admin_init (ثبت sanitize_callback) صدا زده شود تا update_option وارد sanitize نشود.
+	 */
+	public static function scrub_stored_key(): void {
+		if ( ! Client::secret_from_constant() ) {
+			return;
+		}
+		$saved = get_option( self::OPTION, null );
+		if ( is_array( $saved ) && '' !== (string) ( $saved['api_key'] ?? '' ) ) {
+			$saved['api_key'] = '';
+			update_option( self::OPTION, $saved );
+		}
+	}
+
+	/**
+	 * کلید اتصال به‌صورت ماسک‌شده برای نمایش (•••••••• + ۴ نویسهٔ آخر)؛ خالی اگر کلیدی نیست یا از ثابت wp-config.php می‌آید.
+	 */
+	public static function masked_key(): string {
+		if ( Client::secret_from_constant() ) {
+			return '';
+		}
+
+		return Client::mask_secret( (string) self::get( 'api_key', '' ) );
 	}
 
 	/**
@@ -304,7 +339,18 @@ final class ChatSettings {
 		$prev           = get_option( self::OPTION, array() );
 		$prev           = is_array( $prev ) ? $prev : array();
 		$out['api_url'] = isset( $in['api_url'] ) ? esc_url_raw( trim( (string) $in['api_url'] ) ) : ( isset( $prev['api_url'] ) ? (string) $prev['api_url'] : '' );
-		$out['api_key'] = isset( $in['api_key'] ) ? sanitize_text_field( (string) $in['api_key'] ) : ( isset( $prev['api_key'] ) ? (string) $prev['api_key'] : '' );
+		$out['api_key'] = isset( $prev['api_key'] ) ? (string) $prev['api_key'] : '';
+		if ( Client::secret_from_constant() ) {
+			$out['api_key'] = ''; // S-5: کلید از ثابت wp-config.php می‌آید؛ هیچ مقداری در option نگه داشته نمی‌شود.
+		} elseif ( ! empty( $in['api_key_clear'] ) ) {
+			$out['api_key'] = ''; // تیک «حذف کلید ذخیره‌شده».
+		} elseif ( isset( $in['api_key'] ) ) {
+			$new = trim( sanitize_text_field( (string) $in['api_key'] ) );
+			// فیلد خالی = حفظ مقدار قبلی؛ مقدار ماسک‌شده (••••) هم هرگز به‌عنوان کلید جدید ذخیره نمی‌شود.
+			if ( '' !== $new && false === strpos( $new, '•' ) ) {
+				$out['api_key'] = $new;
+			}
+		}
 
 		// تم دارک.
 		$out['dark_enabled'] = empty( $in['dark_enabled'] ) ? 0 : 1;

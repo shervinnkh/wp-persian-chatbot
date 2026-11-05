@@ -134,12 +134,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         answer_task = asyncio.create_task(
             messaging.answers.run_loop(answer_stop), name="answer-loop"
         )
+    # Replay guard (S-6): its table is written by every signed POST/PUT/PATCH/DELETE; this task
+    # deletes the expired rows every few minutes (works even when the ingestion worker runs in
+    # another process).
+    replay_stop = asyncio.Event()
+    replay_task: asyncio.Task | None = None
+    if settings.REPLAY_PROTECTION:
+        guard = getattr(app.state, "replay_guard", None)
+        if guard is None and getattr(messaging, "db", None) is not None:
+            from app.core.replay import ReplayGuard
+
+            guard = ReplayGuard(messaging.db)
+            app.state.replay_guard = guard
+        if guard is not None:
+            replay_task = asyncio.create_task(guard.run_janitor(replay_stop), name="replay-janitor")
     snap_stop = asyncio.Event()
     snap_task = start_snapshots(
         settings, db=messaging.db if messaging is not None else None, stop=snap_stop
     )
     yield
     await stop_snapshots(snap_task, snap_stop)
+    if replay_task is not None:
+        replay_stop.set()
+        try:
+            await asyncio.wait_for(replay_task, timeout=10)
+        except Exception:  # noqa: BLE001
+            replay_task.cancel()
     if answer_task is not None:
         answer_stop.set()
         messaging.answers.notify()

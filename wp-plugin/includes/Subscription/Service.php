@@ -38,6 +38,51 @@ final class Service {
 
 		if ( ! $res['ok'] || empty( $res['body'] ) ) {
 			$not_found = 404 === (int) $res['code'];
+
+		if ( '' === $url ) {
+			$state = self::demo();
+			LogStore::add( 'info', __( 'همگام‌سازی اشتراک: آدرس سرویس تنظیم نشده؛ داده‌ی نمایشی نشان داده شد.', 'persian-ai-assistant' ), array( 'endpoint' => 'subscription' ) );
+		} else {
+			$endpoint = (string) apply_filters( 'paia_subscription_url', untrailingslashit( $url ) . '/subscription' );
+			$key      = \PersianAIAssistant\Apis\Client::shared_secret(); // ثابت PAIA_API_SECRET یا کلید ذخیره‌شده (S-5)
+			$started  = microtime( true );
+
+			$response = wp_remote_get(
+				$endpoint,
+				array(
+					'timeout' => 15,
+					'headers' => array_filter(
+						array(
+							'Accept'        => 'application/json',
+							'Authorization' => '' !== $key ? 'Bearer ' . $key : '',
+						)
+					),
+				)
+			);
+
+			$ms   = (int) round( ( microtime( true ) - $started ) * 1000 );
+			$code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+			$json = is_wp_error( $response ) ? null : json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+			if ( is_wp_error( $response ) || 200 !== $code || ! is_array( $json ) ) {
+				$error = is_wp_error( $response ) ? $response->get_error_message() : 'HTTP ' . $code;
+				LogStore::add(
+					'error',
+					__( 'همگام‌سازی اشتراک ناموفق بود.', 'persian-ai-assistant' ),
+					array(
+						'method'      => 'GET',
+						'endpoint'    => $endpoint,
+						'http_status' => $code,
+						'duration_ms' => $ms,
+						'error'       => $error,
+					)
+				);
+
+				return new \WP_Error( 'paia_sync_failed', __( 'اتصال به سرور هوش مصنوعی برقرار نشد یا پاسخ نامعتبر بود.', 'persian-ai-assistant' ), array( 'status' => 502 ) );
+			}
+
+			$state = self::normalize( $json );
+			
 			LogStore::add(
 				'error',
 				$not_found

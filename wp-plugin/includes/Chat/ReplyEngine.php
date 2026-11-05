@@ -340,4 +340,72 @@ final class ReplyEngine {
 		}
 		return $out;
 	}
+
+
+	/**
+	 * قرارداد (فعلاً پیشنهادی): POST JSON به api_url
+	 *   { visitor_id, user_id, name, contact, message, attachment:{type,url}|null,
+	 *     history:[{role,text}], site:{name,url} }
+	 * پاسخ مورد انتظار: { "reply": "...", "suggestions": ["...", "..."] }
+	 *
+	 * @param array<string,mixed> $ctx زمینه.
+	 * @return array<string,mixed>|null
+	 */
+	private function remote( array $ctx ): ?array {
+		$url = (string) ChatSettings::get( 'api_url', '' );
+		if ( '' === $url ) {
+			return null;
+		}
+		$headers = array( 'Content-Type' => 'application/json' );
+		$key     = \PersianAIAssistant\Apis\Client::shared_secret(); // ثابت PAIA_API_SECRET یا کلید ذخیره‌شده (S-5)
+		if ( '' !== $key ) {
+			$headers['Authorization'] = 'Bearer ' . $key;
+		}
+
+		$res = wp_remote_post(
+			$url,
+			array(
+				'timeout' => 25,
+				'headers' => $headers,
+				'body'    => wp_json_encode(
+					array(
+						'visitor_id' => $ctx['visitor_uid'] ?? '',
+						'user_id'    => $ctx['user_id'] ?? 0,
+						'name'       => $ctx['name'] ?? '',
+						'contact'    => $ctx['contact'] ?? '',
+						'message'    => $ctx['message'] ?? '',
+						'attachment' => $ctx['attachment'] ?? null,
+						'history'    => $ctx['history'] ?? array(),
+						'site'       => array(
+							'name'        => ChatSettings::site_title(),
+							'url'         => home_url( '/' ),
+							'description' => (string) ChatSettings::get( 'site_desc', '' ),
+						),
+						'ai'         => array(
+							'service' => (string) ChatSettings::get( 'ai_service', 'gpt-5-4' ),
+							'tone'    => (string) ChatSettings::get( 'tone', 'formal' ),
+							'notes'   => (string) ChatSettings::get( 'important_notes', '' ),
+						),
+					),
+					JSON_UNESCAPED_UNICODE
+				),
+			)
+		);
+		if ( is_wp_error( $res ) || (int) wp_remote_retrieve_response_code( $res ) >= 300 ) {
+			return null;
+		}
+		$data = json_decode( wp_remote_retrieve_body( $res ), true );
+		if ( ! is_array( $data ) ) {
+			return null;
+		}
+		$text = $data['reply'] ?? ( $data['answer'] ?? ( $data['text'] ?? '' ) );
+		if ( ! is_string( $text ) || '' === trim( $text ) ) {
+			return null;
+		}
+		return array(
+			'text'        => $text,
+			'suggestions' => $data['suggestions'] ?? array(),
+		);
+	}
+	
 }

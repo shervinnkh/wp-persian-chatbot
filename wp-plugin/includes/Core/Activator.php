@@ -14,6 +14,9 @@ final class Activator {
 			add_option( 'paia_installed_at', time(), '', false );
 		}
 
+		// پاک‌سازی روزانهٔ داده‌های چت (S-8).
+		\PersianAIAssistant\Chat\Retention::schedule();
+
 		do_action( 'paia_activated' );
 	}
 }

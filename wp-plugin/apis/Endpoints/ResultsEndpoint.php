@@ -29,7 +29,7 @@ final class ResultsEndpoint extends AbstractEndpoint {
 			'/ai/results',
 			array(
 				'methods'             => \WP_REST_Server::CREATABLE,
-				'callback'            => array( $this, 'handle' ),
+				'callback'            => array( $this, 'dispatch' ),
 				'permission_callback' => array( $this, 'authorize' ),
 			)
 		);
@@ -66,20 +66,10 @@ final class ResultsEndpoint extends AbstractEndpoint {
 			);
 		}
 
-		$delivery = $this->clean_token( (string) ( $request->get_header( Signature::HEADER_DELIVERY ) ?: ( $json['delivery_id'] ?? '' ) ) );
+		// شناسهٔ ارسال را Signature::verify اجباری و AbstractEndpoint::dispatch (S-6) تکراری‌بودنش را بررسی کرده است.
+		$delivery = Signature::delivery_id( $request );
+		$delivery = is_string( $delivery ) ? $delivery : '';
 		$job_id   = $this->clean_token( (string) ( $json['job_id'] ?? '' ) );
-		$dedupe   = '' !== $delivery ? 'paia_dlv_' . md5( $delivery ) : '';
-
-		// تلاش مجدد همان ارسال (چون سرور پاسخ قبلی را نگرفته بود): دوباره پردازش نمی‌شود.
-		if ( '' !== $dedupe && false !== get_transient( $dedupe ) ) {
-			return $this->respond(
-				array(
-					'ok'          => true,
-					'duplicate'   => true,
-					'delivery_id' => $delivery,
-				)
-			);
-		}
 
 		// آیتم‌های kind = chat_answer و chat_messages_saved مربوط به چت‌اند (نه نتیجهٔ رکورد): جدا می‌شوند.
 		$answers = array();
@@ -117,10 +107,6 @@ final class ResultsEndpoint extends AbstractEndpoint {
 			);
 
 			return new \WP_Error( 'paia_internal', __( 'خطای داخلی در افزونه.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
-		}
-
-		if ( '' !== $dedupe ) {
-			set_transient( $dedupe, 1, 15 * MINUTE_IN_SECONDS );
 		}
 
 		if ( ! $records ) {

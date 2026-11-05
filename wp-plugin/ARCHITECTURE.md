@@ -759,7 +759,6 @@ persian-ai-assistant/
 - **صفحه‌بندی:** `GET /chat/init` فقط ۱۰ پیام آخر (`ChatController::PAGE_SIZE`) + `has_more`؛ `GET /chat/history?before=ID&limit=10` ← `ChatStore::page()`. با اسکرول به بالا (`scrollTop < 80`) ۱۰ پیام قبلی بالا اضافه می‌شود (نشانگر شناور `.pc-older`، جای اسکرول حفظ می‌شود)؛ اگر ۱۰ پیام صفحه را پر نکند خودکار ادامه می‌دهد (`maybeFill`). `poll` پارامتر `limit` دارد و پیام‌های قدیمی‌تر از آخرین ردیف بارگذاری‌شده را به لیست اضافه نمی‌کند.
 - **محدودیت:** عکس‌های پیام‌های قدیمیِ بالا ممکن است هنگام لود شدن جای اسکرول را کمی جابه‌جا کنند (مرورگرهای بدون scroll-anchoring).
 
-<<<<<<< HEAD
 ## ۳۷. نسخهٔ ۰.۵.۲۶: پنل مانیتورینگ (سرور ۰.۷.۱)
 
 زیرمنوی «پنل مانیتورینگ» (`paia-monitoring`) یک صفحهٔ کامل و **بدون تب** است با همان پوستهٔ تیره/کارت/دکمهٔ صفحه‌های چت‌بات. هر بار که باز شود (یا بازه/تقویم عوض شود یا «به‌روزرسانی» زده شود) لودینگ نشان می‌دهد، گزارش را از سرور می‌گیرد و کل صفحه را می‌سازد.
@@ -769,7 +768,7 @@ persian-ai-assistant/
 - **بخش‌های صفحه (همه زیر هم):** وضعیت کلی (سالم/نیازمند توجه/مشکل جدی + فهرست دلیل‌ها) ← نمای کلی (KPIها) ← روند در طول بازه (۹ نمودار) ← گفتگو و پاسخ‌ها ← هوش مصنوعی/توکن/هزینه ← RAG ← ابزارها و API سایت ← ingestion ← callback ← API و امنیت ← خطاها ← منابع سرور/صف‌ها/ذخیره‌سازی ← وضعیت خود مانیتورینگ.
 - **برآورد هزینه:** با فیلتر `paia_monitor_prices` (`array( 'مدل' => array( ورودی, خروجی ) )` به‌ازای هر ۱ میلیون توکن) به سرور فرستاده می‌شود؛ بدون آن بخش هزینه نمایش داده نمی‌شود.
 - **قانون:** مقدار تازه‌ای که صفحه نشان می‌دهد فقط از `summary`/`series` سرور می‌آید؛ هیچ آماری در وردپرس ذخیره یا محاسبه نمی‌شود.
-=======
+
 
 ---
 
@@ -796,9 +795,20 @@ persian-ai-assistant/
 - هر درخواست `POST /v1/chat/messages/batch` حالا همیشه `callback` (همان `Callback::descriptor()`) و `request_id` دارد و هر پیام `external_id` = شناسهٔ ردیف پیام در سایت.
 - سرور بلافاصله پس از ذخیرهٔ پیام‌ها و **قبل از تولید پاسخ** یک وب‌هوک با آیتم `kind = "chat_messages_saved"` می‌فرستد (`conversation_id`، `visitor_uid`، `received_count`، `total_count`، `messages[{index, message_id, external_id}]`). وب‌هوک دوم، فقط وقتی `generate_ai_answer` بوده، خودِ پاسخ است (`kind = "chat_answer"`).
 - `ResultsEndpoint` آیتم‌های `chat_messages_saved` را جدا می‌کند و `ChatAnswers::apply_saved` همهٔ `external_id`ها را با `ChatStore::mark_sent` به `ai_sent = 1` تبدیل می‌کند (تکرار وب‌هوک بی‌ضرر است). این مسیر مستقل از پاسخ HTTP درخواست است: حتی اگر timeout شود یا تولید پاسخ شکست بخورد، سایت می‌داند چه چیزی در سرور ثبت شده و آن را دوباره نمی‌فرستد. مسیر `received_count` در پاسخ HTTP هم مثل قبل کار می‌کند.
->>>>>>> send-groupe-messages
+
+
 
 ### 0.5.29 (امنیت S-1 تا S-3 — افزونه؛ سرور 0.8.0)
 - **S-1:** `Support\ClientIp` (پیش‌فرض `REMOTE_ADDR`؛ ثابت اختیاری `PAIA_IP_HEADER` در wp-config؛ `X-Forwarded-For` هرگز)، جدول `{prefix}paia_rl` (ChatSchema 1.5.0 + Upgrader) با شمارش اتمیک (`Chat\RateLimit`)، IP فقط به‌صورت HMAC (`wp_salt('auth')`). فقط `chat/init` بازدیدکنندهٔ تازه می‌سازد (۱۰ در ساعت برای هر IP)؛ بقیه با uid نامعتبر `400 paia_bad_visitor` (ویجت یک‌بار init و تکرار درخواست). پیام: ۳۰/دقیقه برای IP و ۱۰/دقیقه برای uid ← `429` + `Retry-After`. بدنهٔ سرور: `client_ip`. پاک‌سازی ردیف‌های قدیمی به‌صورت تصادفی (۱٪ درخواست‌ها).
 - **S-2:** تنظیمات `budget_daily_usd` / `budget_monthly_usd` (تب تنظیمات ← بخش «سرویس هوش مصنوعی»، ذخیره با دکمهٔ «ذخیرهٔ تغییرات») و ارسال `budget` در بدنه؛ endpoint جدید `POST /paia/v1/ai/budget` (`Apis\Endpoints\BudgetEndpoint`) ← option `paia_budget_state` (autoload=no)؛ بنر زرد/قرمز بالای تب «عمومی» فقط با `get_option`؛ `budget_exceeded` (پاسخ HTTP یا callback) همان دوره را `limit100` می‌کند؛ پیام بی‌پاسخ برای پشتیبان انسانی می‌ماند.
 - **S-3:** `ReplyEngine::remote()` و شاخهٔ قدیمی حذف شد؛ `Subscription\Service::sync()` با `Apis\Client::request('GET','/v1/subscription',null,15,1)`؛ `demo()` حذف شد؛ ۴۰۴/خطا ← «این قابلیت هنوز در سرور فعال نیست». هیچ هدر Authorization قدیمی در افزونه نیست.
+
+
+---
+## تغییرات امنیتی افزونه ۰.۵.۲۹ (S-4 ، S-5 ، S-6 ، S-8)
+- **S-4 آپدیتر GitHub**: `Updates/Updater.php` از `GET api.github.com/repos/{repo}/releases?per_page=10` می‌خواند؛ اولین release غیر draft/prerelease با تگ `plugin-v*` و دو asset (`persian-ai-assistant.zip` و `.sha256`)؛ download فقط از `https://github.com/{repo}/releases/download/`؛ کش ۱۲ ساعته `paia_update_info` + آخرین اطلاعات سالم در option `paia_update_info_last` برای خطا/۴۰۳/۴۲۹؛ فیلتر `upgrader_pre_download` دانلود و `hash_equals` با sha256؛ نصب خودکار خاموش. ثابت `GITHUB_REPO = 'OWNER/REPO'` (override: `PAIA_GITHUB_REPO`)؛ تا وقتی OWNER/REPO است آپدیتر خاموش است. هدر `Update URI`. ثابت‌ها/URL دامنهٔ قدیمی حذف شد. Action: `.github/workflows/plugin-release.yml` (فایل جدا).
+- **S-5 کلید**: `PAIA_API_SECRET` اصلی؛ با تعریفش `api_key` در option پاک (`ChatSettings::scrub_stored_key`) و در UI غیرفعال با متن «از wp-config.php خوانده می‌شود». کارت جدید «اتصال به سرور هوش مصنوعی» در تنظیمات (کلید ماسک‌شده، خالی=حفظ، تیک حذف). ثابت‌های `PAIA_CALLBACK_SECRET` (`Client::callback_secret`) و `PAIA_FILE_LINK_SECRET` (`Client::file_link_secret`).
+- **S-6 replay (افزونه)**: هر POST ورودی باید `X-PAIA-Delivery` یا `X-PAIA-Request` داشته باشد (۴۰۱ `paia_missing_delivery`)؛ اگر بدنه `delivery_id`/`request_id` دارد باید با هدر یکی باشد و همان معیار است. `AbstractEndpoint::dispatch` برای Results/LiveProducts/LiveTool: شناسهٔ تکراری ← `200 {"duplicate":true}`؛ ثبت `paia_dlv_`+md5 به مدت ۱۵ دقیقه پس از پردازش موفق. `Client::request` در هر تلاش زمان یکتا می‌گیرد.
+- **S-8**: `Chat\Uploads` پوشهٔ `uploads/paia-chat` را با `index.php` و `.htaccess` محافظت می‌کند؛ magic bytes صوت (۴۱۵ در ناهمخوانی)؛ `Chat\Retention` + cron روزانهٔ `paia_daily_cleanup` (پیام/پیوست > ۹۰ روز، بازدیدکنندهٔ بدون پیام > ۷ روز، transientهای `paia_rl_`/`paia_dlv_` منقضی، action `paia_retention_run`)؛ ثبت در Activator و حذف در Deactivator؛ `uninstall.php` پوشهٔ paia-chat، جدول `paia_rl`، option `paia_budget_state` را پاک می‌کند.
+- نکته: S-1 (جدول `paia_rl`) در این کد نبود؛ محدودیت نرخ فعلی transient `paia_rl_*` است و پاک‌سازی‌اش پوشش داده شد.
+
