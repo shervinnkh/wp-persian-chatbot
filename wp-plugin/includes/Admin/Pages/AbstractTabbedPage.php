@@ -1,9 +1,9 @@
 <?php
-namespace PersianAIAssistant\Admin\Pages;
+namespace PersianWPChatbot\Admin\Pages;
 
-use PersianAIAssistant\Admin\Chatbot\Tabs\TabInterface;
-use PersianAIAssistant\Support\Status;
-use PersianAIAssistant\Support\View;
+use PersianWPChatbot\Admin\Chatbot\Tabs\TabInterface;
+use PersianWPChatbot\Support\Status;
+use PersianWPChatbot\Support\View;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
  * پایهٔ صفحه‌های افزونه که از پوستهٔ تیره (سربرگ + تب‌های اختیاری) استفاده می‌کنند.
  *
  * - هر صفحه فهرست تب‌هایش را در build_tabs() می‌دهد؛ با یک تب، نوار تب نمایش داده نمی‌شود و محتوا مستقیم می‌آید.
- * - با فیلتر paia_page_tabs (آرایهٔ تب‌ها، slug صفحه) می‌توان تب اضافه/حذف کرد.
+ * - با فیلتر pwc_page_tabs (آرایهٔ تب‌ها، slug صفحه) می‌توان تب اضافه/حذف کرد.
  * - وقتی چت‌بات خاموش است و صفحه «قفل‌شونده» باشد، محتوا ساخته نمی‌شود (هیچ کوئری‌ای اجرا نمی‌شود).
  */
 abstract class AbstractTabbedPage implements PageInterface {
@@ -46,7 +46,7 @@ abstract class AbstractTabbedPage implements PageInterface {
 	 * @return TabInterface[]
 	 */
 	private function tabs(): array {
-		$tabs = (array) apply_filters( 'paia_page_tabs', $this->build_tabs(), $this->slug() );
+		$tabs = (array) apply_filters( 'pwc_page_tabs', $this->build_tabs(), $this->slug() );
 
 		return array_values(
 			array_filter(

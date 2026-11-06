@@ -5,17 +5,17 @@
  * ویجت با هر پیام page_url و page_title را می‌فرستد؛ اینجا کوتاه نگه داشته می‌شود (transient، یک روز) و فقط وقتی
  * پیام به سرور می‌رود که generate_ai_answer = true است در پراپمت می‌آید (ReplyEngine). بدون هیچ ذخیرهٔ دائمی.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 defined( 'ABSPATH' ) || exit;
 
 final class PageContext {
 
 	private static function key( string $uid ): string {
-		return 'paia_page_' . md5( $uid );
+		return 'pwc_page_' . md5( $uid );
 	}
 
 	/**

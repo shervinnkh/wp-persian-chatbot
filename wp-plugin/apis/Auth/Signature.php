@@ -1,8 +1,8 @@
 <?php
-namespace PersianAIAssistant\Apis\Auth;
+namespace PersianWPChatbot\Apis\Auth;
 
-use PersianAIAssistant\Apis\Client;
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Apis\Client;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -10,26 +10,26 @@ defined( 'ABSPATH' ) || exit;
  * احراز هویت درخواست‌های ورودی از سرور هوش مصنوعی (امضای HMAC، مثل وب‌هوک‌های Stripe/GitHub).
  *
  * سرور باید این سه هدر را بفرستد:
- *   X-PAIA-Timestamp : زمان یونیکس (ثانیه، UTC)
- *   X-PAIA-Signature : sha256=<hex>  که hex = HMAC_SHA256( کلید , "{timestamp}.{بدنهٔ خام} )
- *   X-PAIA-Delivery  : شناسهٔ یکتای هر ارسال (نتیجه‌ها) — یا —
- *   X-PAIA-Request   : شناسهٔ یکتای هر درخواست (ابزارهای زندهٔ محصول/متن)
+ *   X-PWC-Timestamp : زمان یونیکس (ثانیه، UTC)
+ *   X-PWC-Signature : sha256=<hex>  که hex = HMAC_SHA256( کلید , "{timestamp}.{بدنهٔ خام} )
+ *   X-PWC-Delivery  : شناسهٔ یکتای هر ارسال (نتیجه‌ها) — یا —
+ *   X-PWC-Request   : شناسهٔ یکتای هر درخواست (ابزارهای زندهٔ محصول/متن)
  *
- * «کلید» ثابت PAIA_CALLBACK_SECRET است و اگر تعریف نشده، همان کلید مشترک (PAIA_API_SECRET / api_key). کلید هرگز روی شبکه نمی‌رود.
+ * «کلید» ثابت PWC_CALLBACK_SECRET است و اگر تعریف نشده، همان کلید مشترک (PWC_API_SECRET / api_key). کلید هرگز روی شبکه نمی‌رود.
  *
  * حفاظت replay (S-6):
  *   • زمان‌سنج: درخواست قدیمی‌تر/جلوتر از ۵ دقیقه رد می‌شود.
  *   • هر درخواست POST باید یکی از دو هدر شناسه را داشته باشد؛ نبودنش ← 401. اگر بدنهٔ امضاشده هم شناسه دارد
  *     (delivery_id / request_id)، باید با هدر یکی باشد (هدر امضا نمی‌شود، بدنه می‌شود) و همان شناسهٔ امضاشده معیار است.
- *   • شناسهٔ پردازش‌شده ۱۵ دقیقه به‌صورت transient (paia_dlv_…) ثبت می‌شود؛ تکراری ← 200 {"duplicate":true} بدون پردازش
+ *   • شناسهٔ پردازش‌شده ۱۵ دقیقه به‌صورت transient (pwc_dlv_…) ثبت می‌شود؛ تکراری ← 200 {"duplicate":true} بدون پردازش
  *     دوباره (AbstractEndpoint::dispatch برای همهٔ endpointهای POST).
  */
 final class Signature {
 
-	public const HEADER_TIMESTAMP = 'X-PAIA-Timestamp';
-	public const HEADER_SIGNATURE = 'X-PAIA-Signature';
-	public const HEADER_DELIVERY  = 'X-PAIA-Delivery';
-	public const HEADER_REQUEST   = 'X-PAIA-Request';
+	public const HEADER_TIMESTAMP = 'X-PWC-Timestamp';
+	public const HEADER_SIGNATURE = 'X-PWC-Signature';
+	public const HEADER_DELIVERY  = 'X-PWC-Delivery';
+	public const HEADER_REQUEST   = 'X-PWC-Request';
 
 	/** عمر ثبت شناسهٔ پردازش‌شده (بیشتر از ۲ × TOLERANCE تا replay داخل بازهٔ زمانی هم گرفته شود). */
 	public const DELIVERY_TTL = 15 * MINUTE_IN_SECONDS;
@@ -37,13 +37,13 @@ final class Signature {
 	/** حداکثر اختلاف مجاز ساعت سرور و سایت (ثانیه). */
 	public const TOLERANCE = 300;
 
-	private const FAIL_THROTTLE = 'paia_api_authfail';
+	private const FAIL_THROTTLE = 'pwc_api_authfail';
 
 	/**
-	 * کلید امضا؛ پیش‌فرض ثابت PAIA_CALLBACK_SECRET و در نبودش کلید مشترک. فیلتر paia_api_secret برای جداکردن کلید امضا از کلید دسترسی.
+	 * کلید امضا؛ پیش‌فرض ثابت PWC_CALLBACK_SECRET و در نبودش کلید مشترک. فیلتر pwc_api_secret برای جداکردن کلید امضا از کلید دسترسی.
 	 */
 	public static function secret(): string {
-		return (string) apply_filters( 'paia_api_secret', Client::callback_secret() );
+		return (string) apply_filters( 'pwc_api_secret', Client::callback_secret() );
 	}
 
 	public static function sign( string $timestamp, string $body, string $secret ): string {
@@ -57,8 +57,8 @@ final class Signature {
 		$secret = self::secret();
 		if ( '' === $secret ) {
 			return new \WP_Error(
-				'paia_not_configured',
-				__( 'کلید اتصال (api_key) در افزونه تنظیم نشده است.', 'persian-ai-assistant' ),
+				'pwc_not_configured',
+				__( 'کلید اتصال (api_key) در افزونه تنظیم نشده است.', 'persian-wp-chatbot' ),
 				array( 'status' => 503 )
 			);
 		}
@@ -67,20 +67,20 @@ final class Signature {
 		$signature = strtolower( trim( (string) $request->get_header( self::HEADER_SIGNATURE ) ) );
 
 		if ( '' === $timestamp || '' === $signature || ! ctype_digit( $timestamp ) ) {
-			return self::reject( 'paia_bad_signature', __( 'هدرهای امضا ارسال نشده یا نامعتبرند.', 'persian-ai-assistant' ) );
+			return self::reject( 'pwc_bad_signature', __( 'هدرهای امضا ارسال نشده یا نامعتبرند.', 'persian-wp-chatbot' ) );
 		}
 
 		if ( abs( time() - (int) $timestamp ) > self::TOLERANCE ) {
 			return self::reject(
-				'paia_stale_timestamp',
-				__( 'زمان درخواست با ساعت سایت اختلاف زیادی دارد.', 'persian-ai-assistant' ),
+				'pwc_stale_timestamp',
+				__( 'زمان درخواست با ساعت سایت اختلاف زیادی دارد.', 'persian-wp-chatbot' ),
 				array( 'server_time' => time() )
 			);
 		}
 
 		$expected = self::sign( $timestamp, (string) $request->get_body(), $secret );
 		if ( ! hash_equals( $expected, $signature ) ) {
-			return self::reject( 'paia_bad_signature', __( 'امضای درخواست معتبر نیست.', 'persian-ai-assistant' ) );
+			return self::reject( 'pwc_bad_signature', __( 'امضای درخواست معتبر نیست.', 'persian-wp-chatbot' ) );
 		}
 
 		// S-6: هر POST باید شناسهٔ یکتا داشته باشد (برای دفع replay؛ GET مثل ping بی‌اثر است).
@@ -110,7 +110,7 @@ final class Signature {
 				return '';
 			}
 
-			return new \WP_Error( 'paia_missing_delivery', __( 'شناسهٔ درخواست (X-PAIA-Delivery یا X-PAIA-Request) ارسال نشده است.', 'persian-ai-assistant' ) );
+			return new \WP_Error( 'pwc_missing_delivery', __( 'شناسهٔ درخواست (X-PWC-Delivery یا X-PWC-Request) ارسال نشده است.', 'persian-wp-chatbot' ) );
 		}
 
 		$json = json_decode( (string) $request->get_body(), true );
@@ -119,7 +119,7 @@ final class Signature {
 				if ( isset( $json[ $field ] ) && is_string( $json[ $field ] ) && '' !== $json[ $field ] ) {
 					$signed = self::clean_id( $json[ $field ] );
 					if ( '' !== $signed && ! hash_equals( $signed, $header ) ) {
-						return new \WP_Error( 'paia_bad_delivery', __( 'شناسهٔ هدر با شناسهٔ داخل بدنه یکی نیست.', 'persian-ai-assistant' ) );
+						return new \WP_Error( 'pwc_bad_delivery', __( 'شناسهٔ هدر با شناسهٔ داخل بدنه یکی نیست.', 'persian-wp-chatbot' ) );
 					}
 
 					return $signed;
@@ -137,13 +137,13 @@ final class Signature {
 
 	/** آیا این شناسه قبلاً با موفقیت پردازش شده است؟ */
 	public static function seen( string $id ): bool {
-		return '' !== $id && false !== get_transient( 'paia_dlv_' . md5( $id ) );
+		return '' !== $id && false !== get_transient( 'pwc_dlv_' . md5( $id ) );
 	}
 
 	/** ثبت شناسهٔ پردازش‌شده (۱۵ دقیقه). */
 	public static function remember( string $id ): void {
 		if ( '' !== $id ) {
-			set_transient( 'paia_dlv_' . md5( $id ), 1, self::DELIVERY_TTL );
+			set_transient( 'pwc_dlv_' . md5( $id ), 1, self::DELIVERY_TTL );
 		}
 	}
 
@@ -156,7 +156,7 @@ final class Signature {
 			set_transient( self::FAIL_THROTTLE, 1, MINUTE_IN_SECONDS );
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'درخواست ورودی از سرور هوش مصنوعی رد شد (احراز هویت ناموفق).', 'persian-ai-assistant' ),
+				__( 'درخواست ورودی از سرور هوش مصنوعی رد شد (احراز هویت ناموفق).', 'persian-wp-chatbot' ),
 				array(
 					'method'      => 'POST',
 					'endpoint'    => isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput

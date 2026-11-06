@@ -1,9 +1,9 @@
-/* ویجت چت سمت سایت — همهٔ قواعد زیر .paia-chat */
-@font-face{font-family:"PAIA Vazirmatn";font-weight:400;font-display:swap;src:url("../fonts/Vazirmatn-Regular.woff2") format("woff2")}
-@font-face{font-family:"PAIA Vazirmatn";font-weight:500;font-display:swap;src:url("../fonts/Vazirmatn-Medium.woff2") format("woff2")}
-@font-face{font-family:"PAIA Vazirmatn";font-weight:700;font-display:swap;src:url("../fonts/Vazirmatn-Bold.woff2") format("woff2")}
+/* ویجت چت سمت سایت — همهٔ قواعد زیر .pwc-chat */
+@font-face{font-family:"PWC Vazirmatn";font-weight:400;font-display:swap;src:url("../fonts/Vazirmatn-Regular.woff2") format("woff2")}
+@font-face{font-family:"PWC Vazirmatn";font-weight:500;font-display:swap;src:url("../fonts/Vazirmatn-Medium.woff2") format("woff2")}
+@font-face{font-family:"PWC Vazirmatn";font-weight:700;font-display:swap;src:url("../fonts/Vazirmatn-Bold.woff2") format("woff2")}
 
-.paia-chat{
+.pwc-chat{
 	/* رنگ‌های تم روشن؛ سایت آن‌ها را به‌صورت --pcl-* می‌دهد (در ادمین مستقیماً --pc-* ست می‌شود). */
 	--pc-primary:var(--pcl-primary,#6D28D9);--pc-accent:var(--pcl-accent,#06B6D4);--pc-surface:var(--pcl-surface,#F8F7FF);--pc-text:var(--pcl-text,#1E1B3A);--pc-field:var(--pcl-field,#E9E5FA);
 	--pc-pop:#fff;--pc-pop-text:#fff;
@@ -14,257 +14,257 @@
 	--pc-shadow:0 24px 60px -12px color-mix(in srgb,var(--pc-primary) 38%,transparent),0 8px 24px -8px rgba(15,23,42,.25);
 	--pc-ease:cubic-bezier(.22,1,.36,1);
 	position:fixed;bottom:22px;z-index:99999;width:64px;height:64px;
-	font-family:"PAIA Vazirmatn",Tahoma,system-ui,sans-serif;font-size:14px;line-height:1.7;color:var(--pc-text);
+	font-family:"PWC Vazirmatn",Tahoma,system-ui,sans-serif;font-size:14px;line-height:1.7;color:var(--pc-text);
 	-webkit-font-smoothing:antialiased;
 }
 /* تم دارک: وقتی ویجت data-theme="dark" می‌گیرد (widget.js فقط اگر در تنظیمات فعال باشد و صفحهٔ سایت تیره باشد). */
-.paia-chat[data-theme="dark"]{
+.pwc-chat[data-theme="dark"]{
 	--pc-primary:var(--pcd-primary,#8B5CF6);--pc-accent:var(--pcd-accent,#22D3EE);--pc-surface:var(--pcd-surface,#0F172A);--pc-text:var(--pcd-text,#E5E7EB);--pc-field:var(--pcd-field,#1E293B);
 	--pc-card:color-mix(in srgb,var(--pc-surface) 88%,#fff);
 	--pc-pop:color-mix(in srgb,var(--pc-surface) 86%,#fff);--pc-pop-text:var(--pc-surface);
 	--pc-shadow:0 24px 60px -12px rgba(0,0,0,.65),0 8px 24px -8px rgba(0,0,0,.5);
 	color-scheme:dark;
 }
-.paia-chat[data-theme="dark"] .pc-toast{background:var(--pc-pop);color:var(--pc-text)}
-.paia-chat[data-theme="dark"] .pc-input::placeholder,.paia-chat[data-theme="dark"] textarea::placeholder{color:color-mix(in srgb,var(--pc-text) 50%,transparent)}
-.paia-chat[data-position="right"]{right:22px}
-.paia-chat[data-position="left"]{left:22px}
-.paia-chat *,.paia-chat *::before,.paia-chat *::after{box-sizing:border-box}
-.paia-chat button,.paia-chat input,.paia-chat textarea{font:inherit;color:inherit;margin:0}
-.paia-chat button{cursor:pointer;border:0;background:none;padding:0}
-.paia-chat :focus-visible{outline:2px solid var(--pc-accent);outline-offset:2px}
-.paia-chat .pc-svg{width:1.25em;height:1.25em;display:block;flex:none}
+.pwc-chat[data-theme="dark"] .pc-toast{background:var(--pc-pop);color:var(--pc-text)}
+.pwc-chat[data-theme="dark"] .pc-input::placeholder,.pwc-chat[data-theme="dark"] textarea::placeholder{color:color-mix(in srgb,var(--pc-text) 50%,transparent)}
+.pwc-chat[data-position="right"]{right:22px}
+.pwc-chat[data-position="left"]{left:22px}
+.pwc-chat *,.pwc-chat *::before,.pwc-chat *::after{box-sizing:border-box}
+.pwc-chat button,.pwc-chat input,.pwc-chat textarea{font:inherit;color:inherit;margin:0}
+.pwc-chat button{cursor:pointer;border:0;background:none;padding:0}
+.pwc-chat :focus-visible{outline:2px solid var(--pc-accent);outline-offset:2px}
+.pwc-chat .pc-svg{width:1.25em;height:1.25em;display:block;flex:none}
 
 /* ---------- آیکن شناور ---------- */
-.paia-chat .pc-launcher{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;transition:transform .35s var(--pc-ease)}
-.paia-chat .pc-launcher:hover{transform:scale(1.07)}
-.paia-chat .pc-launcher:active{transform:scale(.95)}
-.paia-chat .pc-glow{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(from 0deg,var(--pc-primary),var(--pc-accent),var(--pc-primary));filter:blur(10px);opacity:.55;animation:pc-spin 7s linear infinite}
-.paia-chat .pc-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--pc-accent);opacity:0;animation:pc-pulse 2.8s ease-out infinite}
-.paia-chat.is-open .pc-ring,.paia-chat.is-seen .pc-ring{animation:none}
-.paia-chat .pc-face{position:relative;width:100%;height:100%;border-radius:50%;background:var(--pc-grad);color:#fff;display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 10px 24px -6px color-mix(in srgb,var(--pc-primary) 60%,transparent);overflow:hidden}
-.paia-chat .pc-face::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.28) 50%,transparent 65%);transform:translateX(-120%);animation:pc-sheen 5s ease-in-out infinite}
-.paia-chat .pc-ic{grid-area:1/1;display:grid;place-items:center;transition:transform .45s var(--pc-ease),opacity .25s}
-.paia-chat .pc-ic .pc-svg{width:28px;height:28px}
-.paia-chat .pc-ic-close{opacity:0;transform:rotate(-90deg) scale(.4)}
-.paia-chat.is-open .pc-ic-chat{opacity:0;transform:rotate(90deg) scale(.4)}
-.paia-chat.is-open .pc-ic-close{opacity:1;transform:none}
-.paia-chat .pc-badge{position:absolute;top:-2px;inset-inline-start:-2px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#EF4444;color:#fff;font-size:11px;font-weight:700;line-height:20px;text-align:center;border:2px solid var(--pc-pop);animation:pc-pop .5s var(--pc-ease) 1.2s both}
-.paia-chat.is-seen .pc-badge,.paia-chat.is-open .pc-badge{display:none}
+.pwc-chat .pc-launcher{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;transition:transform .35s var(--pc-ease)}
+.pwc-chat .pc-launcher:hover{transform:scale(1.07)}
+.pwc-chat .pc-launcher:active{transform:scale(.95)}
+.pwc-chat .pc-glow{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(from 0deg,var(--pc-primary),var(--pc-accent),var(--pc-primary));filter:blur(10px);opacity:.55;animation:pc-spin 7s linear infinite}
+.pwc-chat .pc-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--pc-accent);opacity:0;animation:pc-pulse 2.8s ease-out infinite}
+.pwc-chat.is-open .pc-ring,.pwc-chat.is-seen .pc-ring{animation:none}
+.pwc-chat .pc-face{position:relative;width:100%;height:100%;border-radius:50%;background:var(--pc-grad);color:#fff;display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 10px 24px -6px color-mix(in srgb,var(--pc-primary) 60%,transparent);overflow:hidden}
+.pwc-chat .pc-face::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.28) 50%,transparent 65%);transform:translateX(-120%);animation:pc-sheen 5s ease-in-out infinite}
+.pwc-chat .pc-ic{grid-area:1/1;display:grid;place-items:center;transition:transform .45s var(--pc-ease),opacity .25s}
+.pwc-chat .pc-ic .pc-svg{width:28px;height:28px}
+.pwc-chat .pc-ic-close{opacity:0;transform:rotate(-90deg) scale(.4)}
+.pwc-chat.is-open .pc-ic-chat{opacity:0;transform:rotate(90deg) scale(.4)}
+.pwc-chat.is-open .pc-ic-close{opacity:1;transform:none}
+.pwc-chat .pc-badge{position:absolute;top:-2px;inset-inline-start:-2px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#EF4444;color:#fff;font-size:11px;font-weight:700;line-height:20px;text-align:center;border:2px solid var(--pc-pop);animation:pc-pop .5s var(--pc-ease) 1.2s both}
+.pwc-chat.is-seen .pc-badge,.pwc-chat.is-open .pc-badge{display:none}
 
 /* ---------- پیام شناور ---------- */
-.paia-chat .pc-teaser{position:absolute;bottom:80px;width:max-content;max-width:min(270px,calc(100vw - 44px));padding:12px 40px 12px 16px;border-radius:18px;background:var(--pc-pop);color:var(--pc-text);box-shadow:0 14px 40px -10px rgba(15,23,42,.3),0 0 0 1px var(--pc-line);display:flex;flex-direction:column;cursor:pointer;opacity:0;visibility:hidden;transform:translateY(14px) scale(.94);transform-origin:bottom right;transition:opacity .4s,transform .5s var(--pc-ease),visibility 0s .5s}
-.paia-chat[data-position="right"] .pc-teaser{right:0}
-.paia-chat[data-position="left"] .pc-teaser{left:0;transform-origin:bottom left}
-.paia-chat[dir="rtl"] .pc-teaser{padding:12px 16px 12px 40px}
-.paia-chat .pc-teaser::after{content:"";position:absolute;bottom:-6px;width:14px;height:14px;background:var(--pc-pop);transform:rotate(45deg);border-radius:3px;box-shadow:2px 2px 4px rgba(15,23,42,.06)}
-.paia-chat[data-position="right"] .pc-teaser::after{right:24px}
-.paia-chat[data-position="left"] .pc-teaser::after{left:24px}
-.paia-chat .pc-teaser strong{font-weight:700;font-size:14px}
-.paia-chat .pc-teaser span{font-size:12.5px;color:var(--pc-muted)}
-.paia-chat .pc-teaser-x{position:absolute;top:8px;inset-inline-end:8px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--pc-muted);transition:background .2s}
-.paia-chat .pc-teaser-x:hover{background:var(--pc-line)}
-.paia-chat .pc-teaser-x .pc-svg{width:14px;height:14px}
-.paia-chat.show-teaser:not(.is-open) .pc-teaser{opacity:1;visibility:visible;transform:none;transition:opacity .4s,transform .5s var(--pc-ease)}
+.pwc-chat .pc-teaser{position:absolute;bottom:80px;width:max-content;max-width:min(270px,calc(100vw - 44px));padding:12px 40px 12px 16px;border-radius:18px;background:var(--pc-pop);color:var(--pc-text);box-shadow:0 14px 40px -10px rgba(15,23,42,.3),0 0 0 1px var(--pc-line);display:flex;flex-direction:column;cursor:pointer;opacity:0;visibility:hidden;transform:translateY(14px) scale(.94);transform-origin:bottom right;transition:opacity .4s,transform .5s var(--pc-ease),visibility 0s .5s}
+.pwc-chat[data-position="right"] .pc-teaser{right:0}
+.pwc-chat[data-position="left"] .pc-teaser{left:0;transform-origin:bottom left}
+.pwc-chat[dir="rtl"] .pc-teaser{padding:12px 16px 12px 40px}
+.pwc-chat .pc-teaser::after{content:"";position:absolute;bottom:-6px;width:14px;height:14px;background:var(--pc-pop);transform:rotate(45deg);border-radius:3px;box-shadow:2px 2px 4px rgba(15,23,42,.06)}
+.pwc-chat[data-position="right"] .pc-teaser::after{right:24px}
+.pwc-chat[data-position="left"] .pc-teaser::after{left:24px}
+.pwc-chat .pc-teaser strong{font-weight:700;font-size:14px}
+.pwc-chat .pc-teaser span{font-size:12.5px;color:var(--pc-muted)}
+.pwc-chat .pc-teaser-x{position:absolute;top:8px;inset-inline-end:8px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--pc-muted);transition:background .2s}
+.pwc-chat .pc-teaser-x:hover{background:var(--pc-line)}
+.pwc-chat .pc-teaser-x .pc-svg{width:14px;height:14px}
+.pwc-chat.show-teaser:not(.is-open) .pc-teaser{opacity:1;visibility:visible;transform:none;transition:opacity .4s,transform .5s var(--pc-ease)}
 
 /* ---------- پنجره ---------- */
-.paia-chat .pc-window{position:absolute;bottom:82px;width:392px;height:min(640px,calc(100vh - 130px));height:min(640px,calc(100dvh - 130px));display:flex;flex-direction:column;border-radius:26px;background:var(--pc-surface);box-shadow:var(--pc-shadow),0 0 0 1px var(--pc-line);overflow:hidden;opacity:0;visibility:hidden;transform:translateY(22px) scale(.92);transform-origin:bottom right;transition:opacity .28s,transform .5s var(--pc-ease),visibility 0s .5s}
-.paia-chat[data-position="right"] .pc-window{right:0}
-.paia-chat[data-position="left"] .pc-window{left:0;transform-origin:bottom left}
-.paia-chat.is-open .pc-window{opacity:1;visibility:visible;transform:none;transition:opacity .28s,transform .5s var(--pc-ease)}
+.pwc-chat .pc-window{position:absolute;bottom:82px;width:392px;height:min(640px,calc(100vh - 130px));height:min(640px,calc(100dvh - 130px));display:flex;flex-direction:column;border-radius:26px;background:var(--pc-surface);box-shadow:var(--pc-shadow),0 0 0 1px var(--pc-line);overflow:hidden;opacity:0;visibility:hidden;transform:translateY(22px) scale(.92);transform-origin:bottom right;transition:opacity .28s,transform .5s var(--pc-ease),visibility 0s .5s}
+.pwc-chat[data-position="right"] .pc-window{right:0}
+.pwc-chat[data-position="left"] .pc-window{left:0;transform-origin:bottom left}
+.pwc-chat.is-open .pc-window{opacity:1;visibility:visible;transform:none;transition:opacity .28s,transform .5s var(--pc-ease)}
 
-.paia-chat .pc-aurora{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.paia-chat .pc-aurora::before,.paia-chat .pc-aurora::after{content:"";position:absolute;width:300px;height:300px;border-radius:50%;filter:blur(60px);opacity:.34;animation:pc-drift 14s ease-in-out infinite alternate}
-.paia-chat .pc-aurora::before{top:-140px;inset-inline-end:-80px;background:var(--pc-accent)}
-.paia-chat .pc-aurora::after{top:-120px;inset-inline-start:-110px;background:var(--pc-primary);animation-duration:18s;animation-direction:alternate-reverse}
+.pwc-chat .pc-aurora{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pwc-chat .pc-aurora::before,.pwc-chat .pc-aurora::after{content:"";position:absolute;width:300px;height:300px;border-radius:50%;filter:blur(60px);opacity:.34;animation:pc-drift 14s ease-in-out infinite alternate}
+.pwc-chat .pc-aurora::before{top:-140px;inset-inline-end:-80px;background:var(--pc-accent)}
+.pwc-chat .pc-aurora::after{top:-120px;inset-inline-start:-110px;background:var(--pc-primary);animation-duration:18s;animation-direction:alternate-reverse}
 
-.paia-chat .pc-head{position:relative;z-index:2;display:flex;align-items:center;gap:12px;padding:16px 16px 12px}
-.paia-chat .pc-avatar{position:relative;width:44px;height:44px;border-radius:15px;background:var(--pc-grad);color:#fff;display:grid;place-items:center;flex:none;box-shadow:0 8px 18px -6px color-mix(in srgb,var(--pc-primary) 65%,transparent)}
-.paia-chat .pc-avatar .pc-svg{width:22px;height:22px}
-.paia-chat .pc-avatar.has-logo{background:var(--pc-card);color:inherit;box-shadow:0 0 0 1px var(--pc-line),0 8px 18px -8px rgba(15,23,42,.35)}
-.paia-chat .pc-avatar-img{width:100%;height:100%;object-fit:contain;padding:5px;border-radius:inherit;box-sizing:border-box;display:block}
-.paia-chat .pc-online{position:absolute;bottom:-3px;inset-inline-start:-3px;width:13px;height:13px;border-radius:50%;background:#22C55E;border:2.5px solid var(--pc-surface)}
-.paia-chat .pc-online::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid #22C55E;opacity:0;animation:pc-pulse 2.4s ease-out infinite}
-.paia-chat .pc-title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.5}
-.paia-chat .pc-title strong{font-size:15.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.paia-chat .pc-title span{font-size:12px;color:var(--pc-muted)}
-.paia-chat .pc-x{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--pc-pop) 70%,transparent);box-shadow:0 0 0 1px var(--pc-line);transition:transform .35s var(--pc-ease),background .2s}
-.paia-chat .pc-x:hover{background:#fff;transform:rotate(90deg)}
+.pwc-chat .pc-head{position:relative;z-index:2;display:flex;align-items:center;gap:12px;padding:16px 16px 12px}
+.pwc-chat .pc-avatar{position:relative;width:44px;height:44px;border-radius:15px;background:var(--pc-grad);color:#fff;display:grid;place-items:center;flex:none;box-shadow:0 8px 18px -6px color-mix(in srgb,var(--pc-primary) 65%,transparent)}
+.pwc-chat .pc-avatar .pc-svg{width:22px;height:22px}
+.pwc-chat .pc-avatar.has-logo{background:var(--pc-card);color:inherit;box-shadow:0 0 0 1px var(--pc-line),0 8px 18px -8px rgba(15,23,42,.35)}
+.pwc-chat .pc-avatar-img{width:100%;height:100%;object-fit:contain;padding:5px;border-radius:inherit;box-sizing:border-box;display:block}
+.pwc-chat .pc-online{position:absolute;bottom:-3px;inset-inline-start:-3px;width:13px;height:13px;border-radius:50%;background:#22C55E;border:2.5px solid var(--pc-surface)}
+.pwc-chat .pc-online::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid #22C55E;opacity:0;animation:pc-pulse 2.4s ease-out infinite}
+.pwc-chat .pc-title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.5}
+.pwc-chat .pc-title strong{font-size:15.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pwc-chat .pc-title span{font-size:12px;color:var(--pc-muted)}
+.pwc-chat .pc-x{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--pc-pop) 70%,transparent);box-shadow:0 0 0 1px var(--pc-line);transition:transform .35s var(--pc-ease),background .2s}
+.pwc-chat .pc-x:hover{background:#fff;transform:rotate(90deg)}
 
-.paia-chat .pc-body{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
-.paia-chat .pc-screen{display:none;flex:1;min-height:0;flex-direction:column}
-.paia-chat .pc-screen.is-active{display:flex;animation:pc-screen .5s var(--pc-ease) both}
+.pwc-chat .pc-body{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
+.pwc-chat .pc-screen{display:none;flex:1;min-height:0;flex-direction:column}
+.pwc-chat .pc-screen.is-active{display:flex;animation:pc-screen .5s var(--pc-ease) both}
 
 /* اسکلت قدیمی (فقط پنل مدیریت چت از آن استفاده می‌کند) */
-.paia-chat .pc-skel{height:52px;border-radius:18px;background:linear-gradient(100deg,var(--pc-line) 30%,color-mix(in srgb,var(--pc-line) 30%,var(--pc-pop)) 50%,var(--pc-line) 70%);background-size:220% 100%;animation:pc-shimmer 1.4s linear infinite}
-.paia-chat .pc-skel-a{width:68%}.paia-chat .pc-skel-b{width:48%;align-self:flex-end}.paia-chat .pc-skel-c{width:78%}
+.pwc-chat .pc-skel{height:52px;border-radius:18px;background:linear-gradient(100deg,var(--pc-line) 30%,color-mix(in srgb,var(--pc-line) 30%,var(--pc-pop)) 50%,var(--pc-line) 70%);background-size:220% 100%;animation:pc-shimmer 1.4s linear infinite}
+.pwc-chat .pc-skel-a{width:68%}.pwc-chat .pc-skel-b{width:48%;align-self:flex-end}.pwc-chat .pc-skel-c{width:78%}
 /* خطا */
-.paia-chat .pc-error{align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:var(--pc-muted)}
+.pwc-chat .pc-error{align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;color:var(--pc-muted)}
 
 /* ---------- فرم نام و تماس ---------- */
-.paia-chat .pc-profile{padding:12px 18px 20px;gap:14px;justify-content:flex-start}
-.paia-chat .pc-intro{display:flex;align-items:center;gap:12px;padding:16px;border-radius:20px;background:color-mix(in srgb,var(--pc-pop) 62%,transparent);box-shadow:0 0 0 1px var(--pc-line);backdrop-filter:blur(8px)}
-.paia-chat .pc-intro p{margin:0;font-weight:500;font-size:15px}
-.paia-chat .pc-intro-ic{width:36px;height:36px;border-radius:12px;background:var(--pc-grad);color:#fff;display:grid;place-items:center;flex:none}
-.paia-chat .pc-intro-ic .pc-svg{width:18px;height:18px}
-.paia-chat .pc-form{display:flex;flex-direction:column;gap:12px}
-.paia-chat .pc-form>*{animation:pc-field .55s var(--pc-ease) both}
-.paia-chat .pc-form>:nth-child(1){animation-delay:.08s}.paia-chat .pc-form>:nth-child(2){animation-delay:.16s}.paia-chat .pc-form>:nth-child(4){animation-delay:.24s}.paia-chat .pc-form>:nth-child(5){animation-delay:.32s}
-.paia-chat .pc-input{width:100%;height:50px;padding:0 16px;border-radius:16px;background:var(--pc-field);border:1.5px solid transparent;box-shadow:0 0 0 1px var(--pc-line);outline:0;transition:box-shadow .25s,border-color .25s}
-.paia-chat .pc-input::placeholder{color:var(--pc-muted)}
-.paia-chat .pc-input:focus{border-color:var(--pc-primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--pc-primary) 16%,transparent)}
-.paia-chat .pc-form-err{margin:-4px 4px 0;min-height:0;font-size:12.5px;color:#DC2626}
-.paia-chat .pc-form-err:empty{display:none}
-.paia-chat .pc-form.is-shake{animation:pc-shake .45s}
-.paia-chat .pc-btn{height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:500;transition:transform .25s var(--pc-ease),box-shadow .25s,opacity .2s}
-.paia-chat .pc-btn:active{transform:scale(.97)}
-.paia-chat .pc-btn:disabled{opacity:.6;cursor:progress}
-.paia-chat .pc-btn-spin{display:none;width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-top-color:transparent;animation:pc-spin .7s linear infinite;flex:none}
-.paia-chat .pc-btn.is-loading .pc-btn-spin{display:block}
-.paia-chat .pc-btn.is-loading:disabled{opacity:1;cursor:progress}
-.paia-chat .pc-input:disabled{opacity:.6}
-.paia-chat .pc-btn-primary{background:var(--pc-grad);color:#fff;box-shadow:0 10px 22px -8px color-mix(in srgb,var(--pc-primary) 70%,transparent)}
-.paia-chat .pc-btn-primary:hover{transform:translateY(-1px)}
-.paia-chat .pc-btn-ghost{background:color-mix(in srgb,#fff 60%,transparent);box-shadow:0 0 0 1px var(--pc-line);color:var(--pc-muted)}
-.paia-chat .pc-btn-ghost:hover{background:var(--pc-pop);color:var(--pc-text)}
+.pwc-chat .pc-profile{padding:12px 18px 20px;gap:14px;justify-content:flex-start}
+.pwc-chat .pc-intro{display:flex;align-items:center;gap:12px;padding:16px;border-radius:20px;background:color-mix(in srgb,var(--pc-pop) 62%,transparent);box-shadow:0 0 0 1px var(--pc-line);backdrop-filter:blur(8px)}
+.pwc-chat .pc-intro p{margin:0;font-weight:500;font-size:15px}
+.pwc-chat .pc-intro-ic{width:36px;height:36px;border-radius:12px;background:var(--pc-grad);color:#fff;display:grid;place-items:center;flex:none}
+.pwc-chat .pc-intro-ic .pc-svg{width:18px;height:18px}
+.pwc-chat .pc-form{display:flex;flex-direction:column;gap:12px}
+.pwc-chat .pc-form>*{animation:pc-field .55s var(--pc-ease) both}
+.pwc-chat .pc-form>:nth-child(1){animation-delay:.08s}.pwc-chat .pc-form>:nth-child(2){animation-delay:.16s}.pwc-chat .pc-form>:nth-child(4){animation-delay:.24s}.pwc-chat .pc-form>:nth-child(5){animation-delay:.32s}
+.pwc-chat .pc-input{width:100%;height:50px;padding:0 16px;border-radius:16px;background:var(--pc-field);border:1.5px solid transparent;box-shadow:0 0 0 1px var(--pc-line);outline:0;transition:box-shadow .25s,border-color .25s}
+.pwc-chat .pc-input::placeholder{color:var(--pc-muted)}
+.pwc-chat .pc-input:focus{border-color:var(--pc-primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--pc-primary) 16%,transparent)}
+.pwc-chat .pc-form-err{margin:-4px 4px 0;min-height:0;font-size:12.5px;color:#DC2626}
+.pwc-chat .pc-form-err:empty{display:none}
+.pwc-chat .pc-form.is-shake{animation:pc-shake .45s}
+.pwc-chat .pc-btn{height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:500;transition:transform .25s var(--pc-ease),box-shadow .25s,opacity .2s}
+.pwc-chat .pc-btn:active{transform:scale(.97)}
+.pwc-chat .pc-btn:disabled{opacity:.6;cursor:progress}
+.pwc-chat .pc-btn-spin{display:none;width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-top-color:transparent;animation:pc-spin .7s linear infinite;flex:none}
+.pwc-chat .pc-btn.is-loading .pc-btn-spin{display:block}
+.pwc-chat .pc-btn.is-loading:disabled{opacity:1;cursor:progress}
+.pwc-chat .pc-input:disabled{opacity:.6}
+.pwc-chat .pc-btn-primary{background:var(--pc-grad);color:#fff;box-shadow:0 10px 22px -8px color-mix(in srgb,var(--pc-primary) 70%,transparent)}
+.pwc-chat .pc-btn-primary:hover{transform:translateY(-1px)}
+.pwc-chat .pc-btn-ghost{background:color-mix(in srgb,#fff 60%,transparent);box-shadow:0 0 0 1px var(--pc-line);color:var(--pc-muted)}
+.pwc-chat .pc-btn-ghost:hover{background:var(--pc-pop);color:var(--pc-text)}
 
 /* ---------- پیام‌ها ---------- */
-.paia-chat .pc-msgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 16px 10px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--pc-line) transparent}
+.pwc-chat .pc-msgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 16px 10px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--pc-line) transparent}
 /* لودینگ پیام‌ها: حباب‌های اسکلتی داخل خود لیست پیام‌ها (به‌جای صفحهٔ لودینگ جدا) */
-.paia-chat .pc-skels{display:flex;flex-direction:column;gap:10px;pointer-events:none}
-.paia-chat .pc-sk{border-radius:20px;background:linear-gradient(100deg,var(--pc-line) 30%,color-mix(in srgb,var(--pc-line) 30%,var(--pc-pop)) 50%,var(--pc-line) 70%);background-size:220% 100%;animation:pc-in .5s var(--pc-ease) both,pc-shimmer 1.4s linear infinite}
-.paia-chat .pc-sk-user{align-self:flex-start;background:linear-gradient(100deg,color-mix(in srgb,var(--pc-primary) 22%,transparent) 30%,color-mix(in srgb,var(--pc-primary) 9%,transparent) 50%,color-mix(in srgb,var(--pc-primary) 22%,transparent) 70%);background-size:220% 100%}
-.paia-chat .pc-sk-bot{align-self:flex-end}
-.paia-chat[dir="ltr"] .pc-sk-user{align-self:flex-end}
-.paia-chat[dir="ltr"] .pc-sk-bot{align-self:flex-start}
+.pwc-chat .pc-skels{display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.pwc-chat .pc-sk{border-radius:20px;background:linear-gradient(100deg,var(--pc-line) 30%,color-mix(in srgb,var(--pc-line) 30%,var(--pc-pop)) 50%,var(--pc-line) 70%);background-size:220% 100%;animation:pc-in .5s var(--pc-ease) both,pc-shimmer 1.4s linear infinite}
+.pwc-chat .pc-sk-user{align-self:flex-start;background:linear-gradient(100deg,color-mix(in srgb,var(--pc-primary) 22%,transparent) 30%,color-mix(in srgb,var(--pc-primary) 9%,transparent) 50%,color-mix(in srgb,var(--pc-primary) 22%,transparent) 70%);background-size:220% 100%}
+.pwc-chat .pc-sk-bot{align-self:flex-end}
+.pwc-chat[dir="ltr"] .pc-sk-user{align-self:flex-end}
+.pwc-chat[dir="ltr"] .pc-sk-bot{align-self:flex-start}
 /* بارگذاری پیام‌های قبلی هنگام اسکرول به بالا: نشانگر شناور بالای لیست (جای پیام‌ها را جابه‌جا نمی‌کند) */
-.paia-chat .pc-older{position:sticky;top:0;z-index:3;height:0;margin-bottom:-10px;display:flex;justify-content:center;pointer-events:none;overflow:visible}
-.paia-chat .pc-older-pill{margin-top:2px;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 14px;border-radius:999px;background:var(--pc-pop);box-shadow:0 0 0 1px var(--pc-line),0 8px 18px -8px rgba(15,23,42,.35);font-size:12px;color:var(--pc-muted);animation:pc-in .35s var(--pc-ease) both}
-.paia-chat .pc-older-pill i{width:6px;height:6px;border-radius:50%;background:var(--pc-primary);opacity:.4;animation:pc-dot 1.1s ease-in-out infinite}
-.paia-chat .pc-older-pill i:nth-child(2){animation-delay:.15s;background:var(--pc-accent)}
-.paia-chat .pc-older-pill i:nth-child(3){animation-delay:.3s}
-.paia-chat .pc-older-pill em{font-style:normal;margin-inline-start:4px}
+.pwc-chat .pc-older{position:sticky;top:0;z-index:3;height:0;margin-bottom:-10px;display:flex;justify-content:center;pointer-events:none;overflow:visible}
+.pwc-chat .pc-older-pill{margin-top:2px;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 14px;border-radius:999px;background:var(--pc-pop);box-shadow:0 0 0 1px var(--pc-line),0 8px 18px -8px rgba(15,23,42,.35);font-size:12px;color:var(--pc-muted);animation:pc-in .35s var(--pc-ease) both}
+.pwc-chat .pc-older-pill i{width:6px;height:6px;border-radius:50%;background:var(--pc-primary);opacity:.4;animation:pc-dot 1.1s ease-in-out infinite}
+.pwc-chat .pc-older-pill i:nth-child(2){animation-delay:.15s;background:var(--pc-accent)}
+.pwc-chat .pc-older-pill i:nth-child(3){animation-delay:.3s}
+.pwc-chat .pc-older-pill em{font-style:normal;margin-inline-start:4px}
 
-.paia-chat .pc-row{display:flex;flex-direction:column;max-width:86%;animation:pc-in .5s var(--pc-ease) both}
-.paia-chat .pc-row.no-anim{animation:none}
-.paia-chat .pc-user{align-self:flex-start}   /* RTL: پیام کاربر سمت راست */
-.paia-chat .pc-bot{align-self:flex-end}
-.paia-chat[dir="ltr"] .pc-user{align-self:flex-end}
-.paia-chat[dir="ltr"] .pc-bot{align-self:flex-start}
-.paia-chat .pc-bubble{position:relative;padding:10px 14px 8px;border-radius:20px;word-break:break-word;overflow-wrap:anywhere}
-.paia-chat .pc-bot .pc-bubble{background:var(--pc-card);box-shadow:0 0 0 1px var(--pc-line),0 6px 16px -10px rgba(15,23,42,.25);border-end-end-radius:6px}
-.paia-chat[dir="ltr"] .pc-bot .pc-bubble{border-end-end-radius:20px;border-end-start-radius:6px}
-.paia-chat .pc-user .pc-bubble{background:var(--pc-grad);color:#fff;border-end-start-radius:6px;box-shadow:0 10px 20px -10px color-mix(in srgb,var(--pc-primary) 70%,transparent)}
-.paia-chat[dir="ltr"] .pc-user .pc-bubble{border-end-start-radius:20px;border-end-end-radius:6px}
-.paia-chat .pc-text{margin:0;white-space:pre-wrap}
-.paia-chat .pc-text a{color:inherit;text-decoration:underline;text-underline-offset:3px}
-.paia-chat .pc-time{display:block;margin-top:2px;font-size:11px;opacity:.6}
-.paia-chat .pc-time-solo{margin:2px 6px 0}
+.pwc-chat .pc-row{display:flex;flex-direction:column;max-width:86%;animation:pc-in .5s var(--pc-ease) both}
+.pwc-chat .pc-row.no-anim{animation:none}
+.pwc-chat .pc-user{align-self:flex-start}   /* RTL: پیام کاربر سمت راست */
+.pwc-chat .pc-bot{align-self:flex-end}
+.pwc-chat[dir="ltr"] .pc-user{align-self:flex-end}
+.pwc-chat[dir="ltr"] .pc-bot{align-self:flex-start}
+.pwc-chat .pc-bubble{position:relative;padding:10px 14px 8px;border-radius:20px;word-break:break-word;overflow-wrap:anywhere}
+.pwc-chat .pc-bot .pc-bubble{background:var(--pc-card);box-shadow:0 0 0 1px var(--pc-line),0 6px 16px -10px rgba(15,23,42,.25);border-end-end-radius:6px}
+.pwc-chat[dir="ltr"] .pc-bot .pc-bubble{border-end-end-radius:20px;border-end-start-radius:6px}
+.pwc-chat .pc-user .pc-bubble{background:var(--pc-grad);color:#fff;border-end-start-radius:6px;box-shadow:0 10px 20px -10px color-mix(in srgb,var(--pc-primary) 70%,transparent)}
+.pwc-chat[dir="ltr"] .pc-user .pc-bubble{border-end-start-radius:20px;border-end-end-radius:6px}
+.pwc-chat .pc-text{margin:0;white-space:pre-wrap}
+.pwc-chat .pc-text a{color:inherit;text-decoration:underline;text-underline-offset:3px}
+.pwc-chat .pc-time{display:block;margin-top:2px;font-size:11px;opacity:.6}
+.pwc-chat .pc-time-solo{margin:2px 6px 0}
 
 /* زیرپیام لینک‌ها: کارت‌های کوچک (عکس + عنوان + یک خط اطلاعات) زیر حباب هوش مصنوعی */
-.paia-chat .pc-links{display:flex;flex-direction:column;gap:6px;margin-top:6px;min-width:min(250px,100%)}
-.paia-chat .pc-lcard{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:16px;background:var(--pc-card);box-shadow:0 0 0 1px var(--pc-line),0 6px 16px -12px rgba(15,23,42,.3);color:var(--pc-text);text-decoration:none;animation:pc-in .45s var(--pc-ease) both;transition:transform .25s var(--pc-ease),box-shadow .25s,background .25s}
-.paia-chat .pc-lcard:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px color-mix(in srgb,var(--pc-primary) 45%,transparent),0 10px 20px -12px color-mix(in srgb,var(--pc-primary) 55%,transparent)}
-.paia-chat .pc-lcard:active{transform:scale(.98)}
-.paia-chat .pc-lc-media{flex:none;width:46px;height:46px;border-radius:12px;overflow:hidden;background:var(--pc-field);display:grid;place-items:center;color:var(--pc-primary)}
-.paia-chat .pc-lc-media img{display:block;width:100%;height:100%;object-fit:cover}
-.paia-chat .pc-lc-media .pc-svg{width:22px;height:22px}
-.paia-chat .pc-lc-text{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.5}
-.paia-chat .pc-lc-title{font-size:13px;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.paia-chat .pc-lc-sub{font-size:11.5px;color:var(--pc-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.paia-chat .pc-lc-go{flex:none;color:var(--pc-muted);display:grid;place-items:center;transition:transform .25s var(--pc-ease),color .25s}
-.paia-chat .pc-lc-go .pc-svg{width:16px;height:16px}
-.paia-chat[dir="ltr"] .pc-lc-go .pc-svg{transform:scaleX(-1)}
-.paia-chat .pc-lcard:hover .pc-lc-go{color:var(--pc-primary);transform:translateX(-2px)}
-.paia-chat[dir="ltr"] .pc-lcard:hover .pc-lc-go{transform:translateX(2px)}
-.paia-chat .pc-img{display:block;margin:0 -6px 6px;border-radius:14px;overflow:hidden}
-.paia-chat .pc-img img{display:block;width:100%;max-height:220px;object-fit:cover;transition:transform .5s var(--pc-ease)}
-.paia-chat .pc-img:hover img{transform:scale(1.04)}
-.paia-chat .pc-audio{display:block;width:100%;min-width:200px;height:38px;margin-bottom:4px}
-.paia-chat .pc-row.is-sending .pc-bubble{opacity:.7}
-.paia-chat .pc-row.is-failed .pc-bubble{box-shadow:0 0 0 1.5px #DC2626}
-.paia-chat .pc-retry{align-self:flex-start;margin-top:5px;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#DC2626}
-.paia-chat .pc-retry .pc-svg{width:14px;height:14px}
-.paia-chat .pc-typing .pc-bubble{display:flex;gap:5px;padding:14px 16px}
-.paia-chat .pc-typing i{width:7px;height:7px;border-radius:50%;background:var(--pc-primary);opacity:.4;animation:pc-dot 1.1s ease-in-out infinite}
-.paia-chat .pc-typing i:nth-child(2){animation-delay:.15s;background:var(--pc-accent)}
-.paia-chat .pc-typing i:nth-child(3){animation-delay:.3s}
+.pwc-chat .pc-links{display:flex;flex-direction:column;gap:6px;margin-top:6px;min-width:min(250px,100%)}
+.pwc-chat .pc-lcard{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:16px;background:var(--pc-card);box-shadow:0 0 0 1px var(--pc-line),0 6px 16px -12px rgba(15,23,42,.3);color:var(--pc-text);text-decoration:none;animation:pc-in .45s var(--pc-ease) both;transition:transform .25s var(--pc-ease),box-shadow .25s,background .25s}
+.pwc-chat .pc-lcard:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px color-mix(in srgb,var(--pc-primary) 45%,transparent),0 10px 20px -12px color-mix(in srgb,var(--pc-primary) 55%,transparent)}
+.pwc-chat .pc-lcard:active{transform:scale(.98)}
+.pwc-chat .pc-lc-media{flex:none;width:46px;height:46px;border-radius:12px;overflow:hidden;background:var(--pc-field);display:grid;place-items:center;color:var(--pc-primary)}
+.pwc-chat .pc-lc-media img{display:block;width:100%;height:100%;object-fit:cover}
+.pwc-chat .pc-lc-media .pc-svg{width:22px;height:22px}
+.pwc-chat .pc-lc-text{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.5}
+.pwc-chat .pc-lc-title{font-size:13px;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.pwc-chat .pc-lc-sub{font-size:11.5px;color:var(--pc-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pwc-chat .pc-lc-go{flex:none;color:var(--pc-muted);display:grid;place-items:center;transition:transform .25s var(--pc-ease),color .25s}
+.pwc-chat .pc-lc-go .pc-svg{width:16px;height:16px}
+.pwc-chat[dir="ltr"] .pc-lc-go .pc-svg{transform:scaleX(-1)}
+.pwc-chat .pc-lcard:hover .pc-lc-go{color:var(--pc-primary);transform:translateX(-2px)}
+.pwc-chat[dir="ltr"] .pc-lcard:hover .pc-lc-go{transform:translateX(2px)}
+.pwc-chat .pc-img{display:block;margin:0 -6px 6px;border-radius:14px;overflow:hidden}
+.pwc-chat .pc-img img{display:block;width:100%;max-height:220px;object-fit:cover;transition:transform .5s var(--pc-ease)}
+.pwc-chat .pc-img:hover img{transform:scale(1.04)}
+.pwc-chat .pc-audio{display:block;width:100%;min-width:200px;height:38px;margin-bottom:4px}
+.pwc-chat .pc-row.is-sending .pc-bubble{opacity:.7}
+.pwc-chat .pc-row.is-failed .pc-bubble{box-shadow:0 0 0 1.5px #DC2626}
+.pwc-chat .pc-retry{align-self:flex-start;margin-top:5px;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#DC2626}
+.pwc-chat .pc-retry .pc-svg{width:14px;height:14px}
+.pwc-chat .pc-typing .pc-bubble{display:flex;gap:5px;padding:14px 16px}
+.pwc-chat .pc-typing i{width:7px;height:7px;border-radius:50%;background:var(--pc-primary);opacity:.4;animation:pc-dot 1.1s ease-in-out infinite}
+.pwc-chat .pc-typing i:nth-child(2){animation-delay:.15s;background:var(--pc-accent)}
+.pwc-chat .pc-typing i:nth-child(3){animation-delay:.3s}
 
-.paia-chat .pc-toast{margin:0 16px;padding:8px 12px;border-radius:12px;background:#1E1B3A;color:#fff;font-size:12.5px;text-align:center;max-height:0;opacity:0;overflow:hidden;transform:translateY(8px);transition:max-height .3s,opacity .3s,transform .4s var(--pc-ease),margin .3s}
-.paia-chat .pc-toast.is-on{max-height:80px;opacity:1;transform:none;margin-bottom:8px}
+.pwc-chat .pc-toast{margin:0 16px;padding:8px 12px;border-radius:12px;background:#1E1B3A;color:#fff;font-size:12.5px;text-align:center;max-height:0;opacity:0;overflow:hidden;transform:translateY(8px);transition:max-height .3s,opacity .3s,transform .4s var(--pc-ease),margin .3s}
+.pwc-chat .pc-toast.is-on{max-height:80px;opacity:1;transform:none;margin-bottom:8px}
 
 /* ---------- پیشنهاد پیام ---------- */
-.paia-chat .pc-sugg{display:flex;gap:8px;padding:6px 16px 8px;overflow-x:auto;scrollbar-width:none;transition:opacity .35s}
-.paia-chat .pc-sugg::-webkit-scrollbar{display:none}
-.paia-chat .pc-sugg.is-empty{display:none}
-.paia-chat .pc-chip{flex:none;max-width:260px;padding:7px 14px;border-radius:999px;background:var(--pc-pop);box-shadow:0 0 0 1px color-mix(in srgb,var(--pc-primary) 28%,transparent);color:var(--pc-primary);font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:pc-chip .5s var(--pc-ease) both;animation-delay:calc(var(--i,0)*80ms + 120ms);transition:background .25s,color .25s,transform .25s var(--pc-ease),box-shadow .25s,opacity .3s}
-.paia-chat .pc-chip:hover{background:var(--pc-grad);color:#fff;box-shadow:none;transform:translateY(-2px)}
-.paia-chat .pc-chip:active{transform:scale(.96)}
-.paia-chat .pc-sugg.is-disabled .pc-chip{opacity:.4;pointer-events:none;background:var(--pc-line);color:var(--pc-muted);box-shadow:none;animation:none}
+.pwc-chat .pc-sugg{display:flex;gap:8px;padding:6px 16px 8px;overflow-x:auto;scrollbar-width:none;transition:opacity .35s}
+.pwc-chat .pc-sugg::-webkit-scrollbar{display:none}
+.pwc-chat .pc-sugg.is-empty{display:none}
+.pwc-chat .pc-chip{flex:none;max-width:260px;padding:7px 14px;border-radius:999px;background:var(--pc-pop);box-shadow:0 0 0 1px color-mix(in srgb,var(--pc-primary) 28%,transparent);color:var(--pc-primary);font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:pc-chip .5s var(--pc-ease) both;animation-delay:calc(var(--i,0)*80ms + 120ms);transition:background .25s,color .25s,transform .25s var(--pc-ease),box-shadow .25s,opacity .3s}
+.pwc-chat .pc-chip:hover{background:var(--pc-grad);color:#fff;box-shadow:none;transform:translateY(-2px)}
+.pwc-chat .pc-chip:active{transform:scale(.96)}
+.pwc-chat .pc-sugg.is-disabled .pc-chip{opacity:.4;pointer-events:none;background:var(--pc-line);color:var(--pc-muted);box-shadow:none;animation:none}
 
 /* ---------- فایل در انتظار ---------- */
-.paia-chat .pc-pending{display:none;padding:0 16px 6px}
-.paia-chat .pc-pending.is-on{display:block}
-.paia-chat .pc-thumb{position:relative;width:64px;height:64px;border-radius:14px;animation:pc-pop .45s var(--pc-ease) both}
-.paia-chat .pc-thumb img{width:100%;height:100%;object-fit:cover;border-radius:14px;box-shadow:0 0 0 1px var(--pc-line)}
-.paia-chat .pc-pending-x{position:absolute;top:-6px;inset-inline-end:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc-text);color:var(--pc-pop-text);display:grid;place-items:center}
-.paia-chat .pc-pending-x .pc-svg{width:12px;height:12px}
+.pwc-chat .pc-pending{display:none;padding:0 16px 6px}
+.pwc-chat .pc-pending.is-on{display:block}
+.pwc-chat .pc-thumb{position:relative;width:64px;height:64px;border-radius:14px;animation:pc-pop .45s var(--pc-ease) both}
+.pwc-chat .pc-thumb img{width:100%;height:100%;object-fit:cover;border-radius:14px;box-shadow:0 0 0 1px var(--pc-line)}
+.pwc-chat .pc-pending-x{position:absolute;top:-6px;inset-inline-end:-6px;width:22px;height:22px;border-radius:50%;background:var(--pc-text);color:var(--pc-pop-text);display:grid;place-items:center}
+.pwc-chat .pc-pending-x .pc-svg{width:12px;height:12px}
 
 /* ---------- نوار ورودی ---------- */
-.paia-chat .pc-composer{position:relative;padding:6px 14px 14px}
-.paia-chat .pc-file{display:none}
-.paia-chat .pc-field{display:flex;align-items:flex-end;gap:2px;padding:5px 6px;border-radius:24px;background:var(--pc-field);box-shadow:0 0 0 1px var(--pc-line),0 8px 22px -14px rgba(15,23,42,.3);transition:box-shadow .25s,opacity .25s,transform .35s var(--pc-ease)}
-.paia-chat .pc-field:focus-within{box-shadow:0 0 0 1.5px var(--pc-primary),0 0 0 5px color-mix(in srgb,var(--pc-primary) 14%,transparent)}
-.paia-chat .pc-ta{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;padding:9px 8px;max-height:110px;line-height:1.7}
-.paia-chat .pc-ta::placeholder{color:var(--pc-muted)}
-.paia-chat .pc-icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--pc-muted);flex:none;transition:background .2s,color .2s,transform .3s var(--pc-ease)}
-.paia-chat .pc-icon-btn:hover{background:var(--pc-line);color:var(--pc-primary);transform:rotate(-12deg)}
-.paia-chat .pc-slot{position:relative;width:38px;height:38px;flex:none}
-.paia-chat .pc-act{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;transition:transform .4s var(--pc-ease),opacity .25s}
-.paia-chat .pc-mic{background:var(--pc-line);color:var(--pc-primary)}
-.paia-chat .pc-mic:hover{background:color-mix(in srgb,var(--pc-primary) 16%,transparent)}
-.paia-chat .pc-send{background:var(--pc-grad);color:#fff;transform:scale(.3) rotate(-60deg);opacity:0;pointer-events:none;box-shadow:0 8px 16px -6px color-mix(in srgb,var(--pc-primary) 70%,transparent)}
-.paia-chat .pc-send .pc-svg{transform:scaleX(var(--pc-flip,1))}
-.paia-chat[dir="rtl"] .pc-send .pc-svg{--pc-flip:-1}
-.paia-chat .pc-composer.has-content .pc-send,.paia-chat .pc-composer.no-mic .pc-send{transform:none;opacity:1;pointer-events:auto}
-.paia-chat .pc-composer.has-content .pc-mic{transform:scale(.3) rotate(60deg);opacity:0;pointer-events:none}
-.paia-chat .pc-composer.no-mic:not(.has-content) .pc-send{opacity:.5}
+.pwc-chat .pc-composer{position:relative;padding:6px 14px 14px}
+.pwc-chat .pc-file{display:none}
+.pwc-chat .pc-field{display:flex;align-items:flex-end;gap:2px;padding:5px 6px;border-radius:24px;background:var(--pc-field);box-shadow:0 0 0 1px var(--pc-line),0 8px 22px -14px rgba(15,23,42,.3);transition:box-shadow .25s,opacity .25s,transform .35s var(--pc-ease)}
+.pwc-chat .pc-field:focus-within{box-shadow:0 0 0 1.5px var(--pc-primary),0 0 0 5px color-mix(in srgb,var(--pc-primary) 14%,transparent)}
+.pwc-chat .pc-ta{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;padding:9px 8px;max-height:110px;line-height:1.7}
+.pwc-chat .pc-ta::placeholder{color:var(--pc-muted)}
+.pwc-chat .pc-icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--pc-muted);flex:none;transition:background .2s,color .2s,transform .3s var(--pc-ease)}
+.pwc-chat .pc-icon-btn:hover{background:var(--pc-line);color:var(--pc-primary);transform:rotate(-12deg)}
+.pwc-chat .pc-slot{position:relative;width:38px;height:38px;flex:none}
+.pwc-chat .pc-act{position:absolute;inset:0;border-radius:50%;display:grid;place-items:center;transition:transform .4s var(--pc-ease),opacity .25s}
+.pwc-chat .pc-mic{background:var(--pc-line);color:var(--pc-primary)}
+.pwc-chat .pc-mic:hover{background:color-mix(in srgb,var(--pc-primary) 16%,transparent)}
+.pwc-chat .pc-send{background:var(--pc-grad);color:#fff;transform:scale(.3) rotate(-60deg);opacity:0;pointer-events:none;box-shadow:0 8px 16px -6px color-mix(in srgb,var(--pc-primary) 70%,transparent)}
+.pwc-chat .pc-send .pc-svg{transform:scaleX(var(--pc-flip,1))}
+.pwc-chat[dir="rtl"] .pc-send .pc-svg{--pc-flip:-1}
+.pwc-chat .pc-composer.has-content .pc-send,.pwc-chat .pc-composer.no-mic .pc-send{transform:none;opacity:1;pointer-events:auto}
+.pwc-chat .pc-composer.has-content .pc-mic{transform:scale(.3) rotate(60deg);opacity:0;pointer-events:none}
+.pwc-chat .pc-composer.no-mic:not(.has-content) .pc-send{opacity:.5}
 /* قفل ارسال تا پایان بارگذاری پیام‌ها: نوشتن آزاد است، دکمه با چرخانک قفل می‌ماند */
-.paia-chat .pc-act:disabled{cursor:not-allowed}
-.paia-chat .pc-composer.is-locked .pc-send,.paia-chat .pc-composer.is-locked.has-content .pc-send{opacity:.55;pointer-events:none;box-shadow:none}
-.paia-chat .pc-composer.is-locked .pc-send .pc-svg{display:none}
-.paia-chat .pc-composer.is-locked .pc-send::after{content:"";width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-top-color:transparent;animation:pc-spin .7s linear infinite}
-.paia-chat .pc-composer.is-locked .pc-mic{opacity:.5;pointer-events:none}
+.pwc-chat .pc-act:disabled{cursor:not-allowed}
+.pwc-chat .pc-composer.is-locked .pc-send,.pwc-chat .pc-composer.is-locked.has-content .pc-send{opacity:.55;pointer-events:none;box-shadow:none}
+.pwc-chat .pc-composer.is-locked .pc-send .pc-svg{display:none}
+.pwc-chat .pc-composer.is-locked .pc-send::after{content:"";width:18px;height:18px;border-radius:50%;border:2.5px solid currentColor;border-top-color:transparent;animation:pc-spin .7s linear infinite}
+.pwc-chat .pc-composer.is-locked .pc-mic{opacity:.5;pointer-events:none}
 
 /* ضبط ویس */
-.paia-chat .pc-rec{position:absolute;inset:6px 14px 14px;display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:24px;background:var(--pc-field);box-shadow:0 0 0 1.5px #EF4444,0 0 0 5px rgba(239,68,68,.12);opacity:0;visibility:hidden;transform:scale(.96);transition:opacity .25s,transform .4s var(--pc-ease),visibility 0s .4s}
-.paia-chat .pc-composer.is-recording .pc-rec{opacity:1;visibility:visible;transform:none;transition:opacity .25s,transform .4s var(--pc-ease)}
-.paia-chat .pc-composer.is-recording .pc-field{opacity:0;pointer-events:none}
-.paia-chat .pc-rec-dot{width:10px;height:10px;border-radius:50%;background:#EF4444;flex:none;animation:pc-blink 1s ease-in-out infinite}
-.paia-chat .pc-rec-time{font-variant-numeric:tabular-nums;font-weight:500;min-width:36px}
-.paia-chat .pc-wave{flex:1;height:30px;display:flex;align-items:center;gap:3px;overflow:hidden}
-.paia-chat .pc-wave i{flex:1;max-width:5px;height:var(--h,50%);border-radius:3px;background:var(--pc-grad);transform-origin:center;animation:pc-wave .9s ease-in-out infinite;animation-delay:var(--d,0ms)}
-.paia-chat .pc-rec-send{position:relative;inset:auto;width:38px;height:38px;flex:none;background:var(--pc-grad);color:#fff;transform:none;opacity:1;pointer-events:auto}
+.pwc-chat .pc-rec{position:absolute;inset:6px 14px 14px;display:flex;align-items:center;gap:10px;padding:5px 6px;border-radius:24px;background:var(--pc-field);box-shadow:0 0 0 1.5px #EF4444,0 0 0 5px rgba(239,68,68,.12);opacity:0;visibility:hidden;transform:scale(.96);transition:opacity .25s,transform .4s var(--pc-ease),visibility 0s .4s}
+.pwc-chat .pc-composer.is-recording .pc-rec{opacity:1;visibility:visible;transform:none;transition:opacity .25s,transform .4s var(--pc-ease)}
+.pwc-chat .pc-composer.is-recording .pc-field{opacity:0;pointer-events:none}
+.pwc-chat .pc-rec-dot{width:10px;height:10px;border-radius:50%;background:#EF4444;flex:none;animation:pc-blink 1s ease-in-out infinite}
+.pwc-chat .pc-rec-time{font-variant-numeric:tabular-nums;font-weight:500;min-width:36px}
+.pwc-chat .pc-wave{flex:1;height:30px;display:flex;align-items:center;gap:3px;overflow:hidden}
+.pwc-chat .pc-wave i{flex:1;max-width:5px;height:var(--h,50%);border-radius:3px;background:var(--pc-grad);transform-origin:center;animation:pc-wave .9s ease-in-out infinite;animation-delay:var(--d,0ms)}
+.pwc-chat .pc-rec-send{position:relative;inset:auto;width:38px;height:38px;flex:none;background:var(--pc-grad);color:#fff;transform:none;opacity:1;pointer-events:auto}
 
 
 /* ---------- وضعیت آنلاین / پیام پشتیبان / نشانگر پیام جدید ---------- */
-.paia-chat .pc-online.is-off{display:none}
-.paia-chat .pc-by{display:block;margin-top:3px;padding-inline:6px;font-size:11.5px;color:var(--pc-muted)}
-.paia-chat .pc-bot.pc-admin .pc-bubble{background:color-mix(in srgb,var(--pc-accent) 12%,var(--pc-card));box-shadow:0 0 0 1px color-mix(in srgb,var(--pc-accent) 40%,transparent),0 6px 16px -10px rgba(15,23,42,.25)}
-.paia-chat .pc-user.pc-typing i{background:#fff}
-.paia-chat.is-seen.has-unread:not(.is-open) .pc-badge{display:block}
+.pwc-chat .pc-online.is-off{display:none}
+.pwc-chat .pc-by{display:block;margin-top:3px;padding-inline:6px;font-size:11.5px;color:var(--pc-muted)}
+.pwc-chat .pc-bot.pc-admin .pc-bubble{background:color-mix(in srgb,var(--pc-accent) 12%,var(--pc-card));box-shadow:0 0 0 1px color-mix(in srgb,var(--pc-accent) 40%,transparent),0 6px 16px -10px rgba(15,23,42,.25)}
+.pwc-chat .pc-user.pc-typing i{background:#fff}
+.pwc-chat.is-seen.has-unread:not(.is-open) .pc-badge{display:block}
 
 /* ---------- موبایل ---------- */
 @media (max-width:520px){
-	.paia-chat{bottom:16px}
-	.paia-chat[data-position="right"]{right:16px}
-	.paia-chat[data-position="left"]{left:16px}
-	.paia-chat .pc-window{position:fixed;inset:0;width:auto;height:100vh;height:100dvh;border-radius:0;transform-origin:bottom right;transform:translateY(40px)}
-	.paia-chat.is-open .pc-window{transform:none}
-	.paia-chat.is-open .pc-launcher{opacity:0;pointer-events:none}
-	.paia-chat .pc-composer{padding-bottom:max(14px,env(safe-area-inset-bottom))}
-	.paia-chat .pc-ta{font-size:16px}
-	.paia-chat .pc-input{font-size:16px}
+	.pwc-chat{bottom:16px}
+	.pwc-chat[data-position="right"]{right:16px}
+	.pwc-chat[data-position="left"]{left:16px}
+	.pwc-chat .pc-window{position:fixed;inset:0;width:auto;height:100vh;height:100dvh;border-radius:0;transform-origin:bottom right;transform:translateY(40px)}
+	.pwc-chat.is-open .pc-window{transform:none}
+	.pwc-chat.is-open .pc-launcher{opacity:0;pointer-events:none}
+	.pwc-chat .pc-composer{padding-bottom:max(14px,env(safe-area-inset-bottom))}
+	.pwc-chat .pc-ta{font-size:16px}
+	.pwc-chat .pc-input{font-size:16px}
 }
 
 /* ---------- انیمیشن‌ها ---------- */
@@ -284,17 +284,17 @@
 @keyframes pc-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
 
 @media (prefers-reduced-motion:reduce){
-	.paia-chat *,.paia-chat *::before,.paia-chat *::after{animation:none!important;transition-duration:.01ms!important;transition-delay:0s!important}
+	.pwc-chat *,.pwc-chat *::before,.pwc-chat *::after{animation:none!important;transition-duration:.01ms!important;transition-delay:0s!important}
 }
 
 /* ---------- پنل مدیریت چت: هر کس پیام خودش سمت راست ----------
    پشتیبان (ادمین) و هوش مصنوعی = راست، کاربر = چپ. ویجت سایت دست‌نخورده است. */
-.paia-chat.paia-cm .pc-user{align-self:flex-end}
-.paia-chat.paia-cm .pc-bot{align-self:flex-start}
-.paia-chat.paia-cm[dir="ltr"] .pc-user{align-self:flex-start}
-.paia-chat.paia-cm[dir="ltr"] .pc-bot{align-self:flex-end}
+.pwc-chat.pwc-cm .pc-user{align-self:flex-end}
+.pwc-chat.pwc-cm .pc-bot{align-self:flex-start}
+.pwc-chat.pwc-cm[dir="ltr"] .pc-user{align-self:flex-start}
+.pwc-chat.pwc-cm[dir="ltr"] .pc-bot{align-self:flex-end}
 /* گوشهٔ تیز حباب هم سمت خودش برود (RTL) */
-.paia-chat.paia-cm .pc-user .pc-bubble{border-end-start-radius:20px;border-end-end-radius:6px}
-.paia-chat.paia-cm .pc-bot .pc-bubble{border-end-end-radius:20px;border-end-start-radius:6px}
-.paia-chat.paia-cm[dir="ltr"] .pc-user .pc-bubble{border-end-end-radius:20px;border-end-start-radius:6px}
-.paia-chat.paia-cm[dir="ltr"] .pc-bot .pc-bubble{border-end-start-radius:20px;border-end-end-radius:6px}
+.pwc-chat.pwc-cm .pc-user .pc-bubble{border-end-start-radius:20px;border-end-end-radius:6px}
+.pwc-chat.pwc-cm .pc-bot .pc-bubble{border-end-end-radius:20px;border-end-start-radius:6px}
+.pwc-chat.pwc-cm[dir="ltr"] .pc-user .pc-bubble{border-end-end-radius:20px;border-end-start-radius:6px}
+.pwc-chat.pwc-cm[dir="ltr"] .pc-bot .pc-bubble{border-end-start-radius:20px;border-end-end-radius:6px}

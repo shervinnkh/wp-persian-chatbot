@@ -5,18 +5,18 @@
  * یک کوئری COUNT ساده (JOIN روی کلید اصلی بازدیدکننده + ایندکس پیام‌ها). در حالت «بهینه‌شده» نتیجه
  * ۳۰ ثانیه کش می‌شود و با هر پیام جدید/خوانده‌شدن/حذف پیام کش پاک می‌شود.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 defined( 'ABSPATH' ) || exit;
 
 final class Unread {
 
-	private const CACHE_KEY = 'paia_unread_msgs';
+	private const CACHE_KEY = 'pwc_unread_msgs';
 	private const CACHE_TTL = 30;
-	private const CACHE_KEY_CONV = 'paia_unread_convs';
+	private const CACHE_KEY_CONV = 'pwc_unread_convs';
 
 	public static function count(): int {
 		$optimized = ChatSettings::is_optimized();
@@ -77,7 +77,7 @@ final class Unread {
 			return '';
 		}
 		return sprintf(
-			' <span class="update-plugins paia-bubble count-%1$d"><span class="plugin-count">%2$s</span></span>',
+			' <span class="update-plugins pwc-bubble count-%1$d"><span class="plugin-count">%2$s</span></span>',
 			$n,
 			esc_html( number_format_i18n( $n ) )
 		);

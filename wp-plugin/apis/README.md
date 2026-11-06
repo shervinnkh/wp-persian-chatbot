@@ -28,7 +28,7 @@
 
 > ⚠️ تا نسخهٔ `0.5.16` مقدار `1` یعنی «آموزش‌دیده» بود. از `0.5.17` «آموزش‌دیده» = `2` است (رکوردهای قدیمی هنگام ارتقا خودکار از ۱ به ۲ منتقل می‌شوند).
 
-پنل مدیر خودش هر ۸ ثانیه (فقط وقتی رکوردی «در حال پردازش» است و تب مرورگر باز است) از **خود افزونه** وضعیت را می‌پرسد (`GET /paia/v1/ai-status`، فقط برای مدیر لاگین‌کرده؛ ربطی به سرور هوش مصنوعی ندارد) تا بدون رفرش صفحه، آیکن بعد از وب‌هوک عوض شود.
+پنل مدیر خودش هر ۸ ثانیه (فقط وقتی رکوردی «در حال پردازش» است و تب مرورگر باز است) از **خود افزونه** وضعیت را می‌پرسد (`GET /pwc/v1/ai-status`، فقط برای مدیر لاگین‌کرده؛ ربطی به سرور هوش مصنوعی ندارد) تا بدون رفرش صفحه، آیکن بعد از وب‌هوک عوض شود.
 
 ---
 
@@ -56,8 +56,8 @@
 ```json
 "callback": {
   "api_version": 1,
-  "url": "https://shop.example.com/wp-json/paia/v1/ai/results",
-  "ping_url": "https://shop.example.com/wp-json/paia/v1/ai/ping",
+  "url": "https://shop.example.com/wp-json/pwc/v1/ai/results",
+  "ping_url": "https://shop.example.com/wp-json/pwc/v1/ai/ping",
   "site_url": "https://shop.example.com",
   "signature": "hmac-sha256",
   "max_results": 500
@@ -74,13 +74,13 @@
 
 | هدر | مقدار |
 |---|---|
-| `X-PAIA-Timestamp` | زمان یونیکس (ثانیه، UTC) |
-| `X-PAIA-Signature` | `sha256=` + hex از `HMAC_SHA256(api_key, "{timestamp}.{بدنهٔ خام}")` |
-| `X-PAIA-Delivery` | شناسهٔ یکتای ارسال (UUID)؛ در تلاش مجدد **همان** مقدار |
+| `X-PWC-Timestamp` | زمان یونیکس (ثانیه، UTC) |
+| `X-PWC-Signature` | `sha256=` + hex از `HMAC_SHA256(api_key, "{timestamp}.{بدنهٔ خام}")` |
+| `X-PWC-Delivery` | شناسهٔ یکتای ارسال (UUID)؛ در تلاش مجدد **همان** مقدار |
 
 - امضا روی **بایت‌های دقیقاً ارسال‌شده** است؛ JSON را یک‌بار سریالایز کنید و همان بایت‌ها را بفرستید (`content=body`، نه `json=`).
 - اختلاف زمان مجاز: ±۵ دقیقه (ضد replay). در خطا `server_time` سایت برگردانده می‌شود.
-- کلید روی شبکه نمی‌رود. برای جداکردن کلید امضا از کلید دسترسی، در افزونه فیلتر `paia_api_secret` هست.
+- کلید روی شبکه نمی‌رود. برای جداکردن کلید امضا از کلید دسترسی، در افزونه فیلتر `pwc_api_secret` هست.
 
 ```python
 import hashlib, hmac, json, time, uuid, httpx
@@ -91,8 +91,8 @@ def deliver(callback_url: str, api_key: str, payload: dict) -> httpx.Response:
     sig = "sha256=" + hmac.new(api_key.encode(), ts.encode() + b"." + body, hashlib.sha256).hexdigest()
     return httpx.post(
         callback_url, content=body,
-        headers={"Content-Type": "application/json", "X-PAIA-Timestamp": ts,
-                 "X-PAIA-Signature": sig, "X-PAIA-Delivery": payload["delivery_id"]},
+        headers={"Content-Type": "application/json", "X-PWC-Timestamp": ts,
+                 "X-PWC-Signature": sig, "X-PWC-Delivery": payload["delivery_id"]},
         timeout=httpx.Timeout(10.0, connect=3.0), follow_redirects=False,
     )
 ```
@@ -107,14 +107,14 @@ def deliver(callback_url: str, api_key: str, payload: dict) -> httpx.Response:
 
 ## ۴. مسیرها
 
-پایه: `{site}/wp-json/paia/v1` (یا `{site}/?rest_route=/paia/v1/…` وقتی پیوند یکتا خاموش است — همان `callback.url` را استفاده کنید).
+پایه: `{site}/wp-json/pwc/v1` (یا `{site}/?rest_route=/pwc/v1/…` وقتی پیوند یکتا خاموش است — همان `callback.url` را استفاده کنید).
 
 ### `GET /ai/ping`
 دست‌دادن و سنجش سلامت. بدنه ندارد (امضا روی رشتهٔ خالی). هنگام اولین اتصال سایت و دوره‌ای صدا بزنید؛ **زمان پاسخ را ثبت کنید** (برای کنترل سرعت ارسال به سایت‌های کند).
 
 ```json
 { "ok": true, "api_version": 1, "plugin_version": "0.5.17", "wp_version": "6.8",
-  "site_url": "https://shop.example.com", "callback_url": "https://shop.example.com/wp-json/paia/v1/ai/results",
+  "site_url": "https://shop.example.com", "callback_url": "https://shop.example.com/wp-json/pwc/v1/ai/results",
   "max_results": 500, "time": 1790000000 }
 ```
 
@@ -148,19 +148,19 @@ def deliver(callback_url: str, api_key: str, payload: dict) -> httpx.Response:
 ```
 
 دلایل `ignored`: `not_found` (رکورد دیگر نیست؛ مثلاً از سایت حذف شد) · `stale` (بعد از ارسال ویرایش شده؛ نسخهٔ تازه جداگانه ارسال می‌شود) · `invalid_id` · `invalid_status`.
-**این‌ها خطا نیستند؛ دوباره نفرستید.** تلاش مجدد با همان `X-PAIA-Delivery` پردازش دوباره نمی‌شود (`{"ok":true,"duplicate":true}`).
+**این‌ها خطا نیستند؛ دوباره نفرستید.** تلاش مجدد با همان `X-PWC-Delivery` پردازش دوباره نمی‌شود (`{"ok":true,"duplicate":true}`).
 
 ### کدهای خطا و رفتار سرور
 
 | کد | معنی | کار سرور |
 |---|---|---|
 | `200` | گرفته شد | تمام |
-| `400` `paia_bad_json` / `paia_no_results` / `paia_too_many` | بدنه ناقص | **تلاش مجدد نکنید**؛ باگ سمت سرور است (لاگ کنید) |
-| `401` `paia_bad_signature` | کلید یا بدنه اشتباه | تلاش مجدد نکنید؛ وضعیت اتصال سایت را «نیازمند بررسی» کنید |
-| `401` `paia_stale_timestamp` | ساعت سرور/سایت | با زمان درست دوباره امضا و یک‌بار تلاش کنید؛ `server_time` در پاسخ هست |
+| `400` `pwc_bad_json` / `pwc_no_results` / `pwc_too_many` | بدنه ناقص | **تلاش مجدد نکنید**؛ باگ سمت سرور است (لاگ کنید) |
+| `401` `pwc_bad_signature` | کلید یا بدنه اشتباه | تلاش مجدد نکنید؛ وضعیت اتصال سایت را «نیازمند بررسی» کنید |
+| `401` `pwc_stale_timestamp` | ساعت سرور/سایت | با زمان درست دوباره امضا و یک‌بار تلاش کنید؛ `server_time` در پاسخ هست |
 | `404` `rest_no_route` | چت‌بات سایت خاموش یا افزونه غیرفعال | ارسال را برای این سایت **متوقف** کنید (بازبینی دوره‌ای) |
 | `413` | بدنه بزرگ‌تر از ۱ مگابایت | دسته را کوچک‌تر کنید |
-| `503` `paia_not_configured` | `api_key` در افزونه خالی است | متوقف + بازبینی |
+| `503` `pwc_not_configured` | `api_key` در افزونه خالی است | متوقف + بازبینی |
 | `408` / `429` / `5xx` / timeout | مشکل موقت | **تلاش مجدد با backoff** (بخش ۵) |
 
 ## ۵. توصیه‌های سمت سرور (سایت کند، سایت‌های زیاد)
@@ -198,10 +198,10 @@ def deliver(callback_url: str, api_key: str, payload: dict) -> httpx.Response:
 
 سرور هنوز ساخته نشده؛ پس `AiBackend::request()` **هیچ‌جا درخواست نمی‌فرستد** و خودش همیشه `200` برمی‌گرداند (`{"ok":true,"simulated":true,"job_id":"sim_…"}`). بنابراین الان با زدن «آموزش به هوش مصنوعی» (یا ذخیرهٔ متن با تیک آموزش، آپلود فایل، ذخیرهٔ خودکار محصول…) رکورد بلافاصله `ai_status = 1` می‌شود و آیکن loading می‌ماند تا وب‌هوک `trained` برسد.
 
-وقتی سرور واقعی آماده شد فقط همین یک تابع عوض می‌شود (یا از فیلتر `paia_ai_backend_request` استفاده کنید):
+وقتی سرور واقعی آماده شد فقط همین یک تابع عوض می‌شود (یا از فیلتر `pwc_ai_backend_request` استفاده کنید):
 
 ```php
-add_filter( 'paia_ai_backend_request', function ( $response, $path, $payload ) {
+add_filter( 'pwc_ai_backend_request', function ( $response, $path, $payload ) {
     $r = wp_remote_post( 'https://ai.example.com' . $path, array( 'timeout' => 10, 'body' => wp_json_encode( $payload ), 'headers' => array( 'Content-Type' => 'application/json' ) ) );
     return array( 'code' => (int) wp_remote_retrieve_response_code( $r ), 'body' => (array) json_decode( wp_remote_retrieve_body( $r ), true ) );
 }, 10, 3 );
@@ -212,7 +212,7 @@ add_filter( 'paia_ai_backend_request', function ( $response, $path, $payload ) {
 برای دیدن تبدیل loading ← آیکن هوش مصنوعی بدون سرور، همان `deliver()` بخش ۳ را با `callback.url` سایت و `api_key` تنظیمات صدا بزنید (شناسه‌ها را از رکوردهای «در حال پردازش» بردارید):
 
 ```python
-deliver("https://shop.example.com/wp-json/paia/v1/ai/results", "API_KEY_SITE", {
+deliver("https://shop.example.com/wp-json/pwc/v1/ai/results", "API_KEY_SITE", {
     "job_id": "j_test", "delivery_id": str(uuid.uuid4()),
     "results": [{"id": "text:1790000000123", "status": "trained"}],   # rev را نفرستید تا مقایسه نشود
 })
@@ -229,15 +229,15 @@ deliver("https://shop.example.com/wp-json/paia/v1/ai/results", "API_KEY_SITE", {
 { "event": "create", "id": "file:1793261168782", "rev": "1793261168",
   "data": { "type": "file", "title": "راهنمای گارانتی", "original_name": "guide.pdf", "ext": "pdf",
             "size": 482113, "sha256": "<hex>",
-            "download": { "url": "https://site/wp-json/paia/v1/ai/file?id=file:1793261168782&exp=1793264768&sig=<hex>",
+            "download": { "url": "https://site/wp-json/pwc/v1/ai/file?id=file:1793261168782&exp=1793264768&sig=<hex>",
                           "expires": 1793264768 } },
   "callback": { … } }
 ```
-- `sig = hex( HMAC_SHA256( api_key, "paia-file\n{id}\n{exp}" ) )`؛ `id` و `exp` داخل امضا هستند و پیشوند `paia-file` آن را از امضای API جدا می‌کند. سرور هوش مصنوعی چیزی امضا/تأیید نمی‌کند، فقط لینک را باز می‌کند.
-- **عمر ۱ ساعت** (تا نوبت صف و تلاش‌های مجدد برسد)؛ فیلتر `paia_file_link_ttl` (۵ دقیقه تا ۲۴ ساعت). منقضی ← `403 paia_link_expired`؛ سرور job را `failed` می‌کند (`download_link_expired`) و با «آموزش» دوباره لینک تازه ساخته می‌شود. کرون بازبینی هم برای `unknown` لینک تازه می‌سازد (`AiBackend::resend`).
+- `sig = hex( HMAC_SHA256( api_key, "pwc-file\n{id}\n{exp}" ) )`؛ `id` و `exp` داخل امضا هستند و پیشوند `pwc-file` آن را از امضای API جدا می‌کند. سرور هوش مصنوعی چیزی امضا/تأیید نمی‌کند، فقط لینک را باز می‌کند.
+- **عمر ۱ ساعت** (تا نوبت صف و تلاش‌های مجدد برسد)؛ فیلتر `pwc_file_link_ttl` (۵ دقیقه تا ۲۴ ساعت). منقضی ← `403 pwc_link_expired`؛ سرور job را `failed` می‌کند (`download_link_expired`) و با «آموزش» دوباره لینک تازه ساخته می‌شود. کرون بازبینی هم برای `unknown` لینک تازه می‌سازد (`AiBackend::resend`).
 - فقط همان یک فایل، فقط GET؛ `Content-Type: application/octet-stream`، `Content-Disposition: attachment`، `X-Content-Type-Options: nosniff`.
 - `sha256` برای «تغییر نکرده» (بدون دانلود دوباره) و بررسی سلامت دانلود است. لینک در «لاگ سرور» نوشته نمی‌شود.
-- `.doc` فرستاده نمی‌شود (سرور فقط pdf/docx/txt را استخراج می‌کند): «آموزش» خطای ۴۱۵ `paia_file_unsupported` می‌دهد.
+- `.doc` فرستاده نمی‌شود (سرور فقط pdf/docx/txt را استخراج می‌کند): «آموزش» خطای ۴۱۵ `pwc_file_unsupported` می‌دهد.
 - کد: `Apis\FileLink` (ساخت/تأیید)، `Apis\Endpoints\FileEndpoint`، `Sync\AiBackend::file_payload()`.
 
 ## ۸. ساختار پوشه
@@ -245,19 +245,19 @@ deliver("https://shop.example.com/wp-json/paia/v1/ai/results", "API_KEY_SITE", {
 ```
 apis/
 ├─ README.md / openapi.yaml    قرارداد (این فایل)
-├─ ApisModule.php              ثبت مسیرها (فقط وقتی چت‌بات روشن است)؛ فیلتر paia_api_endpoints
-├─ Callback.php                شیء callback که افزونه به سرور می‌دهد؛ فیلتر paia_callback_url
-├─ Records.php                 نسخه (rev) و ai_status دسته‌ای برای paia_items / paia_texts / paia_files
-├─ Results.php                 هستهٔ اعمال نتیجه (ایدمپوتنت)؛ اکشن paia_ai_results_applied
+├─ ApisModule.php              ثبت مسیرها (فقط وقتی چت‌بات روشن است)؛ فیلتر pwc_api_endpoints
+├─ Callback.php                شیء callback که افزونه به سرور می‌دهد؛ فیلتر pwc_callback_url
+├─ Records.php                 نسخه (rev) و ai_status دسته‌ای برای pwc_items / pwc_texts / pwc_files
+├─ Results.php                 هستهٔ اعمال نتیجه (ایدمپوتنت)؛ اکشن pwc_ai_results_applied
 ├─ Auth/Signature.php          اعتبارسنجی امضای HMAC و زمان
 └─ Endpoints/                  AbstractEndpoint، PingEndpoint، ResultsEndpoint
 ```
 
-**افزودن API ورودی تازه:** کلاسی از `Endpoints\AbstractEndpoint` بسازید (`permission_callback` = `authorize`) و در فیلتر `paia_api_endpoints` اضافه کنید. هر رویداد را در لاگ سرور (`LogStore::add`) ثبت کنید.
+**افزودن API ورودی تازه:** کلاسی از `Endpoints\AbstractEndpoint` بسازید (`permission_callback` = `authorize`) و در فیلتر `pwc_api_endpoints` اضافه کنید. هر رویداد را در لاگ سرور (`LogStore::add`) ثبت کنید.
 
 ## ۹. عیب‌یابی سایت‌هایی که وب‌هوک نمی‌گیرند
 
-- `401 paia_bad_signature` با کلید درست: افزونه‌های امنیتی/پراکسی گاهی بدنه یا هدرها را تغییر می‌دهند.
+- `401 pwc_bad_signature` با کلید درست: افزونه‌های امنیتی/پراکسی گاهی بدنه یا هدرها را تغییر می‌دهند.
 - `403`/صفحهٔ چالش HTML: WAF یا Cloudflare مسیر `/wp-json/` را مسدود کرده؛ آی‌پی سرور را allow کنید یا به بازبینی تکیه کنید.
 - `404`: پیوند یکتا خاموش است (از `callback.url` که `?rest_route=` دارد استفاده کنید) یا چت‌بات خاموش است.
 - سایت پشت رمز (basic auth) یا localhost: وب‌هوک نمی‌رسد؛ فقط بازبینی کار می‌کند.
@@ -272,12 +272,12 @@ apis/
 
 ## ابزارهای هوش مصنوعی (Tool Calling): `/live/products` و `/live/tool` (از ۰.۵.۲۴)
 
-سرور هنگام تولید پاسخ، اگر AI ابزار بخواهد این دو مسیر را **با همان امضای وب‌هوک** (`X-PAIA-Timestamp` / `X-PAIA-Signature`، بدنهٔ خام) صدا می‌زند. قرارداد کامل: `LIVE_TOOLS_API.md` (ریپوی سرور، `docs/`).
+سرور هنگام تولید پاسخ، اگر AI ابزار بخواهد این دو مسیر را **با همان امضای وب‌هوک** (`X-PWC-Timestamp` / `X-PWC-Signature`، بدنهٔ خام) صدا می‌زند. قرارداد کامل: `LIVE_TOOLS_API.md` (ریپوی سرور، `docs/`).
 
 | مسیر | بدنه | پاسخ |
 |---|---|---|
-| `POST /paia/v1/live/products` | `{request_id, fields:["price","stock"], products:[{id}\|{name}] ≤5}` | `{ok:true, message:"<بلاک‌های کلید: مقدار>"}` |
-| `POST /paia/v1/live/tool` | `{request_id, tool_id}` | `{ok:true, text}` یا `{ok:false, error}` |
+| `POST /pwc/v1/live/products` | `{request_id, fields:["price","stock"], products:[{id}\|{name}] ≤5}` | `{ok:true, message:"<بلاک‌های کلید: مقدار>"}` |
+| `POST /pwc/v1/live/tool` | `{request_id, tool_id}` | `{ok:true, text}` یا `{ok:false, error}` |
 
 - **HTTP 200** برای هر نتیجهٔ کاری (حتی «پیدا نشد»)؛ فقط امضای نامعتبر ۴۰۱. بدون کش (`no-store`).
 - **محصولات:** فقط فیلدهایی که هم سرور خواسته و هم مدیر در «اطلاعات به‌روز ← تمام محصولات» روشن گذاشته (`price` = قیمت/قیمت اصلی/حراج، `stock` = وضعیت/تعداد/پیش‌سفارش، هر کدام با تیک خودش)؛ فقط محصول `publish` بدون رمز؛ id اولویت دارد، `name` با نرمال‌سازی ی/ک/ارقام؛ نتیجهٔ غیرقطعی = «چند نتیجه» (حداکثر ۳). ووکامرس (ساده/متغیر/گروهی/خارجی) + مسیر ساده برای EDD و مشابه.

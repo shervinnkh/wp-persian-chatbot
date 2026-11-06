@@ -1,13 +1,13 @@
 <?php
-namespace PersianAIAssistant\Apis\Endpoints;
+namespace PersianWPChatbot\Apis\Endpoints;
 
-use PersianAIAssistant\Apis\Callback;
-use PersianAIAssistant\Apis\Results;
+use PersianWPChatbot\Apis\Callback;
+use PersianWPChatbot\Apis\Results;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * GET /wp-json/paia/v1/ai/ping
+ * GET /wp-json/pwc/v1/ai/ping
  *
  * بررسی سلامت و «دست‌دادن»: سرور با این مسیر مطمئن می‌شود آدرس بازگشتی سایت در دسترس است و کلید/امضا درست است،
  * و همزمان سرعت پاسخ‌گویی سایت را اندازه می‌گیرد (برای تنظیم سرعت ارسال به سایت‌های کند). بدنه ندارد؛ امضا روی بدنهٔ خالی است.
@@ -31,7 +31,7 @@ final class PingEndpoint extends AbstractEndpoint {
 			array(
 				'ok'             => true,
 				'api_version'    => Callback::API_VERSION,
-				'plugin_version' => PAIA_VERSION,
+				'plugin_version' => PWC_VERSION,
 				'wp_version'     => get_bloginfo( 'version' ),
 				'site_url'       => site_url(),
 				'callback_url'   => Callback::url(),

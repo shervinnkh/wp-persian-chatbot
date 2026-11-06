@@ -1,14 +1,14 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Support\Capability;
-use PersianAIAssistant\Support\Status;
+use PersianWPChatbot\Support\Capability;
+use PersianWPChatbot\Support\Status;
 
 defined( 'ABSPATH' ) || exit;
 
 abstract class AbstractController {
 
-	public const REST_NAMESPACE = 'paia/v1';
+	public const REST_NAMESPACE = 'pwc/v1';
 
 	abstract public function register_routes(): void;
 
@@ -20,8 +20,8 @@ abstract class AbstractController {
 	public function permissions_check() {
 		if ( ! Status::is_enabled() ) {
 			return new \WP_Error(
-				'paia_disabled',
-				__( 'چت‌بات غیرفعال است.', 'persian-ai-assistant' ),
+				'pwc_disabled',
+				__( 'چت‌بات غیرفعال است.', 'persian-wp-chatbot' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -31,8 +31,8 @@ abstract class AbstractController {
 		}
 
 		return new \WP_Error(
-			'paia_forbidden',
-			__( 'شما اجازهٔ انجام این کار را ندارید.', 'persian-ai-assistant' ),
+			'pwc_forbidden',
+			__( 'شما اجازهٔ انجام این کار را ندارید.', 'persian-wp-chatbot' ),
 			array( 'status' => rest_authorization_required_code() )
 		);
 	}

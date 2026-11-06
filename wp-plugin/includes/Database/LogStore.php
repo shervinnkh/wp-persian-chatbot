@@ -1,10 +1,10 @@
 <?php
-namespace PersianAIAssistant\Database;
+namespace PersianWPChatbot\Database;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * لاگ سرور هوش مصنوعی در جدول paia_logs (تب «لاگ سرور»).
+ * لاگ سرور هوش مصنوعی در جدول pwc_logs (تب «لاگ سرور»).
  *
  * هر لاگ: status (success = موفق، error = ناموفق، info = عادی)، message (متن لاگ؛ در لیست اگر بلند باشد با «…» کوتاه می‌شود)،
  * data (JSON جزئیات: متد، آدرس، کد وضعیت، مدت، خطا، …) و created_at (timestamp).
@@ -17,7 +17,7 @@ final class LogStore {
 	public const ERROR   = 'error';
 	public const INFO    = 'info';
 
-	public const SEEDED_OPTION = 'paia_logs_seeded';
+	public const SEEDED_OPTION = 'pwc_logs_seeded';
 
 	/** حداکثر نویسه‌های متنِ پیش‌نمایش در لیست (بقیه با «…» بریده می‌شود). */
 	private const PREVIEW = 200;

@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     )
 
     # --- App ---
-    APP_NAME: str = "Persian AI Backend"
+    APP_NAME: str = "Persian WP Chatbot Server"
     APP_ENV: Literal["development", "production"] = "development"
     HOST: str = "127.0.0.1"
     PORT: int = Field(8000, ge=1, le=65535)
@@ -202,8 +202,8 @@ class Settings(BaseSettings):
     # The two endpoints live on PLUGIN_BASE_URL (never taken from the client request).
     # products: live price/stock of products (ids, or names when no id is known)
     # dynamic : text of a site-owner-defined tool, fetched by the tool id the client sent
-    TOOLS_PRODUCTS_PATH: str = "/wp-json/paia/v1/live/products"
-    TOOLS_DYNAMIC_PATH: str = "/wp-json/paia/v1/live/tool"
+    TOOLS_PRODUCTS_PATH: str = "/wp-json/pwc/v1/live/products"
+    TOOLS_DYNAMIC_PATH: str = "/wp-json/pwc/v1/live/tool"
     TOOLS_TIMEOUT: float = Field(10.0, ge=1, le=60)
     TOOLS_MAX_CALLS_PER_ROUND: int = Field(4, ge=1, le=20)  # tool calls executed per AI round
     TOOLS_MAX_PRODUCTS_PER_CALL: int = Field(5, ge=1, le=20)

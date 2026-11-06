@@ -2,14 +2,14 @@
 /**
  * ذخیرهٔ فایل‌های پیوست چت (عکس و ویس) — مشترک بین بازدیدکننده و پشتیبان.
  *
- * فایل‌ها در uploads/paia-chat/سال/ماه با نام تصادفی ذخیره می‌شوند. فایل‌ها عمداً عمومی می‌مانند (نام تصادفی ۱۶ نویسه‌ای کافی است)،
+ * فایل‌ها در uploads/pwc-chat/سال/ماه با نام تصادفی ذخیره می‌شوند. فایل‌ها عمداً عمومی می‌مانند (نام تصادفی ۱۶ نویسه‌ای کافی است)،
  * ولی پوشه محافظت می‌شود (S-8): index.php + .htaccess (بدون فهرست‌شدن، بدون اجرای php/phtml/phar) و محتوای صوت با magic bytes
  * با پسوند تطبیق داده می‌شود. پاک‌سازی دوره‌ای: Chat\Retention.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 use WP_Error;
 
@@ -21,7 +21,7 @@ final class Uploads {
 	private const AUDIO_EXT = array( 'webm', 'ogg', 'oga', 'mp3', 'm4a', 'mp4', 'wav', 'aac' );
 
 	/** نام پوشهٔ فایل‌های چت داخل uploads. */
-	public const DIR = 'paia-chat';
+	public const DIR = 'pwc-chat';
 
 	/** مسیر مطلق پوشهٔ ریشهٔ فایل‌های چت (بدون / انتهایی). */
 	public static function base_dir(): string {
@@ -33,7 +33,7 @@ final class Uploads {
 	/**
 	 * ساخت پوشه (و زیرپوشهٔ سال/ماه) و فایل‌های محافظ. چندبار صدا زدنش بی‌ضرر است.
 	 *
-	 * @param string $path مسیر مطلق پوشهٔ مقصد داخل paia-chat (خالی = فقط ریشه).
+	 * @param string $path مسیر مطلق پوشهٔ مقصد داخل pwc-chat (خالی = فقط ریشه).
 	 */
 	public static function ensure_dir( string $path = '' ): void {
 		$base = self::base_dir();
@@ -57,7 +57,7 @@ final class Uploads {
 	}
 
 	/**
-	 * محتوای .htaccess پوشه (Apache 2.4 و 2.2). برای nginx: location ~* /uploads/paia-chat/.*\.php$ { deny all; } (README).
+	 * محتوای .htaccess پوشه (Apache 2.4 و 2.2). برای nginx: location ~* /uploads/pwc-chat/.*\.php$ { deny all; } (README).
 	 */
 	public static function htaccess(): string {
 		return "Options -Indexes\n"
@@ -100,7 +100,7 @@ final class Uploads {
 	}
 
 	public static function upload_dir( array $dirs ): array {
-		$sub            = '/paia-chat/' . gmdate( 'Y/m' );
+		$sub            = '/pwc-chat/' . gmdate( 'Y/m' );
 		$dirs['subdir'] = $sub;
 		$dirs['path']   = $dirs['basedir'] . $sub;
 		$dirs['url']    = $dirs['baseurl'] . $sub;
@@ -118,23 +118,23 @@ final class Uploads {
 		if ( in_array( $ext, self::IMAGE_EXT, true ) ) {
 			$kind = 'image';
 			if ( $enforce_toggles && ! ChatSettings::get( 'allow_images' ) ) {
-				return new WP_Error( 'paia_file', __( 'ارسال عکس فعال نیست.', 'persian-ai-assistant' ), array( 'status' => 403 ) );
+				return new WP_Error( 'pwc_file', __( 'ارسال عکس فعال نیست.', 'persian-wp-chatbot' ), array( 'status' => 403 ) );
 			}
 		} elseif ( in_array( $ext, self::AUDIO_EXT, true ) ) {
 			$kind = 'audio';
 			if ( $enforce_toggles && ! ChatSettings::get( 'allow_voice' ) ) {
-				return new WP_Error( 'paia_file', __( 'ارسال ویس فعال نیست.', 'persian-ai-assistant' ), array( 'status' => 403 ) );
+				return new WP_Error( 'pwc_file', __( 'ارسال ویس فعال نیست.', 'persian-wp-chatbot' ), array( 'status' => 403 ) );
 			}
 		} else {
-			return new WP_Error( 'paia_file', __( 'فرمت فایل پشتیبانی نمی‌شود.', 'persian-ai-assistant' ), array( 'status' => 415 ) );
+			return new WP_Error( 'pwc_file', __( 'فرمت فایل پشتیبانی نمی‌شود.', 'persian-wp-chatbot' ), array( 'status' => 415 ) );
 		}
 
 		$max = (int) ChatSettings::get( 'max_upload_mb', 5 ) * MB_IN_BYTES;
 		if ( (int) ( $file['error'] ?? 0 ) !== UPLOAD_ERR_OK || (int) ( $file['size'] ?? 0 ) <= 0 || (int) $file['size'] > $max ) {
-			return new WP_Error( 'paia_file_size', __( 'حجم فایل بیش از حد مجاز است.', 'persian-ai-assistant' ), array( 'status' => 413 ) );
+			return new WP_Error( 'pwc_file_size', __( 'حجم فایل بیش از حد مجاز است.', 'persian-wp-chatbot' ), array( 'status' => 413 ) );
 		}
 		if ( 'image' === $kind && false === @getimagesize( $file['tmp_name'] ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors
-			return new WP_Error( 'paia_file', __( 'فایل تصویر معتبر نیست.', 'persian-ai-assistant' ), array( 'status' => 415 ) );
+			return new WP_Error( 'pwc_file', __( 'فایل تصویر معتبر نیست.', 'persian-wp-chatbot' ), array( 'status' => 415 ) );
 		}
 		if ( 'audio' === $kind ) {
 			// محتوا باید واقعاً صوت هم‌نوعِ پسوند باشد (مثلاً فایل .php با پسوند .mp3 رد می‌شود).
@@ -145,7 +145,7 @@ final class Uploads {
 				fclose( $fh ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 			}
 			if ( ! self::audio_matches( $head, $ext ) ) {
-				return new WP_Error( 'paia_file', __( 'محتوای فایل با نوع صوتی آن مطابقت ندارد.', 'persian-ai-assistant' ), array( 'status' => 415 ) );
+				return new WP_Error( 'pwc_file', __( 'محتوای فایل با نوع صوتی آن مطابقت ندارد.', 'persian-wp-chatbot' ), array( 'status' => 415 ) );
 			}
 		}
 
@@ -155,7 +155,7 @@ final class Uploads {
 
 		$filter = array( self::class, 'upload_dir' );
 		add_filter( 'upload_dir', $filter );
-		$target = wp_upload_dir( null, false ); // با فیلتر بالا: uploads/paia-chat/سال/ماه
+		$target = wp_upload_dir( null, false ); // با فیلتر بالا: uploads/pwc-chat/سال/ماه
 		self::ensure_dir( (string) $target['path'] ); // محافظ پوشه (index.php + .htaccess) پیش از نوشتن فایل
 		$res = wp_handle_upload(
 			$file,
@@ -167,7 +167,7 @@ final class Uploads {
 		remove_filter( 'upload_dir', $filter );
 
 		if ( ! is_array( $res ) || ! empty( $res['error'] ) ) {
-			return new WP_Error( 'paia_file', __( 'ذخیرهٔ فایل ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new WP_Error( 'pwc_file', __( 'ذخیرهٔ فایل ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 		return array(
 			'type' => $kind,

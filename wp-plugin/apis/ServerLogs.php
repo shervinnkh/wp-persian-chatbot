@@ -1,19 +1,19 @@
 <?php
-namespace PersianAIAssistant\Apis;
+namespace PersianWPChatbot\Apis;
 
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * دریافت لاگ سرور هوش مصنوعی (POST /v1/get_log) — فقط وقتی مدیر دکمهٔ «به‌روزرسانی» را بزند، نه خودکار.
  *
- * نشانگر: شناسهٔ ۳ لاگِ آخری که گرفته‌ایم (option). سرور فقط خطوط بعد از آن‌ها را می‌فرستد و ما در جدول paia_logs
+ * نشانگر: شناسهٔ ۳ لاگِ آخری که گرفته‌ایم (option). سرور فقط خطوط بعد از آن‌ها را می‌فرستد و ما در جدول pwc_logs
  * ذخیره می‌کنیم (تب «لاگ سرور» همان جدول را نشان می‌دهد).
  */
 final class ServerLogs {
 
-	private const OPTION = 'paia_serverlog_sync'; // array{ids:string[], at:int}
+	private const OPTION = 'pwc_serverlog_sync'; // array{ids:string[], at:int}
 	private const KEEP   = 3;
 	private const LIMIT  = 200;
 
@@ -39,7 +39,7 @@ final class ServerLogs {
 				'ok'    => false,
 				'added' => 0,
 				'more'  => false,
-				'error' => __( 'آدرس یا کلید اتصال به سرور هوش مصنوعی تنظیم نشده است.', 'persian-ai-assistant' ),
+				'error' => __( 'آدرس یا کلید اتصال به سرور هوش مصنوعی تنظیم نشده است.', 'persian-wp-chatbot' ),
 			);
 		}
 

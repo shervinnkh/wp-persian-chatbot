@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Support;
+namespace PersianWPChatbot\Support;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -7,12 +7,12 @@ defined( 'ABSPATH' ) || exit;
  * IP بازدیدکننده (S-1 / SEC-04).
  *
  * - حالت عادی: فقط REMOTE_ADDR. X-Forwarded-For هرگز خوانده نمی‌شود.
- * - اگر ثابت PAIA_IP_HEADER (مثلاً 'HTTP_CF_CONNECTING_IP') تعریف شده باشد، هدر فقط وقتی خوانده می‌شود که
+ * - اگر ثابت PWC_IP_HEADER (مثلاً 'HTTP_CF_CONNECTING_IP') تعریف شده باشد، هدر فقط وقتی خوانده می‌شود که
  *   REMOTE_ADDR (IP اتصال‌دهنده) داخل محدودهٔ یک Proxy مورد اعتماد باشد. بدون فهرست Proxy مورد اعتماد، هدر نادیده گرفته می‌شود.
  * - فهرست Proxy مورد اعتماد (به ترتیب):
- *     1) ثابت PAIA_TRUSTED_PROXIES در wp-config.php: آرایه یا رشتهٔ جداشده با کاما/فاصله از CIDR/IP؛
+ *     1) ثابت PWC_TRUSTED_PROXIES در wp-config.php: آرایه یا رشتهٔ جداشده با کاما/فاصله از CIDR/IP؛
  *        کلیدواژهٔ 'cloudflare' فهرست پیوست‌شده (includes/Support/trusted-proxies/cloudflare.txt) را اضافه می‌کند.
- *     2) فیلتر 'paia_trusted_proxies' برای اصلاح/تأمین فهرست از منبع به‌روز.
+ *     2) فیلتر 'pwc_trusted_proxies' برای اصلاح/تأمین فهرست از منبع به‌روز.
  * - مقدار هدر با FILTER_VALIDATE_IP اعتبارسنجی می‌شود؛ هدر خالی/نامعتبر یعنی بازگشت به REMOTE_ADDR.
  */
 final class ClientIp {
@@ -22,8 +22,8 @@ final class ClientIp {
 
 	public static function get(): string {
 		$header = '';
-		if ( defined( 'PAIA_IP_HEADER' ) && is_string( PAIA_IP_HEADER ) && preg_match( '/^[A-Z0-9_]{3,60}$/', PAIA_IP_HEADER ) ) {
-			$header = PAIA_IP_HEADER;
+		if ( defined( 'PWC_IP_HEADER' ) && is_string( PWC_IP_HEADER ) && preg_match( '/^[A-Z0-9_]{3,60}$/', PWC_IP_HEADER ) ) {
+			$header = PWC_IP_HEADER;
 		}
 
 		$server = array(
@@ -72,7 +72,7 @@ final class ClientIp {
 	 * @return string[]
 	 */
 	public static function trusted_proxies(): array {
-		$raw = defined( 'PAIA_TRUSTED_PROXIES' ) ? PAIA_TRUSTED_PROXIES : array();
+		$raw = defined( 'PWC_TRUSTED_PROXIES' ) ? PWC_TRUSTED_PROXIES : array();
 		if ( is_string( $raw ) ) {
 			$raw = preg_split( '/[\s,]+/', $raw, -1, PREG_SPLIT_NO_EMPTY );
 		}
@@ -86,7 +86,7 @@ final class ClientIp {
 			}
 		}
 		if ( function_exists( 'apply_filters' ) ) {
-			$filtered = apply_filters( 'paia_trusted_proxies', $list );
+			$filtered = apply_filters( 'pwc_trusted_proxies', $list );
 			$list     = is_array( $filtered ) ? $filtered : $list;
 		}
 

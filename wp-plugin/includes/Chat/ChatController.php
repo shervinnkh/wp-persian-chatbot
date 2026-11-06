@@ -1,6 +1,6 @@
 <?php
 /**
- * REST عمومی چت (namespace: paia/v1)
+ * REST عمومی چت (namespace: pwc/v1)
  *
  *  GET  /chat/init     بارگذاری هویت، تاریخچه و پیشنهادها
  *  POST /chat/profile  ثبت نام/تماس (یا ادامه به‌عنوان مهمان)
@@ -9,7 +9,7 @@
  *  GET  /chat/poll     به‌روزرسانی دوره‌ای (پیام‌های جدید/حذف‌شده، تایپینگ پشتیبان، وضعیت آنلاین)
  *  POST /chat/typing   اعلام «کاربر در حال تایپ است»
  *
- * هویت: هدر X-PAIA-Visitor (UUID). برای کاربر واردشده، کاربر وردپرس ملاک است.
+ * هویت: هدر X-PWC-Visitor (UUID). برای کاربر واردشده، کاربر وردپرس ملاک است.
  *
  * امنیت/سبک‌سازی (۰.۵.۲۸):
  *  - مسیرهای GET و poll/typing/history هرگز بازدیدکننده نمی‌سازند (رفع S-1)؛ ردیف فقط هنگام ارسال پیام یا ذخیرهٔ پروفایل ساخته می‌شود
@@ -17,10 +17,10 @@
  *  - poll فقط پیام‌های همان بازدیدکننده را برمی‌گرداند (uid پارامتر دسترسی نیست؛ UUID تصادفی ۱۲۲ بیتی که فقط مرورگر همان کاربر دارد)،
  *    سقف نرخ دارد (۴۲۹ + Retry-After) و حداکثر ۵۰ پیام در هر پاسخ می‌دهد.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 use WP_Error;
 use WP_REST_Request;
@@ -54,7 +54,7 @@ final class ChatController {
 	}
 
 	/**
-	 * مسیرهای عمومی چت (/paia/v1/chat/*) با شناسهٔ بازدیدکننده (X-PAIA-Visitor) کار می‌کنند، نه با nonce.
+	 * مسیرهای عمومی چت (/pwc/v1/chat/*) با شناسهٔ بازدیدکننده (X-PWC-Visitor) کار می‌کنند، نه با nonce.
 	 * nonce داخل HTML صفحه چاپ می‌شود و با کش صفحه، تغییر نشست ورود یا انقضا نامعتبر می‌شود و
 	 * وردپرس خطای 403 «rest_cookie_invalid_nonce» می‌دهد. برای همین‌ها خطا را نادیده می‌گیریم و
 	 * درخواست را مهمان حساب می‌کنیم (مسیرهای مدیریتی /chat-admin/* و بقیهٔ API دست‌نخورده می‌مانند).
@@ -76,7 +76,7 @@ final class ChatController {
 		}
 		$route = '/' . ltrim( $route, '/' );
 
-		if ( 0 !== strpos( $route, '/paia/v1/chat/' ) ) {
+		if ( 0 !== strpos( $route, '/pwc/v1/chat/' ) ) {
 			return $result;
 		}
 
@@ -87,7 +87,7 @@ final class ChatController {
 
 	public function routes(): void {
 		register_rest_route(
-			'paia/v1',
+			'pwc/v1',
 			'/chat/init',
 			array(
 				'methods'             => 'GET',
@@ -96,7 +96,7 @@ final class ChatController {
 			)
 		);
 		register_rest_route(
-			'paia/v1',
+			'pwc/v1',
 			'/chat/profile',
 			array(
 				'methods'             => 'POST',
@@ -110,7 +110,7 @@ final class ChatController {
 			)
 		);
 		register_rest_route(
-			'paia/v1',
+			'pwc/v1',
 			'/chat/poll',
 			array(
 				'methods'             => 'GET',
@@ -123,7 +123,7 @@ final class ChatController {
 			)
 		);
 		register_rest_route(
-			'paia/v1',
+			'pwc/v1',
 			'/chat/ws-token',
 			array(
 				'methods'             => 'POST',
@@ -132,7 +132,7 @@ final class ChatController {
 			)
 		);
 		register_rest_route(
-			'paia/v1',
+			'pwc/v1',
 			'/chat/history',
 			array(
 				'methods'             => 'GET',
@@ -145,7 +145,7 @@ final class ChatController {
 			)
 		);
 		register_rest_route(
-			'paia/v1',
+			'pwc/v1',
 			'/chat/typing',
 			array(
 				'methods'             => 'POST',
@@ -154,7 +154,7 @@ final class ChatController {
 			)
 		);
 		register_rest_route(
-			'paia/v1',
+			'pwc/v1',
 			'/chat/message',
 			array(
 				'methods'             => 'POST',
@@ -169,7 +169,7 @@ final class ChatController {
 	 */
 	public function allowed() {
 		if ( ! ChatSettings::get( 'enabled' ) ) {
-			return new WP_Error( 'paia_chat_disabled', __( 'چت فعال نیست.', 'persian-ai-assistant' ), array( 'status' => 403 ) );
+			return new WP_Error( 'pwc_chat_disabled', __( 'چت فعال نیست.', 'persian-wp-chatbot' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -200,7 +200,7 @@ final class ChatController {
 	 * @return array{0:?object,1:int} [visitor|null, user_id]
 	 */
 	private function existing( WP_REST_Request $request ): array {
-		$uid     = $this->clean_uid( (string) $request->get_header( 'x_paia_visitor' ) );
+		$uid     = $this->clean_uid( (string) $request->get_header( 'x_pwc_visitor' ) );
 		$user_id = get_current_user_id();
 		return array( $this->store->resolve_visitor( $uid, $user_id ), $user_id );
 	}
@@ -211,18 +211,18 @@ final class ChatController {
 	 * @return array{0:object,1:int}|WP_REST_Response|WP_Error [visitor, user_id] یا پاسخ خطا (۴۲۹ / ۵۰۰)؛ فراخوان با is_array() بررسی کند.
 	 */
 	private function identity( WP_REST_Request $request ) {
-		$uid     = $this->clean_uid( (string) $request->get_header( 'x_paia_visitor' ) );
+		$uid     = $this->clean_uid( (string) $request->get_header( 'x_pwc_visitor' ) );
 		$user_id = get_current_user_id();
 		$visitor = $this->store->resolve_visitor( $uid, $user_id );
 		if ( ! $visitor ) {
 			$limits = ChatSettings::rate_limits();
 			$hit    = RateLimit::hit( 'create', RateLimit::ip(), (int) $limits['create_per_hour'], HOUR_IN_SECONDS );
 			if ( ! $hit['ok'] ) {
-				return $this->limited( 'paia_rate', __( 'تعداد گفتگوهای جدید از این شبکه زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-ai-assistant' ), (int) $hit['retry_after'] );
+				return $this->limited( 'pwc_rate', __( 'تعداد گفتگوهای جدید از این شبکه زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-wp-chatbot' ), (int) $hit['retry_after'] );
 			}
 			$visitor = $this->store->ensure_visitor( $uid, $user_id );
 			if ( ! $visitor ) {
-				return new WP_Error( 'paia_db', __( 'ذخیرهٔ اطلاعات ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+				return new WP_Error( 'pwc_db', __( 'ذخیرهٔ اطلاعات ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 			}
 		}
 		return array( $visitor, $user_id );
@@ -334,14 +334,14 @@ final class ChatController {
 	 */
 	public function poll( WP_REST_Request $request ) {
 		$limits = ChatSettings::rate_limits();
-		$uid_h  = $this->clean_uid( (string) $request->get_header( 'x_paia_visitor' ) );
+		$uid_h  = $this->clean_uid( (string) $request->get_header( 'x_pwc_visitor' ) );
 		$per    = (int) $limits['poll_per_min'];
 		$hit    = $uid_h ? RateLimit::hit( 'poll', $uid_h, $per, MINUTE_IN_SECONDS ) : array( 'ok' => true, 'retry_after' => 0 );
 		if ( $hit['ok'] ) {
 			$hit = RateLimit::hit( 'pollip', RateLimit::ip(), $per * 5, MINUTE_IN_SECONDS ); // کمکی: چند بازدیدکنندهٔ پشت یک IP
 		}
 		if ( ! $hit['ok'] ) {
-			return $this->limited( 'paia_rate', __( 'درخواست‌ها زیاد است؛ کمی صبر کنید.', 'persian-ai-assistant' ), (int) $hit['retry_after'] );
+			return $this->limited( 'pwc_rate', __( 'درخواست‌ها زیاد است؛ کمی صبر کنید.', 'persian-wp-chatbot' ), (int) $hit['retry_after'] );
 		}
 
 		list( $visitor, $user_id ) = $this->existing( $request );
@@ -369,12 +369,12 @@ final class ChatController {
 
 		// اگر کاربر ai_delay ثانیه تایپ نکرده، پیام‌های جمع‌شده همین‌جا پاسخ داده می‌شوند.
 		// فقط وقتی پیامی منتظر است و نوبتش رسیده، و با قفل کوتاه (چند poll هم‌زمان یک کار را شروع نکنند؛ برندهٔ واقعی ChatStore::claim است).
-		if ( $rows && 0 === $wait && RateLimit::lock( 'paia_run_' . $uid, 10 ) ) {
+		if ( $rows && 0 === $wait && RateLimit::lock( 'pwc_run_' . $uid, 10 ) ) {
 			if ( null !== $this->responder->maybe_run( $visitor, false, $rows ) ) {
 				$visitor = $this->store->visitor( $uid );
 				$rows    = array();
 			}
-			RateLimit::unlock( 'paia_run_' . $uid );
+			RateLimit::unlock( 'pwc_run_' . $uid );
 		}
 		$sig   = $this->store->sig( $uid, $user_id );
 		$muted = (int) $visitor->ai_muted > 0;
@@ -403,16 +403,16 @@ final class ChatController {
 	 */
 	public function ws_token( WP_REST_Request $request ) {
 		if ( ! Realtime::enabled() || '' === Realtime::ws_url() ) {
-			return new WP_Error( 'paia_realtime_off', __( 'پیام‌رسانی لحظه‌ای فعال نیست.', 'persian-ai-assistant' ), array( 'status' => 403 ) );
+			return new WP_Error( 'pwc_realtime_off', __( 'پیام‌رسانی لحظه‌ای فعال نیست.', 'persian-wp-chatbot' ), array( 'status' => 403 ) );
 		}
 		list( $visitor ) = $this->existing( $request );
 		if ( ! $visitor ) {
-			return new WP_Error( 'paia_no_visitor', __( 'گفتگویی وجود ندارد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new WP_Error( 'pwc_no_visitor', __( 'گفتگویی وجود ندارد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 		$limits = ChatSettings::rate_limits();
 		$hit    = RateLimit::hit( 'wstoken', (string) $visitor->uid . '|' . RateLimit::ip(), (int) $limits['token_per_min'], MINUTE_IN_SECONDS );
 		if ( ! $hit['ok'] ) {
-			return $this->limited( 'paia_rate', __( 'درخواست‌ها زیاد است؛ کمی صبر کنید.', 'persian-ai-assistant' ), (int) $hit['retry_after'] );
+			return $this->limited( 'pwc_rate', __( 'درخواست‌ها زیاد است؛ کمی صبر کنید.', 'persian-wp-chatbot' ), (int) $hit['retry_after'] );
 		}
 		$t = Realtime::issue( (string) $visitor->uid );
 		return rest_ensure_response(
@@ -497,11 +497,11 @@ final class ChatController {
 			$contact = trim( $this->latin_digits( sanitize_text_field( (string) $request->get_param( 'contact' ) ) ) );
 
 			if ( '' === $name ) {
-				return new WP_Error( 'paia_name', __( 'نام خود را وارد کنید.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+				return new WP_Error( 'pwc_name', __( 'نام خود را وارد کنید.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 			}
 			$phone = preg_replace( '/[\s\-()]/', '', $contact );
 			if ( ! is_email( $contact ) && ! preg_match( '/^\+?\d{8,15}$/', (string) $phone ) ) {
-				return new WP_Error( 'paia_contact', __( 'ایمیل یا شماره تماس معتبر وارد کنید.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+				return new WP_Error( 'pwc_contact', __( 'ایمیل یا شماره تماس معتبر وارد کنید.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 			}
 			$contact = is_email( $contact ) ? sanitize_email( $contact ) : (string) $phone;
 			$this->store->save_profile( $uid, mb_substr( $name, 0, 100 ), $contact, true );
@@ -534,7 +534,7 @@ final class ChatController {
 
 		$retry = $this->throttle( $uid );
 		if ( $retry > 0 ) {
-			return $this->limited( 'paia_rate', __( 'تعداد پیام‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-ai-assistant' ), $retry );
+			return $this->limited( 'pwc_rate', __( 'تعداد پیام‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.', 'persian-wp-chatbot' ), $retry );
 		}
 
 		$text = sanitize_textarea_field( (string) $request->get_param( 'text' ) );
@@ -544,7 +544,7 @@ final class ChatController {
 		$file  = ( isset( $files['file'] ) && is_array( $files['file'] ) && ! empty( $files['file']['tmp_name'] ) ) ? $files['file'] : null;
 
 		if ( '' === $text && ! $file ) {
-			return new WP_Error( 'paia_empty', __( 'پیام خالی است.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new WP_Error( 'pwc_empty', __( 'پیام خالی است.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 
 		$attach = null;
@@ -565,7 +565,7 @@ final class ChatController {
 			)
 		);
 		if ( ! $user_msg ) {
-			return new WP_Error( 'paia_db', __( 'ذخیرهٔ پیام ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new WP_Error( 'pwc_db', __( 'ذخیرهٔ پیام ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		// کاربر پیام فرستاد: دیگر «در حال تایپ» نیست.

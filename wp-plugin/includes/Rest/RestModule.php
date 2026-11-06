@@ -1,13 +1,13 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Contracts\Module;
-use PersianAIAssistant\Support\Status;
+use PersianWPChatbot\Contracts\Module;
+use PersianWPChatbot\Support\Status;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * ثبت همهٔ کنترلرهای REST افزونه (فضای نام paia/v1).
+ * ثبت همهٔ کنترلرهای REST افزونه (فضای نام pwc/v1).
  */
 final class RestModule implements Module {
 
@@ -26,7 +26,7 @@ final class RestModule implements Module {
 		}
 
 		$controllers = (array) apply_filters(
-			'paia_rest_controllers',
+			'pwc_rest_controllers',
 			array(
 				ExtractionController::class,
 				AutoSyncController::class,

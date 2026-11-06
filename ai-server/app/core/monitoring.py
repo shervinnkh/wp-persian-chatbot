@@ -91,9 +91,9 @@ def _iso(epoch: float) -> str:
 # ============================================================================ context helpers
 _request_id: Callable[[], str] | None = None
 _answer_stats: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
-    "paia_answer_stats", default=None
+    "pwc_answer_stats", default=None
 )
-op_var: contextvars.ContextVar[str] = contextvars.ContextVar("paia_embed_op", default="ingest")
+op_var: contextvars.ContextVar[str] = contextvars.ContextVar("pwc_embed_op", default="ingest")
 
 
 def set_request_id_getter(fn: Callable[[], str]) -> None:

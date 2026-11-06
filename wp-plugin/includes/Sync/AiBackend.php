@@ -1,15 +1,15 @@
 <?php
-namespace PersianAIAssistant\Sync;
+namespace PersianWPChatbot\Sync;
 
-use PersianAIAssistant\Apis\Callback;
-use PersianAIAssistant\Apis\FileLink;
-use PersianAIAssistant\Apis\Client;
-use PersianAIAssistant\Apis\Reconciler;
-use PersianAIAssistant\Apis\Records;
-use PersianAIAssistant\Database\FileStore;
-use PersianAIAssistant\Database\ItemStore;
-use PersianAIAssistant\Database\LogStore;
-use PersianAIAssistant\Database\TextStore;
+use PersianWPChatbot\Apis\Callback;
+use PersianWPChatbot\Apis\FileLink;
+use PersianWPChatbot\Apis\Client;
+use PersianWPChatbot\Apis\Reconciler;
+use PersianWPChatbot\Apis\Records;
+use PersianWPChatbot\Database\FileStore;
+use PersianWPChatbot\Database\ItemStore;
+use PersianWPChatbot\Database\LogStore;
+use PersianWPChatbot\Database\TextStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -18,10 +18,10 @@ defined( 'ABSPATH' ) || exit;
  *
  * قرارداد کامل: «راهنمای ارتباط افزونهٔ وردپرس با سرور هوش مصنوعی» (نسخهٔ سرور ۰.۳.۶). همهٔ درخواست‌ها با Apis\Client امضا می‌شوند.
  *
- * چرخهٔ وضعیت رکورد (ستون ai_status در paia_items / paia_texts / paia_files — Records::STATUS_*):
+ * چرخهٔ وضعیت رکورد (ستون ai_status در pwc_items / pwc_texts / pwc_files — Records::STATUS_*):
  *   ۰  هنوز به سرور داده نشده / ارسال ناموفق (خطا در «لاگ سرور»)
  *   ۱  سرور «۲۰۰ + accepted» داد (رکورد در صف سرور است) ← آیکن loading + «در حال پردازش سمت سرور»  (همین کلاس)
- *   ۲  سرور پردازش را تمام کرد و با وب‌هوک خبر داد (POST /paia/v1/ai/results) ← آیکن هوش مصنوعی  (apis/Results::apply)
+ *   ۲  سرور پردازش را تمام کرد و با وب‌هوک خبر داد (POST /pwc/v1/ai/results) ← آیکن هوش مصنوعی  (apis/Results::apply)
  *      اگر وب‌هوک گم شود، کرون/پایش بازبینی وضعیت را از POST /v1/jobs/status می‌پرسد (apis/Reconciler).
  *
  * «accepted» یعنی «معتبر دانستم و در صف گذاشتم»، نه «پردازش شد». فقط وقتی کد دقیقاً ۲۰۰ و accepted = true بود ai_status = ۱ می‌شود.
@@ -60,7 +60,7 @@ final class AiBackend {
 	/**
 	 * یک رکورد را برای سرور می‌فرستد (POST /v1/knowledge/records، «شکل A»). اگر سرور ۲۰۰ داد ai_status = ۱ می‌شود.
 	 *
-	 * @param string               $record_id شناسهٔ رکورد: paia_items (مثل product:23) یا paia_texts (text:…) یا paia_files (file:…).
+	 * @param string               $record_id شناسهٔ رکورد: pwc_items (مثل product:23) یا pwc_texts (text:…) یا pwc_files (file:…).
 	 * @param array<string, mixed> $data      همان JSON ذخیره‌شده در رکورد.
 	 * @param string               $event     create | update (سرور فقط لاگ می‌کند؛ رفتار هر دو یکی است).
 	 * @return bool true = سرور رکورد را پذیرفت (ai_status شد ۱).
@@ -72,9 +72,9 @@ final class AiBackend {
 			$sent['ok'] ? LogStore::SUCCESS : LogStore::ERROR,
 			$sent['ok']
 				/* translators: %s: record id */
-				? sprintf( __( 'رکورد %s برای پردازش به سرور هوش مصنوعی ارسال شد؛ منتظر اعلام نتیجه.', 'persian-ai-assistant' ), $record_id )
+				? sprintf( __( 'رکورد %s برای پردازش به سرور هوش مصنوعی ارسال شد؛ منتظر اعلام نتیجه.', 'persian-wp-chatbot' ), $record_id )
 				/* translators: 1: record id, 2: reason */
-				: sprintf( __( 'ارسال رکورد %1$s به سرور هوش مصنوعی ناموفق بود: %2$s', 'persian-ai-assistant' ), $record_id, self::reason( $sent ) ),
+				: sprintf( __( 'ارسال رکورد %1$s به سرور هوش مصنوعی ناموفق بود: %2$s', 'persian-wp-chatbot' ), $record_id, self::reason( $sent ) ),
 			self::log_data( 'POST', $sent, array( 'event' => $event, 'id' => $record_id ) )
 		);
 
@@ -88,24 +88,24 @@ final class AiBackend {
 	 * (بدون دانلود دوباره) و هم برای بررسی سلامت فایل دانلودشده است. لینک هرگز در لاگ نوشته نمی‌شود.
 	 * فرمت DOC پشتیبانی نمی‌شود (سرور فقط pdf / docx / txt را استخراج می‌کند).
 	 *
-	 * @param array<string, mixed> $row ردیف خام paia_files (FileStore::get).
+	 * @param array<string, mixed> $row ردیف خام pwc_files (FileStore::get).
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function file_payload( array $row ) {
 		$item = FileStore::present( $row );
 
 		if ( 'doc' === $item['ext'] ) {
-			return new \WP_Error( 'paia_file_unsupported', __( 'فرمت DOC پشتیبانی نمی‌شود؛ فایل را به DOCX، PDF یا TXT تبدیل کنید.', 'persian-ai-assistant' ), array( 'status' => 415 ) );
+			return new \WP_Error( 'pwc_file_unsupported', __( 'فرمت DOC پشتیبانی نمی‌شود؛ فایل را به DOCX، PDF یا TXT تبدیل کنید.', 'persian-wp-chatbot' ), array( 'status' => 415 ) );
 		}
 
 		$abs = FileStore::absolute_path( (string) $row['path'] );
 		if ( '' === $abs || ! is_file( $abs ) || ! is_readable( $abs ) ) {
-			return new \WP_Error( 'paia_file_missing', __( 'فایل روی سایت پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_file_missing', __( 'فایل روی سایت پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		$link = FileLink::make( (string) $row['id'] );
 		if ( null === $link ) {
-			return new \WP_Error( 'paia_not_configured', __( 'کلید اتصال (api_key) در افزونه تنظیم نشده است.', 'persian-ai-assistant' ), array( 'status' => 503 ) );
+			return new \WP_Error( 'pwc_not_configured', __( 'کلید اتصال (api_key) در افزونه تنظیم نشده است.', 'persian-wp-chatbot' ), array( 'status' => 503 ) );
 		}
 
 		$sha = hash_file( 'sha256', $abs );
@@ -122,7 +122,7 @@ final class AiBackend {
 	}
 
 	/**
-	 * آموزش دستی چند رکوردِ paia_items (دکمهٔ «آموزش به هوش مصنوعی» و درخت استخراج): «شکل B» (دسته‌ای ۱ تا ۱۰۰ رکورد).
+	 * آموزش دستی چند رکوردِ pwc_items (دکمهٔ «آموزش به هوش مصنوعی» و درخت استخراج): «شکل B» (دسته‌ای ۱ تا ۱۰۰ رکورد).
 	 * هر دسته یا کاملاً ثبت می‌شود یا هیچ‌کدام؛ رکوردهای دستهٔ پذیرفته‌شده ai_status = ۱ می‌شوند.
 	 *
 	 * @param string[] $record_ids شناسهٔ رکوردها (مثل product:23).
@@ -174,7 +174,7 @@ final class AiBackend {
 				LogStore::add(
 					LogStore::ERROR,
 					/* translators: 1: records in the batch, 2: reason */
-					sprintf( __( 'ارسال دستهٔ %1$d رکوردی به سرور هوش مصنوعی ناموفق بود: %2$s', 'persian-ai-assistant' ), count( $ids ), self::reason( $response ) ),
+					sprintf( __( 'ارسال دستهٔ %1$d رکوردی به سرور هوش مصنوعی ناموفق بود: %2$s', 'persian-wp-chatbot' ), count( $ids ), self::reason( $response ) ),
 					self::log_data( 'POST', $response, array( 'count' => count( $ids ), 'ids' => implode( ', ', array_slice( $ids, 0, 20 ) ) ) )
 				);
 			}
@@ -185,7 +185,7 @@ final class AiBackend {
 			LogStore::add(
 				$ok_all ? LogStore::SUCCESS : LogStore::ERROR,
 				/* translators: 1: accepted records, 2: sent records */
-				sprintf( __( '%1$d از %2$d رکورد برای پردازش به سرور هوش مصنوعی ارسال شد؛ منتظر اعلام نتیجه.', 'persian-ai-assistant' ), count( $confirmed ), count( $record_ids ) ),
+				sprintf( __( '%1$d از %2$d رکورد برای پردازش به سرور هوش مصنوعی ارسال شد؛ منتظر اعلام نتیجه.', 'persian-wp-chatbot' ), count( $confirmed ), count( $record_ids ) ),
 				array(
 					'method'      => 'POST',
 					'endpoint'    => self::RECORDS_PATH,
@@ -227,9 +227,9 @@ final class AiBackend {
 			$ok ? LogStore::SUCCESS : LogStore::ERROR,
 			$ok
 				/* translators: %s: record id */
-				? sprintf( __( 'درخواست حذف رکورد %s از دانش هوش مصنوعی ارسال شد.', 'persian-ai-assistant' ), $record_id )
+				? sprintf( __( 'درخواست حذف رکورد %s از دانش هوش مصنوعی ارسال شد.', 'persian-wp-chatbot' ), $record_id )
 				/* translators: 1: record id, 2: reason */
-				: sprintf( __( 'حذف رکورد %1$s از دانش هوش مصنوعی ناموفق بود: %2$s', 'persian-ai-assistant' ), $record_id, self::reason( $response ) ),
+				: sprintf( __( 'حذف رکورد %1$s از دانش هوش مصنوعی ناموفق بود: %2$s', 'persian-wp-chatbot' ), $record_id, self::reason( $response ) ),
 			self::log_data( 'DELETE', $response, array( 'event' => self::EVENT_DELETE, 'id' => $record_id ) )
 		);
 
@@ -277,7 +277,7 @@ final class AiBackend {
 				LogStore::add(
 					LogStore::ERROR,
 					/* translators: 1: records in the batch, 2: reason */
-					sprintf( __( 'درخواست حذف آموزش %1$d رکورد از هوش مصنوعی ناموفق بود: %2$s', 'persian-ai-assistant' ), count( $chunk ), self::$last_error ),
+					sprintf( __( 'درخواست حذف آموزش %1$d رکورد از هوش مصنوعی ناموفق بود: %2$s', 'persian-wp-chatbot' ), count( $chunk ), self::$last_error ),
 					self::log_data( 'DELETE', $response, array( 'count' => count( $chunk ), 'ids' => implode( ', ', array_slice( $chunk, 0, 20 ) ) ) )
 				);
 			}
@@ -287,7 +287,7 @@ final class AiBackend {
 			LogStore::add(
 				count( $confirmed ) === count( $ids ) ? LogStore::SUCCESS : LogStore::ERROR,
 				/* translators: 1: accepted records, 2: sent records */
-				sprintf( __( 'درخواست حذف آموزش %1$d از %2$d رکورد به سرور هوش مصنوعی ارسال شد؛ منتظر اعلام نتیجه.', 'persian-ai-assistant' ), count( $confirmed ), count( $ids ) ),
+				sprintf( __( 'درخواست حذف آموزش %1$d از %2$d رکورد به سرور هوش مصنوعی ارسال شد؛ منتظر اعلام نتیجه.', 'persian-wp-chatbot' ), count( $confirmed ), count( $ids ) ),
 				array(
 					'method'      => 'DELETE',
 					'endpoint'    => self::RECORDS_PATH,
@@ -324,7 +324,7 @@ final class AiBackend {
 	 */
 	private static function dispatch( string $record_id, array $data, string $event ): array {
 		if ( ! self::valid_id( $record_id ) ) {
-			return self::local_failure( 'invalid_id', __( 'شناسهٔ رکورد با الگوی سرور نمی‌خواند.', 'persian-ai-assistant' ) );
+			return self::local_failure( 'invalid_id', __( 'شناسهٔ رکورد با الگوی سرور نمی‌خواند.', 'persian-wp-chatbot' ) );
 		}
 
 		$payload = array(
@@ -484,25 +484,25 @@ final class AiBackend {
 
 		switch ( true ) {
 			case 0 === $code:
-				return __( 'پاسخی از سرور نیامد (قطعی شبکه یا timeout).', 'persian-ai-assistant' ) . ( '' !== (string) $response['error'] ? ' ' . $response['error'] : '' );
+				return __( 'پاسخی از سرور نیامد (قطعی شبکه یا timeout).', 'persian-wp-chatbot' ) . ( '' !== (string) $response['error'] ? ' ' . $response['error'] : '' );
 			case 400 === $code:
-				return __( 'درخواست با HTTP رفته است؛ آدرس سرور باید https:// باشد.', 'persian-ai-assistant' );
+				return __( 'درخواست با HTTP رفته است؛ آدرس سرور باید https:// باشد.', 'persian-wp-chatbot' );
 			case 401 === $code:
-				return __( 'امضا یا زمان نامعتبر است؛ کلید اتصال و ساعت سایت/سرور (NTP) را بررسی کنید.', 'persian-ai-assistant' );
+				return __( 'امضا یا زمان نامعتبر است؛ کلید اتصال و ساعت سایت/سرور (NTP) را بررسی کنید.', 'persian-wp-chatbot' );
 			case 403 === $code:
-				return __( 'IP این هاست در سرور هوش مصنوعی مجاز نیست.', 'persian-ai-assistant' );
+				return __( 'IP این هاست در سرور هوش مصنوعی مجاز نیست.', 'persian-wp-chatbot' );
 			case 413 === $code:
-				return __( 'حجم درخواست از سقف سرور بیشتر است.', 'persian-ai-assistant' );
+				return __( 'حجم درخواست از سقف سرور بیشتر است.', 'persian-wp-chatbot' );
 			case 422 === $code && 'invalid_callback' === $err:
-				return __( 'آدرس بازگشتی (callback) سایت توسط سرور رد شد؛ سایت باید روی https و همان دامنهٔ ثبت‌شده باشد.', 'persian-ai-assistant' );
+				return __( 'آدرس بازگشتی (callback) سایت توسط سرور رد شد؛ سایت باید روی https و همان دامنهٔ ثبت‌شده باشد.', 'persian-wp-chatbot' );
 			case 422 === $code:
-				return __( 'سرور بدنهٔ درخواست را نامعتبر دانست.', 'persian-ai-assistant' ) . ( '' !== (string) $response['error'] ? ' ' . $response['error'] : '' );
+				return __( 'سرور بدنهٔ درخواست را نامعتبر دانست.', 'persian-wp-chatbot' ) . ( '' !== (string) $response['error'] ? ' ' . $response['error'] : '' );
 			case 503 === $code:
-				return __( 'سرویس هوش مصنوعی موقتاً در دسترس نیست (صف/پایگاه داده).', 'persian-ai-assistant' );
+				return __( 'سرویس هوش مصنوعی موقتاً در دسترس نیست (صف/پایگاه داده).', 'persian-wp-chatbot' );
 			default:
 				return sprintf(
 					/* translators: %d: HTTP status */
-					__( 'پاسخ ناموفق سرور (HTTP %d).', 'persian-ai-assistant' ),
+					__( 'پاسخ ناموفق سرور (HTTP %d).', 'persian-wp-chatbot' ),
 					$code
 				);
 		}

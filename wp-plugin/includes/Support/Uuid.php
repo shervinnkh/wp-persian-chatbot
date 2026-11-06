@@ -1,12 +1,12 @@
 <?php
-namespace PersianAIAssistant\Support;
+namespace PersianWPChatbot\Support;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * تولید UUID نسخهٔ ۴ با مولد تصادفی رمزنگاری‌شده (SEC-02).
  *
- * شناسهٔ بازدیدکننده (هدر X-PAIA-Visitor) نقش credential دارد؛ بنابراین فقط random_bytes() استفاده می‌شود.
+ * شناسهٔ بازدیدکننده (هدر X-PWC-Visitor) نقش credential دارد؛ بنابراین فقط random_bytes() استفاده می‌شود.
  * هیچ fallback ضعیفی (mt_rand / uniqid / wp_rand) وجود ندارد: اگر منبع تصادفی در دسترس نباشد استثنا پرتاب می‌شود
  * و فراخوان باید خطا را امن مدیریت کند.
  */

@@ -1,8 +1,8 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Support\Capability;
-use PersianAIAssistant\Support\Status;
+use PersianWPChatbot\Support\Capability;
+use PersianWPChatbot\Support\Status;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -46,8 +46,8 @@ final class StatusController extends AbstractController {
 		}
 
 		return new \WP_Error(
-			'paia_forbidden',
-			__( 'شما اجازهٔ انجام این کار را ندارید.', 'persian-ai-assistant' ),
+			'pwc_forbidden',
+			__( 'شما اجازهٔ انجام این کار را ندارید.', 'persian-wp-chatbot' ),
 			array( 'status' => rest_authorization_required_code() )
 		);
 	}

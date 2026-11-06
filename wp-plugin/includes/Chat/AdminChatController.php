@@ -1,6 +1,6 @@
 <?php
 /**
- * REST مدیریت چت (فقط مدیران) — namespace: paia/v1
+ * REST مدیریت چت (فقط مدیران) — namespace: pwc/v1
  *
  *  GET  /chat-admin/conversations   فهرست همهٔ گفتگوها به ترتیب: خوانده‌نشده ← مارک‌شده ← تاریخ (فیلتر تگ‌ها سمت کلاینت). با پارامتر sig اگر چیزی عوض نشده باشد فقط {changed:false} برمی‌گردد
  *  GET  /chat-admin/conversation    پیام‌ها و اطلاعات یک گفتگو (polling با پارامتر sig)
@@ -10,12 +10,12 @@
  *  POST /chat-admin/flags           مارک کردن / خاموش‌کردن پاسخ هوش مصنوعی برای یک گفتگو
  *  POST /chat-admin/typing          اعلام «پشتیبان در حال تایپ است»
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Support\Capability;
+use PersianWPChatbot\Support\Capability;
 use WP_Error;
 use WP_REST_Request;
 
@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class AdminChatController {
 
-	private const NS = 'paia/v1';
+	private const NS = 'pwc/v1';
 
 	/** @var ChatStore */
 	private $store;
@@ -139,8 +139,8 @@ final class AdminChatController {
 			return true;
 		}
 		return new WP_Error(
-			'paia_forbidden',
-			__( 'شما اجازهٔ انجام این کار را ندارید.', 'persian-ai-assistant' ),
+			'pwc_forbidden',
+			__( 'شما اجازهٔ انجام این کار را ندارید.', 'persian-wp-chatbot' ),
 			array( 'status' => rest_authorization_required_code() )
 		);
 	}
@@ -153,11 +153,11 @@ final class AdminChatController {
 	private function visitor_from( WP_REST_Request $request ) {
 		$uid = strtolower( trim( (string) $request->get_param( 'uid' ) ) );
 		if ( ! preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $uid ) ) {
-			return new WP_Error( 'paia_uid', __( 'شناسهٔ گفتگو معتبر نیست.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new WP_Error( 'pwc_uid', __( 'شناسهٔ گفتگو معتبر نیست.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 		$visitor = $this->store->visitor( $uid );
 		if ( ! $visitor ) {
-			return new WP_Error( 'paia_not_found', __( 'گفتگو پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new WP_Error( 'pwc_not_found', __( 'گفتگو پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 		return $visitor;
 	}
@@ -177,7 +177,7 @@ final class AdminChatController {
 			}
 		}
 		/* translators: %s: first characters of the visitor id */
-		return sprintf( __( 'مهمان %s', 'persian-ai-assistant' ), strtoupper( substr( (string) $visitor->uid, 0, 4 ) ) );
+		return sprintf( __( 'مهمان %s', 'persian-wp-chatbot' ), strtoupper( substr( (string) $visitor->uid, 0, 4 ) ) );
 	}
 
 	private function admin_name(): string {
@@ -186,7 +186,7 @@ final class AdminChatController {
 		if ( '' === $name && $user && $user->exists() ) {
 			$name = (string) $user->user_login;
 		}
-		return '' !== $name ? $name : __( 'پشتیبانی', 'persian-ai-assistant' );
+		return '' !== $name ? $name : __( 'پشتیبانی', 'persian-wp-chatbot' );
 	}
 
 	/**
@@ -442,7 +442,7 @@ final class AdminChatController {
 		$file  = ( isset( $files['file'] ) && is_array( $files['file'] ) && ! empty( $files['file']['tmp_name'] ) ) ? $files['file'] : null;
 
 		if ( '' === $text && ! $file ) {
-			return new WP_Error( 'paia_empty', __( 'پیام خالی است.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new WP_Error( 'pwc_empty', __( 'پیام خالی است.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 
 		// پشتیبان مثل کاربر می‌تواند عکس و ویس بفرستد (تیک‌های «ارسال عکس/ویس» فقط برای بازدیدکننده است).
@@ -468,7 +468,7 @@ final class AdminChatController {
 			)
 		);
 		if ( ! $message ) {
-			return new WP_Error( 'paia_db', __( 'ذخیرهٔ پیام ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new WP_Error( 'pwc_db', __( 'ذخیرهٔ پیام ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		$this->store->clear_admin_typing( $uid );
@@ -492,16 +492,16 @@ final class AdminChatController {
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ) );
 		if ( ! $row ) {
-			return new WP_Error( 'paia_not_found', __( 'پیام پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new WP_Error( 'pwc_not_found', __( 'پیام پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 		// فقط پیام‌های ارسالیِ خودِ همین پشتیبان.
 		if ( 'admin' !== $row->role || (int) $row->admin_user_id !== get_current_user_id() ) {
-			return new WP_Error( 'paia_not_own', __( 'فقط پیام‌هایی که خودتان فرستاده‌اید قابل حذف است.', 'persian-ai-assistant' ), array( 'status' => 403 ) );
+			return new WP_Error( 'pwc_not_own', __( 'فقط پیام‌هایی که خودتان فرستاده‌اید قابل حذف است.', 'persian-wp-chatbot' ), array( 'status' => 403 ) );
 		}
-		// فایل پیوست (عکس/ویس) هم پاک می‌شود، فقط داخل پوشهٔ paia-chat.
+		// فایل پیوست (عکس/ویس) هم پاک می‌شود، فقط داخل پوشهٔ pwc-chat.
 		if ( ! empty( $row->attachment_path ) ) {
 			$uploads = wp_upload_dir();
-			$base    = wp_normalize_path( trailingslashit( $uploads['basedir'] ) . 'paia-chat/' );
+			$base    = wp_normalize_path( trailingslashit( $uploads['basedir'] ) . 'pwc-chat/' );
 			$norm    = wp_normalize_path( (string) $row->attachment_path );
 			if ( 0 === strpos( $norm, $base ) && is_file( $norm ) ) {
 				wp_delete_file( $norm );
@@ -525,11 +525,11 @@ final class AdminChatController {
 		$table   = ChatSchema::messages_table();
 		$where   = ChatStore::thread_where( 'm', $uid, $user_id );
 
-		// فایل‌های پیوست (عکس/ویس) هم پاک می‌شوند، فقط داخل پوشهٔ paia-chat.
+		// فایل‌های پیوست (عکس/ویس) هم پاک می‌شوند، فقط داخل پوشهٔ pwc-chat.
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 		$paths   = (array) $wpdb->get_col( "SELECT m.attachment_path FROM {$table} m WHERE {$where} AND m.attachment_path <> ''" );
 		$uploads = wp_upload_dir();
-		$base    = wp_normalize_path( trailingslashit( $uploads['basedir'] ) . 'paia-chat/' );
+		$base    = wp_normalize_path( trailingslashit( $uploads['basedir'] ) . 'pwc-chat/' );
 		foreach ( $paths as $path ) {
 			$norm = wp_normalize_path( (string) $path );
 			if ( 0 === strpos( $norm, $base ) && is_file( $norm ) ) {

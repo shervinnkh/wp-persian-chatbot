@@ -1,11 +1,11 @@
 /**
- * دستیار هوش مصنوعی وردپرس فارسی — اسکریپت بخش مدیریت
- * بدون وابستگی؛ داده و متن‌ها از window.PAIA_ADMIN (تولیدشده در PHP) خوانده می‌شود.
+ * چت بات هوشمند — اسکریپت بخش مدیریت
+ * بدون وابستگی؛ داده و متن‌ها از window.PWC_ADMIN (تولیدشده در PHP) خوانده می‌شود.
  */
 ( function () {
 	'use strict';
 
-	var config = window.PAIA_ADMIN || {};
+	var config = window.PWC_ADMIN || {};
 	var i18n = config.i18n || {};
 
 	/* ------------------------------------------------------------------ */
@@ -103,13 +103,13 @@
 	/* ------------------------------------------------------------------ */
 
 	function initSettingsNav() {
-		var nav = document.querySelector( '.paia-setnav' );
+		var nav = document.querySelector( '.pwc-setnav' );
 		if ( ! nav ) {
 			return;
 		}
 		var items = [].slice.call( nav.querySelectorAll( '[data-set]' ) );
 		var panes = [].slice.call( document.querySelectorAll( '[data-setpane]' ) );
-		var KEY = 'paia_settings_section';
+		var KEY = 'pwc_settings_section';
 
 		function activate( id, focus ) {
 			items.forEach( function ( item ) {
@@ -129,7 +129,7 @@
 				}
 			} );
 			// پنل‌هایی با ذخیرهٔ آنی (مثل «استخراج اطلاعات سایت») به دکمهٔ ذخیرهٔ فرم نیازی ندارند.
-			var actions = document.querySelector( '.paia-setbody .paia-actions' );
+			var actions = document.querySelector( '.pwc-setbody .pwc-actions' );
 			if ( actions ) {
 				actions.style.display = noSave ? 'none' : '';
 			}
@@ -382,27 +382,27 @@
 		function render() {
 			clear( statsBox );
 
-			var grid = el( 'div', { class: 'paia-summary' } );
+			var grid = el( 'div', { class: 'pwc-summary' } );
 			Object.keys( data.sources || {} ).forEach( function ( id ) {
 				var s = data.sources[ id ];
-				var chips = el( 'ul', { class: 'paia-chips' } );
+				var chips = el( 'ul', { class: 'pwc-chips' } );
 				if ( s.trained > 0 ) {
-					chips.appendChild( el( 'li', { class: 'paia-chip paia-chip--ai', text: sprintf( i18n.ovTrained, formatNumber( s.trained ) ) } ) );
+					chips.appendChild( el( 'li', { class: 'pwc-chip pwc-chip--ai', text: sprintf( i18n.ovTrained, formatNumber( s.trained ) ) } ) );
 				}
 				if ( recentNew[ id ] > 0 ) {
-					chips.appendChild( el( 'li', { class: 'paia-chip paia-chip--new', text: sprintf( i18n.ovAdded, formatNumber( recentNew[ id ] ) ) } ) );
+					chips.appendChild( el( 'li', { class: 'pwc-chip pwc-chip--new', text: sprintf( i18n.ovAdded, formatNumber( recentNew[ id ] ) ) } ) );
 				}
 				grid.appendChild(
-					el( 'div', { class: 'paia-stat' }, [
-						el( 'h3', { class: 'paia-stat__name', text: s.label } ),
-						el( 'div', { class: 'paia-stat__value', text: formatNumber( s.total ) } ),
-						el( 'div', { class: 'paia-stat__hint', text: i18n.ovItems } ),
+					el( 'div', { class: 'pwc-stat' }, [
+						el( 'h3', { class: 'pwc-stat__name', text: s.label } ),
+						el( 'div', { class: 'pwc-stat__value', text: formatNumber( s.total ) } ),
+						el( 'div', { class: 'pwc-stat__hint', text: i18n.ovItems } ),
 						chips.childNodes.length ? chips : null,
 					] )
 				);
 			} );
 			statsBox.appendChild( grid );
-			statsBox.appendChild( el( 'p', { class: 'paia-note paia-overview__total', text: sprintf( i18n.ovTotal, formatNumber( data.total || 0 ), formatNumber( data.trained || 0 ) ) } ) );
+			statsBox.appendChild( el( 'p', { class: 'pwc-note pwc-overview__total', text: sprintf( i18n.ovTotal, formatNumber( data.total || 0 ), formatNumber( data.trained || 0 ) ) } ) );
 
 			lastBox.textContent = data.last_label ? i18n.ovLast + ' ' + data.last_label : i18n.ovNever;
 
@@ -546,7 +546,7 @@
 			trainBtn.disabled = false;
 			trainBtn.removeAttribute( 'aria-disabled' );
 			trainBtn.addEventListener( 'click', async function () {
-				var ids = results._paiaSelected ? results._paiaSelected() : [];
+				var ids = results._pwcSelected ? results._pwcSelected() : [];
 				if ( training || ! ids.length ) {
 					if ( ! ids.length && trainCount ) {
 						trainCount.textContent = i18n.treeNone;
@@ -608,7 +608,7 @@
 				var loaded = await load();
 				progress.hidden = true;
 				if ( ! loaded.sources.length && ! loaded.state.site ) {
-					notice.className = 'paia-notice paia-notice--info';
+					notice.className = 'pwc-notice pwc-notice--info';
 					notice.textContent = i18n.noSaved || '';
 					notice.hidden = false;
 				} else {
@@ -618,7 +618,7 @@
 				}
 			} catch ( e ) {
 				progress.hidden = true;
-				notice.className = 'paia-notice paia-notice--error';
+				notice.className = 'pwc-notice pwc-notice--error';
 				notice.textContent = i18n.unknownError || '';
 				notice.hidden = false;
 			}
@@ -643,7 +643,7 @@
 		var form = role( block, 'form' );
 		var boxes = [].slice.call( form.querySelectorAll( 'input[name="sources[]"]' ) );
 		var button = role( form, 'extract-btn' );
-		var label = button.querySelector( '.paia-btn__label' );
+		var label = button.querySelector( '.pwc-btn__label' );
 		var counter = role( form, 'selected-count' );
 		var notice = role( form, 'notice' );
 		var progress = role( form, 'progress' );
@@ -671,7 +671,7 @@
 		}
 
 		function showNotice( type, message ) {
-			notice.className = 'paia-notice paia-notice--' + type;
+			notice.className = 'pwc-notice pwc-notice--' + type;
 			notice.textContent = message;
 			notice.hidden = false;
 		}
@@ -873,9 +873,9 @@
 	 */
 	function aiIcon( processing ) {
 		var tip = processing ? i18n.aiProcessing : i18n.aiTrained;
-		var badge = el( 'span', { class: 'paia-ai' + ( processing ? ' paia-ai--loading' : '' ), tabindex: '0', role: 'img', 'aria-label': tip, 'data-tip': tip } );
+		var badge = el( 'span', { class: 'pwc-ai' + ( processing ? ' pwc-ai--loading' : '' ), tabindex: '0', role: 'img', 'aria-label': tip, 'data-tip': tip } );
 		if ( processing ) {
-			badge.appendChild( el( 'span', { class: 'paia-ai__spin', 'aria-hidden': 'true' } ) );
+			badge.appendChild( el( 'span', { class: 'pwc-ai__spin', 'aria-hidden': 'true' } ) );
 		} else {
 			badge.innerHTML = ( config.icons || {} ).ai || ''; // SVG داخلی و امن از PHP
 		}
@@ -973,7 +973,7 @@
 				host.appendChild( objectNode( cache[ item.id ] ) );
 				return;
 			}
-			var wait = el( 'p', { class: 'paia-note paia-autonew__wait', text: i18n.anLoading } );
+			var wait = el( 'p', { class: 'pwc-note pwc-autonew__wait', text: i18n.anLoading } );
 			host.appendChild( wait );
 			request( getPath( 'extraction/record', { id: item.id } ), 'GET' ).then( function ( res ) {
 				if ( wait.parentNode ) {
@@ -983,7 +983,7 @@
 					cache[ item.id ] = res.data.data;
 					host.appendChild( objectNode( res.data.data ) );
 				} else {
-					host.appendChild( el( 'p', { class: 'paia-note', text: i18n.anDetailFailed } ) );
+					host.appendChild( el( 'p', { class: 'pwc-note', text: i18n.anDetailFailed } ) );
 				}
 			} );
 		}
@@ -995,7 +995,7 @@
 			if ( item.trained || item.processing ) {
 				lead = aiIcon( ! item.trained );
 			} else {
-				lead = el( 'input', { type: 'checkbox', class: 'paia-tick', 'aria-label': item.title } );
+				lead = el( 'input', { type: 'checkbox', class: 'pwc-tick', 'aria-label': item.title } );
 				lead.checked = !! selected[ item.id ];
 				// کلیک روی تیک نباید جزئیات را باز/بسته کند.
 				lead.addEventListener( 'click', function ( event ) {
@@ -1009,21 +1009,21 @@
 			}
 
 			summary.appendChild( lead );
-			summary.appendChild( el( 'span', { class: 'paia-item__title', dir: 'auto', text: item.title } ) );
-			summary.appendChild( el( 'span', { class: 'paia-chip paia-chip--tax', text: item.label } ) );
+			summary.appendChild( el( 'span', { class: 'pwc-item__title', dir: 'auto', text: item.title } ) );
+			summary.appendChild( el( 'span', { class: 'pwc-chip pwc-chip--tax', text: item.label } ) );
 			if ( item.url ) {
-				var view = el( 'a', { class: 'paia-autonew__view', href: item.url, target: '_blank', rel: 'noopener noreferrer', text: i18n.anView } );
+				var view = el( 'a', { class: 'pwc-autonew__view', href: item.url, target: '_blank', rel: 'noopener noreferrer', text: i18n.anView } );
 				view.addEventListener( 'click', function ( event ) {
 					event.stopPropagation();
 				} );
 				summary.appendChild( view );
 			}
 
-			var details = el( 'details', { class: 'paia-item' }, [ summary ] );
+			var details = el( 'details', { class: 'pwc-item' }, [ summary ] );
 			details.addEventListener( 'toggle', function () {
 				if ( details.open && ! details.getAttribute( 'data-ready' ) ) {
 					details.setAttribute( 'data-ready', '1' );
-					var host = el( 'div', { class: 'paia-sub' } );
+					var host = el( 'div', { class: 'pwc-sub' } );
 					details.appendChild( host );
 					loadDetails( item, host );
 				}
@@ -1053,7 +1053,7 @@
 
 			var rest = ( data.count || 0 ) - shown.length;
 			if ( rest > 0 ) {
-				list.appendChild( el( 'p', { class: 'paia-autonew__more', text: sprintf( i18n.anMore, formatNumber( rest ) ) } ) );
+				list.appendChild( el( 'p', { class: 'pwc-autonew__more', text: sprintf( i18n.anMore, formatNumber( rest ) ) } ) );
 			}
 			countChip.textContent = sprintf( i18n.anCount, formatNumber( data.count || 0 ) );
 			lastSig = shown
@@ -1062,7 +1062,7 @@
 				} )
 				.join( '|' ) + '#' + ( data.count || 0 );
 			box.hidden = ! ( data.count > 0 || flashing || busy );
-			box.classList.toggle( 'paia-autonew--empty', ! shown.length && ! busy );
+			box.classList.toggle( 'pwc-autonew--empty', ! shown.length && ! busy );
 			refreshControls();
 			scheduleRefresh();
 		}
@@ -1095,7 +1095,7 @@
 			loading = true;
 			if ( ! silent ) {
 				clear( list );
-				list.appendChild( el( 'p', { class: 'paia-autonew__more', text: i18n.anLoading } ) );
+				list.appendChild( el( 'p', { class: 'pwc-autonew__more', text: i18n.anLoading } ) );
 				seenBtn.disabled = true;
 				trainBtn.disabled = true;
 				box.hidden = false;
@@ -1254,7 +1254,7 @@
 			var shown = ( last.items || [] ).length;
 			var rest = ( last.count || 0 ) - shown;
 			if ( rest > 0 ) {
-				list.appendChild( el( 'p', { class: 'paia-removed__more', text: sprintf( i18n.rmMore, formatNumber( rest ) ) } ) );
+				list.appendChild( el( 'p', { class: 'pwc-removed__more', text: sprintf( i18n.rmMore, formatNumber( rest ) ) } ) );
 			}
 			countChip.textContent = sprintf( i18n.rmCount, formatNumber( last.count || 0 ) );
 			box.hidden = ! ( last.count > 0 );
@@ -1265,7 +1265,7 @@
 		var pollTimer = 0;
 
 		function setBusy( entry, busy ) {
-			var label = entry.button.querySelector( '.paia-btn__label' );
+			var label = entry.button.querySelector( '.pwc-btn__label' );
 			entry.button.disabled = busy;
 			entry.button.classList.toggle( 'is-loading', busy );
 			entry.row.classList.toggle( 'is-deleting', busy );
@@ -1327,10 +1327,10 @@
 		}
 
 		function rowNode( item ) {
-			var button = el( 'button', { type: 'button', class: 'paia-btn paia-btn--danger paia-btn--sm' }, [ iconSpan( 'trash' ), el( 'span', { class: 'paia-btn__label', text: i18n.rmDelete } ), el( 'span', { class: 'paia-spinner', 'aria-hidden': 'true' } ) ] );
-			var row = el( 'div', { class: 'paia-removed__row' }, [
-				el( 'span', { class: 'paia-removed__title', dir: 'auto', text: item.title } ),
-				el( 'span', { class: 'paia-chip paia-chip--tax', text: item.label } ),
+			var button = el( 'button', { type: 'button', class: 'pwc-btn pwc-btn--danger pwc-btn--sm' }, [ iconSpan( 'trash' ), el( 'span', { class: 'pwc-btn__label', text: i18n.rmDelete } ), el( 'span', { class: 'pwc-spinner', 'aria-hidden': 'true' } ) ] );
+			var row = el( 'div', { class: 'pwc-removed__row' }, [
+				el( 'span', { class: 'pwc-removed__title', dir: 'auto', text: item.title } ),
+				el( 'span', { class: 'pwc-chip pwc-chip--tax', text: item.label } ),
 				button,
 			] );
 			var entry = { row: row, button: button };
@@ -1404,7 +1404,7 @@
 			loadingNow = true;
 			if ( ! silent ) {
 				clear( list );
-				list.appendChild( el( 'p', { class: 'paia-removed__more', text: i18n.rmLoading } ) );
+				list.appendChild( el( 'p', { class: 'pwc-removed__more', text: i18n.rmLoading } ) );
 				box.hidden = false;
 			}
 			var res = await request( 'extraction/removed', 'GET' );
@@ -1521,7 +1521,7 @@
 		}
 
 		function insertAfter( ta, value ) {
-			var line = el( 'hr', { class: 'paia-rtb__line', 'aria-hidden': 'true' } );
+			var line = el( 'hr', { class: 'pwc-rtb__line', 'aria-hidden': 'true' } );
 			var next = makeChunk( value );
 			host.insertBefore( line, ta.nextSibling );
 			host.insertBefore( next, line.nextSibling );
@@ -1529,7 +1529,7 @@
 		}
 
 		function makeChunk( value ) {
-			var ta = el( 'textarea', { class: 'paia-rtb__chunk', rows: '1', dir: 'auto', 'aria-label': i18n.dcPlaceholder } );
+			var ta = el( 'textarea', { class: 'pwc-rtb__chunk', rows: '1', dir: 'auto', 'aria-label': i18n.dcPlaceholder } );
 			ta.value = value || '';
 
 			ta.addEventListener( 'input', function () {
@@ -1693,10 +1693,10 @@
 
 		function statBox( box, name, value, hint, chips ) {
 			clear( box );
-			box.appendChild( el( 'h3', { class: 'paia-stat__name', text: name } ) );
-			box.appendChild( el( 'div', { class: 'paia-stat__value', text: formatNumber( value ) } ) );
-			box.appendChild( el( 'div', { class: 'paia-stat__hint', text: hint } ) );
-			var list = el( 'ul', { class: 'paia-chips' } );
+			box.appendChild( el( 'h3', { class: 'pwc-stat__name', text: name } ) );
+			box.appendChild( el( 'div', { class: 'pwc-stat__value', text: formatNumber( value ) } ) );
+			box.appendChild( el( 'div', { class: 'pwc-stat__hint', text: hint } ) );
+			var list = el( 'ul', { class: 'pwc-chips' } );
 			chips.forEach( function ( c ) {
 				list.appendChild( c );
 			} );
@@ -1743,7 +1743,7 @@
 		}
 
 		function showNotice( type, message ) {
-			notice.className = 'paia-notice paia-notice--' + type;
+			notice.className = 'pwc-notice pwc-notice--' + type;
 			notice.textContent = message;
 			notice.hidden = ! message;
 		}
@@ -1876,11 +1876,11 @@
 
 	/** برچسب کوچک (مثل chip ولی span؛ برای داخل summary). */
 	function badge( text, modifier ) {
-		return el( 'span', { class: 'paia-chip' + ( modifier ? ' paia-chip--' + modifier : '' ), dir: 'auto', text: text } );
+		return el( 'span', { class: 'pwc-chip' + ( modifier ? ' pwc-chip--' + modifier : '' ), dir: 'auto', text: text } );
 	}
 
 	function iconSpan( name ) {
-		var span = el( 'span', { class: 'paia-btn__icon', 'aria-hidden': 'true' } );
+		var span = el( 'span', { class: 'pwc-btn__icon', 'aria-hidden': 'true' } );
 		span.innerHTML = ( config.icons || {} )[ name ] || ''; // SVG داخلی و امن از PHP
 		return span;
 	}
@@ -1979,7 +1979,7 @@
 
 		function itemNode( kind, item ) {
 			var summary = el( 'summary' );
-			var details = el( 'details', { class: 'paia-item paia-doc' }, [ summary ] );
+			var details = el( 'details', { class: 'pwc-item pwc-doc' }, [ summary ] );
 			var host = null;
 			var info = null;
 			var actions = null;
@@ -1993,7 +1993,7 @@
 				} else if ( item.processing ) {
 					summary.appendChild( aiIcon( true ) );
 				}
-				summary.appendChild( el( 'span', { class: 'paia-item__title', dir: 'auto', text: item.title || i18n.dcUntitled } ) );
+				summary.appendChild( el( 'span', { class: 'pwc-item__title', dir: 'auto', text: item.title || i18n.dcUntitled } ) );
 				if ( kind === 'texts' ) {
 					summary.appendChild( badge( sprintf( i18n.dcChunks, formatNumber( item.chunks ) ), 'tax' ) );
 					summary.appendChild( badge( sprintf( i18n.dcWords, formatNumber( item.words ) ), 'tax' ) );
@@ -2008,7 +2008,7 @@
 					summary.appendChild( badge( i18n.dcRemovedChip, 'warn' ) );
 				}
 				if ( item.time ) {
-					summary.appendChild( el( 'span', { class: 'paia-doc__time', dir: 'ltr', text: item.time } ) );
+					summary.appendChild( el( 'span', { class: 'pwc-doc__time', dir: 'ltr', text: item.time } ) );
 				}
 			}
 
@@ -2018,7 +2018,7 @@
 				}
 				msg.textContent = text || '';
 				msg.hidden = ! text;
-				msg.className = 'paia-note paia-doc__msg' + ( type === 'error' ? ' is-error' : '' );
+				msg.className = 'pwc-note pwc-doc__msg' + ( type === 'error' ? ' is-error' : '' );
 			}
 
 			/** جزئیات فایل (کلید/مقدار)؛ وضعیت آموزش هم با «حذف آموزش» به‌روز می‌شود. */
@@ -2028,7 +2028,7 @@
 				}
 				clear( info );
 				var status = isTrained( item ) ? i18n.dcStTrained : item.processing ? i18n.dcStProcessing : item.trained ? i18n.dcStRemoved : i18n.dcStNot;
-				var dl = el( 'dl', { class: 'paia-kv' } );
+				var dl = el( 'dl', { class: 'pwc-kv' } );
 				[
 					[ i18n.dcFTitle, item.title ],
 					[ i18n.dcFName, item.original_name ],
@@ -2047,18 +2047,18 @@
 			}
 
 			async function loadChunks( target ) {
-				target.appendChild( el( 'p', { class: 'paia-note', text: i18n.dcListLoading } ) );
+				target.appendChild( el( 'p', { class: 'pwc-note', text: i18n.dcListLoading } ) );
 				var res = await request( getPath( 'documents/texts/item', { id: item.id } ), 'GET' );
 				clear( target );
 				if ( ! res.ok || ! res.data || ! Array.isArray( res.data.chunks ) ) {
-					target.appendChild( el( 'p', { class: 'paia-note is-error', text: i18n.dcDetailFailed } ) );
+					target.appendChild( el( 'p', { class: 'pwc-note is-error', text: i18n.dcDetailFailed } ) );
 					return;
 				}
 				res.data.chunks.forEach( function ( text, index ) {
 					if ( index > 0 ) {
-						target.appendChild( el( 'hr', { class: 'paia-doc__sep' } ) );
+						target.appendChild( el( 'hr', { class: 'pwc-doc__sep' } ) );
 					}
-					target.appendChild( el( 'div', { class: 'paia-doc__chunk', dir: 'auto', text: text } ) );
+					target.appendChild( el( 'div', { class: 'pwc-doc__chunk', dir: 'auto', text: text } ) );
 				} );
 			}
 
@@ -2155,7 +2155,7 @@
 
 				if ( isTrained( item ) ) {
 					// حذف آموزش واقعی: درخواست به سرور می‌رود؛ بعد از پذیرفتن (۲۰۰) آیکن loading می‌شود و با وب‌هوک `untrained` دکمهٔ «آموزش» برمی‌گردد.
-					var removeAi = el( 'button', { type: 'button', class: 'paia-btn paia-btn--ghost paia-btn--sm' }, [ iconSpan( 'trash' ), el( 'span', { class: 'paia-btn__label', text: i18n.dcRemoveAi } ), el( 'span', { class: 'paia-spinner', 'aria-hidden': 'true' } ) ] );
+					var removeAi = el( 'button', { type: 'button', class: 'pwc-btn pwc-btn--ghost pwc-btn--sm' }, [ iconSpan( 'trash' ), el( 'span', { class: 'pwc-btn__label', text: i18n.dcRemoveAi } ), el( 'span', { class: 'pwc-spinner', 'aria-hidden': 'true' } ) ] );
 					removeAi.addEventListener( 'click', async function () {
 						if ( busy || ! window.confirm( i18n.removeAiConfirm ) ) {
 							return;
@@ -2181,7 +2181,7 @@
 					} );
 					actions.appendChild( removeAi );
 				} else if ( ! item.processing ) {
-					var trainBtn = el( 'button', { type: 'button', class: 'paia-btn paia-btn--sm' }, [ iconSpan( 'ai' ), el( 'span', { class: 'paia-btn__label', text: i18n.dcTrainBtn } ), el( 'span', { class: 'paia-spinner', 'aria-hidden': 'true' } ) ] );
+					var trainBtn = el( 'button', { type: 'button', class: 'pwc-btn pwc-btn--sm' }, [ iconSpan( 'ai' ), el( 'span', { class: 'pwc-btn__label', text: i18n.dcTrainBtn } ), el( 'span', { class: 'pwc-spinner', 'aria-hidden': 'true' } ) ] );
 					trainBtn.addEventListener( 'click', function () {
 						train( trainBtn );
 					} );
@@ -2191,15 +2191,15 @@
 				if ( kind === 'files' ) {
 					// دانلود فایل آپلودشده (REST با _wpnonce؛ فایل روی دیسک مستقیم در دسترس نیست).
 					var dl = el( 'a', {
-						class: 'paia-btn paia-btn--ghost paia-btn--sm',
+						class: 'pwc-btn pwc-btn--ghost pwc-btn--sm',
 						href: ( config.restUrl || '' ) + getPath( 'documents/files/download', { id: item.id, _wpnonce: config.nonce || '' } ),
 						download: '',
 						rel: 'noopener',
-					}, [ el( 'span', { class: 'paia-btn__label', text: i18n.dcDownload } ) ] );
+					}, [ el( 'span', { class: 'pwc-btn__label', text: i18n.dcDownload } ) ] );
 					actions.appendChild( dl );
 				}
 
-				var del = el( 'button', { type: 'button', class: 'paia-btn paia-btn--danger paia-btn--sm' }, [ iconSpan( 'trash' ), el( 'span', { class: 'paia-btn__label', text: i18n.dcDeleteFull } ) ] );
+				var del = el( 'button', { type: 'button', class: 'pwc-btn pwc-btn--danger pwc-btn--sm' }, [ iconSpan( 'trash' ), el( 'span', { class: 'pwc-btn__label', text: i18n.dcDeleteFull } ) ] );
 				del.addEventListener( 'click', removeFull );
 				actions.appendChild( del );
 			}
@@ -2208,17 +2208,17 @@
 				if ( host ) {
 					return;
 				}
-				host = el( 'div', { class: 'paia-sub paia-doc__body' } );
+				host = el( 'div', { class: 'pwc-sub pwc-doc__body' } );
 				if ( kind === 'texts' ) {
-					var chunks = el( 'div', { class: 'paia-doc__chunks' } );
+					var chunks = el( 'div', { class: 'pwc-doc__chunks' } );
 					host.appendChild( chunks );
 					loadChunks( chunks );
 				} else {
-					info = el( 'div', { class: 'paia-doc__info' } );
+					info = el( 'div', { class: 'pwc-doc__info' } );
 					host.appendChild( info );
 				}
-				msg = el( 'p', { class: 'paia-note paia-doc__msg', role: 'status', hidden: true } );
-				actions = el( 'div', { class: 'paia-doc__actions' } );
+				msg = el( 'p', { class: 'pwc-note pwc-doc__msg', role: 'status', hidden: true } );
+				actions = el( 'div', { class: 'pwc-doc__actions' } );
 				host.appendChild( msg );
 				host.appendChild( actions );
 				details.appendChild( host );
@@ -2243,14 +2243,14 @@
 			var pane = panes[ kind ];
 			clear( pane );
 			if ( ! loaded[ kind ] ) {
-				pane.appendChild( el( 'p', { class: 'paia-note', text: i18n.dcListLoading } ) );
+				pane.appendChild( el( 'p', { class: 'pwc-note', text: i18n.dcListLoading } ) );
 				return;
 			}
 			if ( ! lists[ kind ].length ) {
-				pane.appendChild( el( 'p', { class: 'paia-note', text: kind === 'texts' ? i18n.dcListEmptyText : i18n.dcListEmptyFile } ) );
+				pane.appendChild( el( 'p', { class: 'pwc-note', text: kind === 'texts' ? i18n.dcListEmptyText : i18n.dcListEmptyFile } ) );
 				return;
 			}
-			var items = el( 'div', { class: 'paia-doclist__items' } );
+			var items = el( 'div', { class: 'pwc-doclist__items' } );
 			lists[ kind ].forEach( function ( item ) {
 				items.appendChild( itemNode( kind, item ) );
 			} );
@@ -2266,7 +2266,7 @@
 			} else if ( ! quiet || ! loaded[ kind ] ) {
 				loaded[ kind ] = false;
 				clear( panes[ kind ] );
-				panes[ kind ].appendChild( el( 'p', { class: 'paia-note is-error', text: i18n.dcListFailed } ) );
+				panes[ kind ].appendChild( el( 'p', { class: 'pwc-note is-error', text: i18n.dcListFailed } ) );
 				updateTabs();
 				return;
 			}
@@ -2529,18 +2529,18 @@
 		var busy = false;
 
 		function statBox( modifier, name, value ) {
-			return el( 'div', { class: 'paia-stat' + ( modifier ? ' ' + modifier : '' ) }, [
-				el( 'h3', { class: 'paia-stat__name', text: name } ),
-				el( 'div', { class: 'paia-stat__value', text: formatNumber( value ) } ),
-				el( 'div', { class: 'paia-stat__hint', text: i18n.lgHint } ),
+			return el( 'div', { class: 'pwc-stat' + ( modifier ? ' ' + modifier : '' ) }, [
+				el( 'h3', { class: 'pwc-stat__name', text: name } ),
+				el( 'div', { class: 'pwc-stat__value', text: formatNumber( value ) } ),
+				el( 'div', { class: 'pwc-stat__hint', text: i18n.lgHint } ),
 			] );
 		}
 
 		function renderStats() {
 			clear( statsBox );
 			statsBox.appendChild( statBox( '', i18n.lgTotal, stats.total || 0 ) );
-			statsBox.appendChild( statBox( 'paia-stat--ok', i18n.lgSuccess, stats.success || 0 ) );
-			statsBox.appendChild( statBox( 'paia-stat--bad', i18n.lgError, stats.error || 0 ) );
+			statsBox.appendChild( statBox( 'pwc-stat--ok', i18n.lgSuccess, stats.success || 0 ) );
+			statsBox.appendChild( statBox( 'pwc-stat--bad', i18n.lgError, stats.error || 0 ) );
 		}
 
 		function statusLabel( status ) {
@@ -2553,42 +2553,42 @@
 		}
 
 		async function loadDetails( item, host ) {
-			host.appendChild( el( 'p', { class: 'paia-note', text: i18n.lgLoading } ) );
+			host.appendChild( el( 'p', { class: 'pwc-note', text: i18n.lgLoading } ) );
 			var res = await request( getPath( 'logs/item', { id: item.id } ), 'GET' );
 			clear( host );
 
 			if ( ! res.ok || ! res.data ) {
-				host.appendChild( el( 'p', { class: 'paia-note is-error', text: i18n.lgDetailFailed } ) );
+				host.appendChild( el( 'p', { class: 'pwc-note is-error', text: i18n.lgDetailFailed } ) );
 				return;
 			}
 
-			var main = el( 'dl', { class: 'paia-kv' } );
+			var main = el( 'dl', { class: 'pwc-kv' } );
 			main.appendChild( el( 'dt', { text: i18n.lgFullText } ) );
-			main.appendChild( el( 'dd', {}, [ el( 'div', { class: 'paia-log__full', dir: 'auto', text: res.data.message || '' } ) ] ) );
+			main.appendChild( el( 'dd', {}, [ el( 'div', { class: 'pwc-log__full', dir: 'auto', text: res.data.message || '' } ) ] ) );
 			main.appendChild( el( 'dt', { text: i18n.lgTime } ) );
 			main.appendChild( el( 'dd', {}, [ el( 'span', { dir: 'ltr', text: res.data.time || '' } ) ] ) );
 			host.appendChild( main );
 
 			var data = res.data.data || {};
 			if ( Object.keys( data ).length ) {
-				host.appendChild( el( 'h4', { class: 'paia-log__sub', text: i18n.lgDetails } ) );
+				host.appendChild( el( 'h4', { class: 'pwc-log__sub', text: i18n.lgDetails } ) );
 				host.appendChild( objectNode( data ) );
 			}
 		}
 
 		function rowNode( item ) {
 			var summary = el( 'summary', {}, [
-				el( 'span', { class: 'paia-log__dot', 'aria-hidden': 'true' } ),
-				el( 'span', { class: 'paia-log__text', dir: 'auto', text: item.message } ),
-				el( 'span', { class: 'paia-chip paia-log__chip', text: statusLabel( item.status ) } ),
-				el( 'span', { class: 'paia-log__time', dir: 'ltr', text: item.time } ),
+				el( 'span', { class: 'pwc-log__dot', 'aria-hidden': 'true' } ),
+				el( 'span', { class: 'pwc-log__text', dir: 'auto', text: item.message } ),
+				el( 'span', { class: 'pwc-chip pwc-log__chip', text: statusLabel( item.status ) } ),
+				el( 'span', { class: 'pwc-log__time', dir: 'ltr', text: item.time } ),
 			] );
-			var details = el( 'details', { class: 'paia-item paia-log paia-log--' + item.status }, [ summary ] );
+			var details = el( 'details', { class: 'pwc-item pwc-log pwc-log--' + item.status }, [ summary ] );
 
 			details.addEventListener( 'toggle', function () {
 				if ( details.open && ! details.getAttribute( 'data-ready' ) ) {
 					details.setAttribute( 'data-ready', '1' );
-					var host = el( 'div', { class: 'paia-sub paia-log__body' } );
+					var host = el( 'div', { class: 'pwc-sub pwc-log__body' } );
 					details.appendChild( host );
 					loadDetails( item, host );
 				}
@@ -2608,7 +2608,7 @@
 				cursor = 0;
 				more.hidden = true;
 				clear( list );
-				list.appendChild( el( 'p', { class: 'paia-note', text: i18n.lgLoading } ) );
+				list.appendChild( el( 'p', { class: 'pwc-note', text: i18n.lgLoading } ) );
 			}
 
 			var params = { limit: 30 };
@@ -2637,7 +2637,7 @@
 				}
 				more.hidden = ! res.data.has_more;
 				if ( ! list.firstChild ) {
-					list.appendChild( el( 'p', { class: 'paia-note', text: i18n.lgEmpty } ) );
+					list.appendChild( el( 'p', { class: 'pwc-note', text: i18n.lgEmpty } ) );
 				}
 				showError( '' );
 			} else {
@@ -2677,7 +2677,7 @@
 	}
 
 	/* ------------------------------------------------------------------ */
-	/* تب «اطلاعات به‌روز»: لیست + فرم‌ها (جدول‌های paia_live_*)             */
+	/* تب «اطلاعات به‌روز»: لیست + فرم‌ها (جدول‌های pwc_live_*)             */
 	/* ------------------------------------------------------------------ */
 
 	function initLive() {
@@ -2730,7 +2730,7 @@
 		}
 
 		function setLabel( button, text ) {
-			var label = button.querySelector( '.paia-btn__label' );
+			var label = button.querySelector( '.pwc-btn__label' );
 			if ( label ) {
 				label.textContent = text;
 			}
@@ -2744,24 +2744,24 @@
 		/* ---- لیست ---- */
 
 		function switchNode( checked, name, onChange ) {
-			var input = el( 'input', { type: 'checkbox', role: 'switch', class: 'paia-switch__input', 'aria-label': sprintf( i18n.lvToggleLabel, name ) } );
+			var input = el( 'input', { type: 'checkbox', role: 'switch', class: 'pwc-switch__input', 'aria-label': sprintf( i18n.lvToggleLabel, name ) } );
 			input.checked = !! checked;
 			input.addEventListener( 'change', function () {
 				onChange( input );
 			} );
-			return el( 'label', { class: 'paia-switch' }, [ input, el( 'span', { class: 'paia-switch__track', 'aria-hidden': 'true' } ) ] );
+			return el( 'label', { class: 'pwc-switch' }, [ input, el( 'span', { class: 'pwc-switch__track', 'aria-hidden': 'true' } ) ] );
 		}
 
 		function rowNode( key, name, enabled, time, extraClass, onToggle, chipText ) {
-			var off = el( 'span', { class: 'paia-chip paia-chip--warn', text: i18n.lvOff } );
+			var off = el( 'span', { class: 'pwc-chip pwc-chip--warn', text: i18n.lvOff } );
 			off.hidden = !! enabled;
-			var main = el( 'button', { type: 'button', class: 'paia-live__main', 'aria-pressed': selected === key ? 'true' : 'false' }, [
-				el( 'span', { class: 'paia-live__name', dir: 'auto', text: name } ),
-				chipText ? el( 'span', { class: 'paia-chip paia-chip--ai', text: chipText } ) : null,
+			var main = el( 'button', { type: 'button', class: 'pwc-live__main', 'aria-pressed': selected === key ? 'true' : 'false' }, [
+				el( 'span', { class: 'pwc-live__name', dir: 'auto', text: name } ),
+				chipText ? el( 'span', { class: 'pwc-chip pwc-chip--ai', text: chipText } ) : null,
 				off,
-				time ? el( 'span', { class: 'paia-live__time', dir: 'ltr', text: time } ) : null,
+				time ? el( 'span', { class: 'pwc-live__time', dir: 'ltr', text: time } ) : null,
 			] );
-			var row = el( 'div', { class: 'paia-live__row' + ( extraClass ? ' ' + extraClass : '' ) + ( selected === key ? ' is-active' : '' ) + ( enabled ? '' : ' is-off' ) }, [ main ] );
+			var row = el( 'div', { class: 'pwc-live__row' + ( extraClass ? ' ' + extraClass : '' ) + ( selected === key ? ' is-active' : '' ) + ( enabled ? '' : ' is-off' ) }, [ main ] );
 			row.appendChild(
 				switchNode( enabled, name, function ( input ) {
 					off.hidden = input.checked;
@@ -2803,7 +2803,7 @@
 
 			SOURCES.forEach( function ( key ) {
 				listBox.appendChild(
-					rowNode( key, sourceTitle[ key ], sources[ key ].enabled, '', 'paia-live__row--products', function ( input, row, off ) {
+					rowNode( key, sourceTitle[ key ], sources[ key ].enabled, '', 'pwc-live__row--products', function ( input, row, off ) {
 						toggle( input, row, off, 'live/source/toggle', { source: key }, function ( value ) {
 							sources[ key ].enabled = value;
 						} );
@@ -2822,7 +2822,7 @@
 			} );
 
 			if ( ! items.length ) {
-				listBox.appendChild( el( 'p', { class: 'paia-note paia-live__empty', text: i18n.lvEmpty } ) );
+				listBox.appendChild( el( 'p', { class: 'pwc-note pwc-live__empty', text: i18n.lvEmpty } ) );
 			}
 		}
 
@@ -3082,39 +3082,39 @@
 		var busy = false;
 
 		function titleOf( panel ) {
-			var h = panel.querySelector( '.paia-card__title' );
+			var h = panel.querySelector( '.pwc-card__title' );
 			return h ? h.textContent.replace( /\s+/g, ' ' ).trim() : '';
 		}
 
 		function isOpen( panel ) {
-			return ! panel.hidden && ! panel.classList.contains( 'paia-folded' );
+			return ! panel.hidden && ! panel.classList.contains( 'pwc-folded' );
 		}
 
 		function bar( panel ) {
-			if ( panel._paiaBar ) {
-				return panel._paiaBar;
+			if ( panel._pwcBar ) {
+				return panel._pwcBar;
 			}
-			var b = el( 'button', { type: 'button', class: 'paia-fold-bar' } );
+			var b = el( 'button', { type: 'button', class: 'pwc-fold-bar' } );
 			b.addEventListener( 'click', function () {
 				unfold( panel );
 			} );
 			panel.parentNode.insertBefore( b, panel );
-			panel._paiaBar = b;
+			panel._pwcBar = b;
 			bars.push( b );
 			return b;
 		}
 
 		function fold( panel ) {
-			panel.classList.add( 'paia-folded' );
+			panel.classList.add( 'pwc-folded' );
 			var b = bar( panel );
 			b.textContent = sprintf( i18n.foldShow, titleOf( panel ) );
 			b.hidden = false;
 		}
 
 		function unfold( panel ) {
-			panel.classList.remove( 'paia-folded' );
-			if ( panel._paiaBar ) {
-				panel._paiaBar.hidden = true;
+			panel.classList.remove( 'pwc-folded' );
+			if ( panel._pwcBar ) {
+				panel._pwcBar.hidden = true;
 			}
 			order = order.filter( function ( p ) {
 				return p !== panel;
@@ -3134,9 +3134,9 @@
 					order = order.filter( function ( p ) {
 						return p !== panel;
 					} );
-					panel.classList.remove( 'paia-folded' );
-					if ( panel._paiaBar ) {
-						panel._paiaBar.hidden = true;
+					panel.classList.remove( 'pwc-folded' );
+					if ( panel._pwcBar ) {
+						panel._pwcBar.hidden = true;
 					}
 				} else if ( ! known ) {
 					order.push( panel );
@@ -3173,7 +3173,7 @@
 	}
 
 	function chip( text, modifier ) {
-		return el( 'li', { class: 'paia-chip' + ( modifier ? ' paia-chip--' + modifier : '' ), text: text } );
+		return el( 'li', { class: 'pwc-chip' + ( modifier ? ' pwc-chip--' + modifier : '' ), text: text } );
 	}
 
 	/** opts: { hint, empty } متن زیر عدد هر منبع (پیش‌فرض: «مورد پیدا شد»). */
@@ -3183,7 +3183,7 @@
 
 		if ( state.site ) {
 			box.appendChild(
-				el( 'p', { class: 'paia-summary__site', dir: 'auto' }, [
+				el( 'p', { class: 'pwc-summary__site', dir: 'auto' }, [
 					el( 'strong', { text: state.site.name || '' } ),
 					' — ',
 					el( 'span', { dir: 'ltr', text: state.site.url || '' } ),
@@ -3191,11 +3191,11 @@
 			);
 		}
 
-		var grid = el( 'div', { class: 'paia-summary' } );
+		var grid = el( 'div', { class: 'pwc-summary' } );
 		sources.forEach( function ( id ) {
 			var st = state.sources[ id ];
 			var stats = sumStats( st );
-			var chips = el( 'ul', { class: 'paia-chips' } );
+			var chips = el( 'ul', { class: 'pwc-chips' } );
 			var labels = config.stats || {};
 
 			Object.keys( stats ).forEach( function ( key ) {
@@ -3217,13 +3217,13 @@
 
 			var count = st.items.length;
 			grid.appendChild(
-				el( 'div', { class: 'paia-stat' + ( st.error ? ' is-error' : '' ) }, [
-					el( 'h3', { class: 'paia-stat__name', text: sourceLabel( id ) } ),
-					el( 'div', { class: 'paia-stat__value', text: formatNumber( count ) } ),
-					el( 'div', { class: 'paia-stat__hint', text: count ? opts.hint || i18n.summaryItems : opts.empty || i18n.summaryNone } ),
-					st.error ? el( 'p', { class: 'paia-stat__error', text: sprintf( i18n.sourceFailed, sourceLabel( id ) ) + st.error } ) : null,
+				el( 'div', { class: 'pwc-stat' + ( st.error ? ' is-error' : '' ) }, [
+					el( 'h3', { class: 'pwc-stat__name', text: sourceLabel( id ) } ),
+					el( 'div', { class: 'pwc-stat__value', text: formatNumber( count ) } ),
+					el( 'div', { class: 'pwc-stat__hint', text: count ? opts.hint || i18n.summaryItems : opts.empty || i18n.summaryNone } ),
+					st.error ? el( 'p', { class: 'pwc-stat__error', text: sprintf( i18n.sourceFailed, sourceLabel( id ) ) + st.error } ) : null,
 					chips.childNodes.length ? chips : null,
-					st.duration > 0 ? el( 'div', { class: 'paia-stat__time', text: ( st.duration / 1000 ).toFixed( 1 ) + ' ' + i18n.seconds } ) : null,
+					st.duration > 0 ? el( 'div', { class: 'pwc-stat__time', text: ( st.duration / 1000 ).toFixed( 1 ) + ' ' + i18n.seconds } ) : null,
 				] )
 			);
 		} );
@@ -3244,12 +3244,12 @@
 		}
 		var text = String( value );
 		if ( /^https?:\/\/\S+$/.test( text ) ) {
-			return el( 'a', { href: text, target: '_blank', rel: 'noopener noreferrer', dir: 'ltr', class: 'paia-kv__link', text: text } );
+			return el( 'a', { href: text, target: '_blank', rel: 'noopener noreferrer', dir: 'ltr', class: 'pwc-kv__link', text: text } );
 		}
 		if ( text.length > 280 || text.indexOf( '\n' ) !== -1 ) {
-			return el( 'div', { class: 'paia-long', dir: 'auto' }, [
-				el( 'div', { class: 'paia-long__body', text: text } ),
-				el( 'small', { class: 'paia-long__meta', text: formatNumber( text.length ) + ' ' + i18n.chars } ),
+			return el( 'div', { class: 'pwc-long', dir: 'auto' }, [
+				el( 'div', { class: 'pwc-long__body', text: text } ),
+				el( 'small', { class: 'pwc-long__meta', text: formatNumber( text.length ) + ' ' + i18n.chars } ),
 			] );
 		}
 		return el( 'span', { dir: 'auto', text: text } );
@@ -3261,15 +3261,15 @@
 		}
 		if ( Array.isArray( value ) ) {
 			if ( value.every( isScalar ) ) {
-				var list = el( 'ul', { class: 'paia-chips' } );
+				var list = el( 'ul', { class: 'pwc-chips' } );
 				value.forEach( function ( v ) {
-					list.appendChild( el( 'li', { class: 'paia-chip', dir: 'auto', text: String( v ) } ) );
+					list.appendChild( el( 'li', { class: 'pwc-chip', dir: 'auto', text: String( v ) } ) );
 				} );
 				return list;
 			}
-			var wrap = el( 'div', { class: 'paia-sublist' } );
+			var wrap = el( 'div', { class: 'pwc-sublist' } );
 			value.forEach( function ( v ) {
-				wrap.appendChild( el( 'div', { class: 'paia-sub' }, [ isScalar( v ) ? scalarNode( v ) : valueNode( v ) ] ) );
+				wrap.appendChild( el( 'div', { class: 'pwc-sub' }, [ isScalar( v ) ? scalarNode( v ) : valueNode( v ) ] ) );
 			} );
 			return wrap;
 		}
@@ -3277,7 +3277,7 @@
 	}
 
 	function objectNode( obj ) {
-		var dl = el( 'dl', { class: 'paia-kv' } );
+		var dl = el( 'dl', { class: 'pwc-kv' } );
 		Object.keys( obj ).forEach( function ( key ) {
 			var value = obj[ key ];
 			if ( value === null || value === '' || ( Array.isArray( value ) && ! value.length ) ) {
@@ -3292,9 +3292,9 @@
 
 	function taxonomyNode( tax ) {
 		var title = tax.label + ' (' + tax.taxonomy + ') — ' + formatNumber( tax.total );
-		var body = el( 'div', { class: 'paia-sub' } );
+		var body = el( 'div', { class: 'pwc-sub' } );
 		if ( tax.truncated ) {
-			body.appendChild( el( 'p', { class: 'paia-note', text: i18n.truncated } ) );
+			body.appendChild( el( 'p', { class: 'pwc-note', text: i18n.truncated } ) );
 		}
 		( tax.terms || [] ).forEach( function ( term ) {
 			var meta = [];
@@ -3303,7 +3303,7 @@
 			}
 			meta.push( formatNumber( term.count || 0 ) );
 			body.appendChild(
-				el( 'div', { class: 'paia-term' }, [
+				el( 'div', { class: 'pwc-term' }, [
 					el( 'strong', { dir: 'auto', text: term.path || term.name } ),
 					el( 'small', { dir: 'ltr', text: meta.join( ' · ' ) } ),
 					term.description ? el( 'p', { dir: 'auto', text: term.description } ) : null,
@@ -3311,11 +3311,11 @@
 			);
 		} );
 
-		return el( 'details', { class: 'paia-item' }, [ el( 'summary', {}, [ el( 'span', { class: 'paia-item__title', dir: 'auto', text: title } ) ] ), body ] );
+		return el( 'details', { class: 'pwc-item' }, [ el( 'summary', {}, [ el( 'span', { class: 'pwc-item__title', dir: 'auto', text: title } ) ] ), body ] );
 	}
 
 	function listNode( lines, modifier ) {
-		var ul = el( 'ul', { class: 'paia-bullets' + ( modifier ? ' paia-bullets--' + modifier : '' ) } );
+		var ul = el( 'ul', { class: 'pwc-bullets' + ( modifier ? ' pwc-bullets--' + modifier : '' ) } );
 		lines.forEach( function ( line ) {
 			ul.appendChild( el( 'li', { dir: 'auto', text: line } ) );
 		} );
@@ -3349,7 +3349,7 @@
 		var groups = []; // { box, ids }
 
 		function tick( label ) {
-			var box = el( 'input', { type: 'checkbox', class: 'paia-tick', 'aria-label': label } );
+			var box = el( 'input', { type: 'checkbox', class: 'pwc-tick', 'aria-label': label } );
 			// کلیک روی تیک نباید گره را باز/بسته کند.
 			box.addEventListener( 'click', function ( event ) {
 				event.stopPropagation();
@@ -3372,7 +3372,7 @@
 		 * (بک‌اند هوش مصنوعی بعداً انجام می‌دهد).
 		 */
 		function removeBtn( title, onConfirm, confirmText, tip ) {
-			var btn = el( 'button', { type: 'button', class: 'paia-ai-del', title: tip || i18n.removeAi, 'aria-label': ( tip || i18n.removeAi ) + ': ' + title } );
+			var btn = el( 'button', { type: 'button', class: 'pwc-ai-del', title: tip || i18n.removeAi, 'aria-label': ( tip || i18n.removeAi ) + ': ' + title } );
 			btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.2a1.8 1.8 0 0 0 1.8 1.6h6.4a1.8 1.8 0 0 0 1.8-1.6L18 7M9 7V4.5h6V7"/></svg>';
 			btn.addEventListener( 'click', function ( event ) {
 				event.preventDefault();
@@ -3469,10 +3469,10 @@
 		}
 
 		config.getSelectedIds = selectedIds;
-		container._paiaSelected = selectedIds;
+		container._pwcSelected = selectedIds;
 
 		function newBadge() {
-			return opts.isNew ? el( 'span', { class: 'paia-chip paia-chip--new', text: i18n.badgeNew } ) : null;
+			return opts.isNew ? el( 'span', { class: 'pwc-chip pwc-chip--new', text: i18n.badgeNew } ) : null;
 		}
 
 		/** گرهٔ برگ (یک رکورد): سربرگ با تیک (یا آیکن هوش مصنوعی) + بدنهٔ بسته که با اولین باز شدن ساخته می‌شود. */
@@ -3503,7 +3503,7 @@
 					head.push( addTick() );
 				}
 			}
-			head.push( el( 'span', { class: 'paia-item__title', dir: 'auto', text: title } ) );
+			head.push( el( 'span', { class: 'pwc-item__title', dir: 'auto', text: title } ) );
 			( chips || [] ).forEach( function ( c ) {
 				head.push( c );
 			} );
@@ -3565,7 +3565,7 @@
 				}
 			} );
 
-			var details = el( 'details', { class: 'paia-item' }, [ summary ] );
+			var details = el( 'details', { class: 'pwc-item' }, [ summary ] );
 			details.addEventListener( 'toggle', function () {
 				if ( details.open && ! details.getAttribute( 'data-ready' ) ) {
 					details.setAttribute( 'data-ready', '1' );
@@ -3579,12 +3579,12 @@
 			var stats = item.stats || {};
 			var chips = [];
 			if ( item.id ) {
-				chips.push( el( 'span', { class: 'paia-item__id', text: '#' + item.id } ) );
+				chips.push( el( 'span', { class: 'pwc-item__id', text: '#' + item.id } ) );
 			}
 			if ( stats.empty_content ) {
-				chips.push( el( 'span', { class: 'paia-chip paia-chip--warn', text: i18n.emptyContent } ) );
+				chips.push( el( 'span', { class: 'pwc-chip pwc-chip--warn', text: i18n.emptyContent } ) );
 			} else if ( stats.words ) {
-				chips.push( el( 'span', { class: 'paia-chip', text: formatNumber( stats.words ) + ' ' + ( ( config.stats || {} ).words || '' ) } ) );
+				chips.push( el( 'span', { class: 'pwc-chip', text: formatNumber( stats.words ) + ' ' + ( ( config.stats || {} ).words || '' ) } ) );
 			}
 			chips.push( newBadge() );
 
@@ -3594,10 +3594,10 @@
 		}
 
 		function itemsNode( st ) {
-			var box = el( 'div', { class: 'paia-items' } );
+			var box = el( 'div', { class: 'pwc-items' } );
 			var page = 50;
 			var shown = 0;
-			var more = el( 'button', { type: 'button', class: 'paia-link' } );
+			var more = el( 'button', { type: 'button', class: 'pwc-link' } );
 
 			function showMore() {
 				st.items.slice( shown, shown + page ).forEach( function ( item, offset ) {
@@ -3743,37 +3743,37 @@
 				};
 			} );
 
-			var body = el( 'div', { class: 'paia-node__body' } );
+			var body = el( 'div', { class: 'pwc-node__body' } );
 			if ( st.error ) {
 				body.appendChild( listNode( [ sprintf( i18n.sourceFailed, title ) + st.error ], 'error' ) );
 			}
 			if ( st.warnings.length ) {
-				body.appendChild( el( 'p', { class: 'paia-note', text: i18n.warningsTitle + ' (' + formatNumber( st.warnings.length ) + ')' } ) );
+				body.appendChild( el( 'p', { class: 'pwc-note', text: i18n.warningsTitle + ' (' + formatNumber( st.warnings.length ) + ')' } ) );
 				body.appendChild( listNode( st.warnings, 'warn' ) );
 			}
 			if ( st.taxonomies.length ) {
 				body.appendChild(
 					leafNode( st.taxonomiesRecord, i18n.taxTitle + ' (' + formatNumber( st.taxonomies.length ) + ')', [], function () {
-						return el( 'div', { class: 'paia-sub' }, st.taxonomies.map( taxonomyNode ) );
+						return el( 'div', { class: 'pwc-sub' }, st.taxonomies.map( taxonomyNode ) );
 					} )
 				);
 			}
 			if ( st.items.length ) {
-				body.appendChild( el( 'p', { class: 'paia-note', text: i18n.itemsTitle + ' (' + formatNumber( st.items.length ) + ')' } ) );
+				body.appendChild( el( 'p', { class: 'pwc-note', text: i18n.itemsTitle + ' (' + formatNumber( st.items.length ) + ')' } ) );
 				body.appendChild( itemsNode( st ) );
 			} else if ( ! st.error ) {
-				body.appendChild( el( 'p', { class: 'paia-note', text: i18n.noItems } ) );
+				body.appendChild( el( 'p', { class: 'pwc-note', text: i18n.noItems } ) );
 			}
 
 			summaryEl = el( 'summary', {}, [
 				lead,
-				el( 'span', { class: 'paia-item__title', text: title } ),
-				el( 'span', { class: 'paia-chip', text: formatNumber( st.items.length ) } ),
+				el( 'span', { class: 'pwc-item__title', text: title } ),
+				el( 'span', { class: 'pwc-chip', text: formatNumber( st.items.length ) } ),
 				newBadge(),
 			] );
 			refreshDel();
 
-			return el( 'details', { class: 'paia-node' }, [ summaryEl, body ] );
+			return el( 'details', { class: 'pwc-node' }, [ summaryEl, body ] );
 			}
 
 		if ( state.site ) {
@@ -3904,13 +3904,13 @@
 	/* لوگوی بالای چت (تنظیمات ← مدیریت چت): انتخاب از کتابخانهٔ رسانهٔ وردپرس */
 
 	function initLogoPicker() {
-		var box = document.querySelector( '[data-paia-logo]' );
+		var box = document.querySelector( '[data-pwc-logo]' );
 		if ( ! box ) {
 			return;
 		}
 		var input = box.querySelector( 'input[type="hidden"]' );
-		var img = box.querySelector( '.paia-botlogo__img' );
-		var empty = box.querySelector( '.paia-botlogo__empty' );
+		var img = box.querySelector( '.pwc-botlogo__img' );
+		var empty = box.querySelector( '.pwc-botlogo__empty' );
 		var pick = box.querySelector( '[data-logo-pick]' );
 		var clear = box.querySelector( '[data-logo-clear]' );
 		var frame = null;
@@ -3954,7 +3954,7 @@
 	}
 
 	document.addEventListener( 'DOMContentLoaded', function () {
-		var root = document.getElementById( 'paia-app' );
+		var root = document.getElementById( 'pwc-app' );
 		if ( ! root ) {
 			return;
 		}

@@ -1,21 +1,21 @@
 <?php
-namespace PersianAIAssistant\Apis\Endpoints;
+namespace PersianWPChatbot\Apis\Endpoints;
 
-use PersianAIAssistant\Apis\Live\LiveProducts;
-use PersianAIAssistant\Database\LiveStore;
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Apis\Live\LiveProducts;
+use PersianWPChatbot\Database\LiveStore;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * POST /wp-json/paia/v1/live/products   (API شمارهٔ ۱ ابزارهای هوش مصنوعی — LIVE_TOOLS_API.md §5)
+ * POST /wp-json/pwc/v1/live/products   (API شمارهٔ ۱ ابزارهای هوش مصنوعی — LIVE_TOOLS_API.md §5)
  *
  * بدنه: { request_id, fields: ["price","stock"], products: [ {id} | {name}, … حداکثر 5 ] }
  * پاسخ: { ok: true, message: "<متن ساختاریافتهٔ قیمت/موجودی>" }  یا  { ok: false, error: "…" }
  *
  * قرارداد پاسخ (§4): برای هر نتیجهٔ «کاری» (حتی «پیدا نشد») HTTP 200؛ فقط احراز هویت ناموفق 401 می‌دهد (permission_callback).
  * هیچ args برای مسیر تعریف نشده تا وردپرس خودش 400 برنگرداند؛ اعتبارسنجی دستی است و خطا همیشه {ok:false} با 200 می‌شود.
- * کش HTTP ندارد (Cache-Control: no-store)، ولی پاسخ موفق ۶۰ ثانیه با transient وردپرس کش می‌شود (option: paia_tool_cache_ttl؛ ۰ = خاموش).
+ * کش HTTP ندارد (Cache-Control: no-store)، ولی پاسخ موفق ۶۰ ثانیه با transient وردپرس کش می‌شود (option: pwc_tool_cache_ttl؛ ۰ = خاموش).
  */
 final class LiveProductsEndpoint extends AbstractEndpoint {
 
@@ -56,7 +56,7 @@ final class LiveProductsEndpoint extends AbstractEndpoint {
 				return $this->respond(
 					array(
 						'ok'    => false,
-						'error' => __( 'درخواست نامعتبر', 'persian-ai-assistant' ),
+						'error' => __( 'درخواست نامعتبر', 'persian-wp-chatbot' ),
 					)
 				);
 			}
@@ -64,7 +64,7 @@ final class LiveProductsEndpoint extends AbstractEndpoint {
 				return $this->respond(
 					array(
 						'ok'    => false,
-						'error' => __( 'داده زنده محصول در این سایت فعال نیست', 'persian-ai-assistant' ),
+						'error' => __( 'داده زنده محصول در این سایت فعال نیست', 'persian-wp-chatbot' ),
 					)
 				);
 			}
@@ -90,10 +90,10 @@ final class LiveProductsEndpoint extends AbstractEndpoint {
 			// جزئیات داخلی (مسیر/SQL) هرگز به AI نمی‌رسد؛ فقط در لاگ سایت می‌ماند.
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'خطا در API زندهٔ محصولات (/live/products).', 'persian-ai-assistant' ),
+				__( 'خطا در API زندهٔ محصولات (/live/products).', 'persian-wp-chatbot' ),
 				array(
 					'method'   => 'POST',
-					'endpoint' => '/paia/v1/live/products',
+					'endpoint' => '/pwc/v1/live/products',
 					'error'    => get_class( $e ) . ': ' . $e->getMessage(),
 				)
 			);
@@ -101,7 +101,7 @@ final class LiveProductsEndpoint extends AbstractEndpoint {
 			return $this->respond(
 				array(
 					'ok'    => false,
-					'error' => __( 'خطای داخلی سایت در خواندن اطلاعات محصول', 'persian-ai-assistant' ),
+					'error' => __( 'خطای داخلی سایت در خواندن اطلاعات محصول', 'persian-wp-chatbot' ),
 				)
 			);
 		}

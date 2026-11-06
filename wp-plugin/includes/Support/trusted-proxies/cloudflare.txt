@@ -1,4 +1,4 @@
-# Cloudflare proxy ranges — trusted-proxy preset "cloudflare" (PAIA_TRUSTED_PROXIES = 'cloudflare').
+# Cloudflare proxy ranges — trusted-proxy preset "cloudflare" (PWC_TRUSTED_PROXIES = 'cloudflare').
 #
 # منبع رسمی (باید دوره‌ای با آن مطابقت داده شود):
 #   https://www.cloudflare.com/ips-v4
@@ -7,8 +7,8 @@
 # این فهرست snapshot است و ممکن است قدیمی شود. به‌روزرسانی:
 #   1) دو آدرس بالا را باز کنید و محتوای آن‌ها را جایگزین بخش‌های زیر کنید (هر خط یک CIDR)،
 #   2) یا به‌جای این فایل، در wp-config.php فهرست خودتان را بدهید:
-#        define( 'PAIA_TRUSTED_PROXIES', '173.245.48.0/20,103.21.244.0/22,...' );
-#   3) یا با فیلتر 'paia_trusted_proxies' از یک منبع به‌روز (مثلاً کران) فهرست را بدهید.
+#        define( 'PWC_TRUSTED_PROXIES', '173.245.48.0/20,103.21.244.0/22,...' );
+#   3) یا با فیلتر 'pwc_trusted_proxies' از یک منبع به‌روز (مثلاً کران) فهرست را بدهید.
 # خطوط خالی و خطوطی که با # شروع شوند نادیده گرفته می‌شوند.
 # Snapshot-checked-against-official-list: NOT YET VERIFIED — before production compare with the URLs above.
 

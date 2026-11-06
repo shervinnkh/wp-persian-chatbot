@@ -1,9 +1,9 @@
 <?php
-namespace PersianAIAssistant\Extraction\Extractors;
+namespace PersianWPChatbot\Extraction\Extractors;
 
-use PersianAIAssistant\Extraction\LiveFields;
-use PersianAIAssistant\Extraction\Support\PostMapper;
-use PersianAIAssistant\Extraction\Support\Terms;
+use PersianWPChatbot\Extraction\LiveFields;
+use PersianWPChatbot\Extraction\Support\PostMapper;
+use PersianWPChatbot\Extraction\Support\Terms;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -84,7 +84,7 @@ abstract class AbstractPostExtractor implements ExtractorInterface {
 		}
 
 		if ( ! $types ) {
-			$this->warnings[] = __( 'هیچ نوع نوشتهٔ مناسبی روی این سایت پیدا نشد.', 'persian-ai-assistant' );
+			$this->warnings[] = __( 'هیچ نوع نوشتهٔ مناسبی روی این سایت پیدا نشد.', 'persian-wp-chatbot' );
 
 			return $this->result( array(), 0, $offset, $limit, $extra );
 		}
@@ -112,7 +112,7 @@ abstract class AbstractPostExtractor implements ExtractorInterface {
 				$items[] = LiveFields::strip( $this->id(), $this->map_post( $post ) );
 			} catch ( \Throwable $e ) {
 				/* translators: 1: post ID, 2: error message */
-				$this->warnings[] = sprintf( __( 'خطا در خواندن مورد %1$d: %2$s', 'persian-ai-assistant' ), (int) $post->ID, $e->getMessage() );
+				$this->warnings[] = sprintf( __( 'خطا در خواندن مورد %1$d: %2$s', 'persian-wp-chatbot' ), (int) $post->ID, $e->getMessage() );
 			}
 		}
 

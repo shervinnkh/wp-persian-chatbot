@@ -1,12 +1,12 @@
 <?php
-namespace PersianAIAssistant\Extraction\Extractors;
+namespace PersianWPChatbot\Extraction\Extractors;
 
-use PersianAIAssistant\Extraction\PostTypes;
-use PersianAIAssistant\Extraction\Support\Html;
-use PersianAIAssistant\Extraction\Support\Media;
-use PersianAIAssistant\Extraction\Support\Normalizer;
-use PersianAIAssistant\Extraction\Support\PostMapper;
-use PersianAIAssistant\Extraction\Support\Text;
+use PersianWPChatbot\Extraction\PostTypes;
+use PersianWPChatbot\Extraction\Support\Html;
+use PersianWPChatbot\Extraction\Support\Media;
+use PersianWPChatbot\Extraction\Support\Normalizer;
+use PersianWPChatbot\Extraction\Support\PostMapper;
+use PersianWPChatbot\Extraction\Support\Text;
 
 defined( 'ABSPATH' ) || exit;
 

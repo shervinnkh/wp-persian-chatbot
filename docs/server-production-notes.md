@@ -1,4 +1,4 @@
-<!-- این بخش‌ها را در README سرور (server-ai) کپی کن. README/.env.example در zip این نوبت نبودند. -->
+# یادداشت‌های production سرور
 
 ## دیتابیس (SQLite یا PostgreSQL)
 

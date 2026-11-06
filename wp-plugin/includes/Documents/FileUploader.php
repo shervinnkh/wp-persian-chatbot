@@ -1,13 +1,13 @@
 <?php
-namespace PersianAIAssistant\Documents;
+namespace PersianWPChatbot\Documents;
 
-use PersianAIAssistant\Database\FileStore;
+use PersianWPChatbot\Database\FileStore;
 use WP_Error;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * آپلود فایل در تب «اسناد اضافه»: اعتبارسنجی، ذخیرهٔ فایل در uploads/paia-docs و ثبت رکورد در paia_files.
+ * آپلود فایل در تب «اسناد اضافه»: اعتبارسنجی، ذخیرهٔ فایل در uploads/pwc-docs و ثبت رکورد در pwc_files.
  *
  * اعتبارسنجی: لیست سفید پسوند (pdf, doc, docx, txt)، سقف حجم، و بررسی امضای واقعی محتوای فایل
  * (نه فقط پسوند) تا فایل دیگری با پسوند جعلی ذخیره نشود. TXT باید UTF-8 باشد.
@@ -26,16 +26,16 @@ final class FileUploader {
 				return self::too_large();
 			}
 
-			return new WP_Error( 'paia_upload_failed', __( 'آپلود فایل ناموفق بود. دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new WP_Error( 'pwc_upload_failed', __( 'آپلود فایل ناموفق بود. دوباره تلاش کنید.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 
 		$tmp  = (string) ( $file['tmp_name'] ?? '' );
 		$size = (int) ( $file['size'] ?? 0 );
 		if ( '' === $tmp || ! is_uploaded_file( $tmp ) ) {
-			return new WP_Error( 'paia_upload_failed', __( 'آپلود فایل ناموفق بود. دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new WP_Error( 'pwc_upload_failed', __( 'آپلود فایل ناموفق بود. دوباره تلاش کنید.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 		if ( $size <= 0 ) {
-			return new WP_Error( 'paia_upload_empty', __( 'فایل خالی است.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new WP_Error( 'pwc_upload_empty', __( 'فایل خالی است.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 		if ( $size > FileStore::max_bytes() ) {
 			return self::too_large();
@@ -44,24 +44,24 @@ final class FileUploader {
 		$original = sanitize_file_name( (string) ( $file['name'] ?? '' ) );
 		$ext      = strtolower( pathinfo( $original, PATHINFO_EXTENSION ) );
 		if ( ! in_array( $ext, FileStore::EXTENSIONS, true ) ) {
-			return new WP_Error( 'paia_upload_type', __( 'فقط فایل‌های PDF، DOC، DOCX و TXT پذیرفته می‌شود.', 'persian-ai-assistant' ), array( 'status' => 415 ) );
+			return new WP_Error( 'pwc_upload_type', __( 'فقط فایل‌های PDF، DOC، DOCX و TXT پذیرفته می‌شود.', 'persian-wp-chatbot' ), array( 'status' => 415 ) );
 		}
 
 		$problem = self::content_problem( $tmp, $ext );
 		if ( '' !== $problem ) {
-			return new WP_Error( 'paia_upload_content', $problem, array( 'status' => 415 ) );
+			return new WP_Error( 'pwc_upload_content', $problem, array( 'status' => 415 ) );
 		}
 
 		$sub = gmdate( 'Y/m' );
 		$dir = FileStore::base_dir() . '/' . $sub;
 		if ( ! wp_mkdir_p( $dir ) || ! self::protect_dir( FileStore::base_dir() ) ) {
-			return new WP_Error( 'paia_upload_dir', __( 'ساخت پوشهٔ ذخیرهٔ فایل‌ها ناموفق بود. دسترسی نوشتن پوشهٔ uploads را بررسی کنید.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new WP_Error( 'pwc_upload_dir', __( 'ساخت پوشهٔ ذخیرهٔ فایل‌ها ناموفق بود. دسترسی نوشتن پوشهٔ uploads را بررسی کنید.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		$stored = strtolower( wp_generate_password( 24, false, false ) ) . '.' . $ext;
 		$target = $dir . '/' . $stored;
 		if ( ! move_uploaded_file( $tmp, $target ) ) { // phpcs:ignore Generic.PHP.ForbiddenFunctions
-			return new WP_Error( 'paia_upload_move', __( 'ذخیرهٔ فایل روی سرور ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new WP_Error( 'pwc_upload_move', __( 'ذخیرهٔ فایل روی سرور ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 		@chmod( $target, 0644 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors, WordPress.WP.AlternativeFunctions
 
@@ -85,7 +85,7 @@ final class FileUploader {
 		if ( ! FileStore::insert( $row ) ) {
 			wp_delete_file( $target );
 
-			return new WP_Error( 'paia_save_failed', __( 'ثبت فایل در پایگاه داده ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new WP_Error( 'pwc_save_failed', __( 'ثبت فایل در پایگاه داده ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		$saved = FileStore::get( $id );
@@ -102,7 +102,7 @@ final class FileUploader {
 	}
 
 	private static function too_large(): WP_Error {
-		return new WP_Error( 'paia_upload_size', __( 'حجم فایل بیش از حد مجاز است.', 'persian-ai-assistant' ), array( 'status' => 413 ) );
+		return new WP_Error( 'pwc_upload_size', __( 'حجم فایل بیش از حد مجاز است.', 'persian-wp-chatbot' ), array( 'status' => 413 ) );
 	}
 
 	/**
@@ -111,12 +111,12 @@ final class FileUploader {
 	private static function content_problem( string $path, string $ext ): string {
 		$handle = @fopen( $path, 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors, WordPress.WP.AlternativeFunctions
 		if ( false === $handle ) {
-			return __( 'خواندن فایل ممکن نبود.', 'persian-ai-assistant' );
+			return __( 'خواندن فایل ممکن نبود.', 'persian-wp-chatbot' );
 		}
 		$head = (string) fread( $handle, 65536 ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 
-		$bad = __( 'محتوای فایل با فرمت آن هم‌خوانی ندارد یا فایل آسیب دیده است.', 'persian-ai-assistant' );
+		$bad = __( 'محتوای فایل با فرمت آن هم‌خوانی ندارد یا فایل آسیب دیده است.', 'persian-wp-chatbot' );
 
 		switch ( $ext ) {
 			case 'pdf':
@@ -126,7 +126,7 @@ final class FileUploader {
 			case 'doc':
 				return 0 === strpos( $head, "\xD0\xCF\x11\xE0" ) ? '' : $bad;
 			case 'txt':
-				$utf8 = __( 'فایل TXT باید با کدگذاری UTF-8 ذخیره شده باشد (در برنامهٔ ویرایشگر، «Save as» و انتخاب UTF-8).', 'persian-ai-assistant' );
+				$utf8 = __( 'فایل TXT باید با کدگذاری UTF-8 ذخیره شده باشد (در برنامهٔ ویرایشگر، «Save as» و انتخاب UTF-8).', 'persian-wp-chatbot' );
 				if ( false !== strpos( $head, "\0" ) ) {
 					return $utf8;
 				}

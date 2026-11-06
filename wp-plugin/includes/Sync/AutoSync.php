@@ -1,14 +1,14 @@
 <?php
-namespace PersianAIAssistant\Sync;
+namespace PersianWPChatbot\Sync;
 
-use PersianAIAssistant\Contracts\Module;
-use PersianAIAssistant\Database\ItemStore;
-use PersianAIAssistant\Database\RemovedStore;
-use PersianAIAssistant\Extraction\Extractors\AbstractPostExtractor;
-use PersianAIAssistant\Extraction\Overview;
-use PersianAIAssistant\Extraction\PostTypes;
-use PersianAIAssistant\Extraction\Registry;
-use PersianAIAssistant\Extraction\Sources;
+use PersianWPChatbot\Contracts\Module;
+use PersianWPChatbot\Database\ItemStore;
+use PersianWPChatbot\Database\RemovedStore;
+use PersianWPChatbot\Extraction\Extractors\AbstractPostExtractor;
+use PersianWPChatbot\Extraction\Overview;
+use PersianWPChatbot\Extraction\PostTypes;
+use PersianWPChatbot\Extraction\Registry;
+use PersianWPChatbot\Extraction\Sources;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -19,14 +19,14 @@ defined( 'ABSPATH' ) || exit;
  *  1. transition_post_status با وضعیت جدید publish (هم انتشار تازه، هم ذخیرهٔ دوبارهٔ نوشتهٔ منتشرشده، هم انتشار زمان‌بندی‌شده)
  *     فقط شناسهٔ نوشته را در صف می‌گذارد، اگر نقش نوع‌نوشته (محصول/وبلاگ/برگه) تیک «افزودن» دارد.
  *  2. در shutdown (وقتی متا، ترم‌ها و دادهٔ ووکامرس هم ذخیره شده‌اند) هر نوشته با همان استخراج‌کنندهٔ دستی خوانده و
- *     در جدول paia_items upsert می‌شود: رکورد تازه با seen = 0 (برای فرم «اطلاعات جدید ثبت شده به صورت خودکار»)،
+ *     در جدول pwc_items upsert می‌شود: رکورد تازه با seen = 0 (برای فرم «اطلاعات جدید ثبت شده به صورت خودکار»)،
  *     رکورد موجود فقط JSON همان رکورد به‌روز می‌شود (seen تغییر نمی‌کند).
  *  3. ارسال به بک‌اند هوش مصنوعی (AiBackend، فعلاً کامنت):
  *     - رکورد تازه ← فقط اگر تیک «آموزش» روشن است؛
  *     - رکورد ویرایش‌شده ← فقط اگر «آنچه برای هوش مصنوعی مهم است» تغییر کرده (ai_changed): برای محصول فقط عنوان یا
  *       توضیحات (نه قیمت، موجودی و اطلاعات به‌روز)، برای وبلاگ/برگه تغییر داده‌ٔ ثابت؛ و تیک «آموزش» روشن است یا
  *       این رکورد پیش‌تر آموزش دیده بود (تا هوش مصنوعی با داده‌ٔ کهنه پاسخ ندهد).
- *  4. حذف نوشته (انتقال به زباله‌دان یا حذف دائمی): رکورد از paia_items برداشته و در لیست «حذف‌شده‌ها» ثبت می‌شود
+ *  4. حذف نوشته (انتقال به زباله‌دان یا حذف دائمی): رکورد از pwc_items برداشته و در لیست «حذف‌شده‌ها» ثبت می‌شود
  *     (RemovedStore) تا مدیر در تب «استخراج اطلاعات سایت» تصمیم بگیرد از هوش مصنوعی هم حذف شود یا نه.
  *
  * ایمنی: خطای استخراج هرگز نباید ذخیرهٔ نوشته را بشکند (همه‌چیز در try/catch و پس از پاسخ، در shutdown).
@@ -34,7 +34,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class AutoSync implements Module {
 
-	public const CRON_HOOK    = 'paia_autosync_process';
+	public const CRON_HOOK    = 'pwc_autosync_process';
 	private const INLINE_LIMIT = 15;
 
 	/** @var array<int, true> */
@@ -51,7 +51,7 @@ final class AutoSync implements Module {
 	}
 
 	/**
-	 * حذف نوشته از سایت (زباله‌دان یا حذف دائمی). فقط اگر رکوردش در paia_items بود، به لیست «حذف‌شده‌ها» می‌رود.
+	 * حذف نوشته از سایت (زباله‌دان یا حذف دائمی). فقط اگر رکوردش در pwc_items بود، به لیست «حذف‌شده‌ها» می‌رود.
 	 * حذف دائمیِ نوشته‌ای که پیش‌تر در زباله‌دان بود دوباره چیزی ثبت نمی‌کند (رکوردش همان موقع برداشته شد).
 	 *
 	 * @param int|mixed $post_id شناسهٔ نوشته.
@@ -116,7 +116,7 @@ final class AutoSync implements Module {
 		 * @param \WP_Post $post    نوشته.
 		 * @param string   $source  شناسهٔ منبع (products | blog | pages).
 		 */
-		if ( ! apply_filters( 'paia_autosync_handle_post', true, $post, $source ) ) {
+		if ( ! apply_filters( 'pwc_autosync_handle_post', true, $post, $source ) ) {
 			return;
 		}
 

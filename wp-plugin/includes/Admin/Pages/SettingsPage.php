@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Admin\Pages;
+namespace PersianWPChatbot\Admin\Pages;
 
-use PersianAIAssistant\Admin\Chatbot\Tabs\SettingsTab;
+use PersianWPChatbot\Admin\Chatbot\Tabs\SettingsTab;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -10,18 +10,18 @@ defined( 'ABSPATH' ) || exit;
  */
 final class SettingsPage extends AbstractTabbedPage {
 
-	public const SLUG = 'paia-settings';
+	public const SLUG = 'pwc-settings';
 
 	public function slug(): string {
 		return self::SLUG;
 	}
 
 	public function page_title(): string {
-		return __( 'تنظیمات', 'persian-ai-assistant' );
+		return __( 'تنظیمات', 'persian-wp-chatbot' );
 	}
 
 	public function menu_title(): string {
-		return __( 'تنظیمات', 'persian-ai-assistant' );
+		return __( 'تنظیمات', 'persian-wp-chatbot' );
 	}
 
 	protected function build_tabs(): array {

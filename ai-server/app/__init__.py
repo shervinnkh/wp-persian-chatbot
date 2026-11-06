@@ -1,2 +1,2 @@
-"""Persian AI Assistant backend."""
-__version__ = "0.8.0"
+"""Persian WP Chatbot backend."""
+__version__ = "1.0.0"

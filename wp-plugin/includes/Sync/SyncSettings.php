@@ -1,18 +1,18 @@
 <?php
-namespace PersianAIAssistant\Sync;
+namespace PersianWPChatbot\Sync;
 
-use PersianAIAssistant\Extraction\Sources;
-use PersianAIAssistant\Support\Settings;
+use PersianWPChatbot\Extraction\Sources;
+use PersianWPChatbot\Support\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * تنظیمات «استخراج خودکار اطلاعات سایت» برای هر منبع (محصولات، وبلاگ، برگه‌ها).
  *
- * کلید auto_sync در option اصلی افزونه (paia_settings):
+ * کلید auto_sync در option اصلی افزونه (pwc_settings):
  *   { products: { add: bool, train: bool }, blog: {...}, pages: {...} }
  *
- *  - add   = به‌محض افزودن/انتشار (و ویرایش) در سایت، به لیست مطالب افزونه (جدول paia_items) اضافه/به‌روز شود.
+ *  - add   = به‌محض افزودن/انتشار (و ویرایش) در سایت، به لیست مطالب افزونه (جدول pwc_items) اضافه/به‌روز شود.
  *  - train = بلافاصله برای آموزش به بک‌اند هوش مصنوعی هم فرستاده شود. بدون add معنی ندارد (همیشه false می‌شود).
  *
  * ذخیره فقط با دکمهٔ «ذخیرهٔ تغییرات» تب تنظیمات انجام می‌شود (همان فرمِ options.php)؛ تیک‌ها تکی ذخیره نمی‌شوند.
@@ -21,11 +21,11 @@ final class SyncSettings {
 
 	public const KEY = 'auto_sync';
 
-	/** نام فیلدهای فرم تنظیمات: paia_autosync[منبع][add|train] */
-	public const FORM_FIELD = 'paia_autosync';
+	/** نام فیلدهای فرم تنظیمات: pwc_autosync[منبع][add|train] */
+	public const FORM_FIELD = 'pwc_autosync';
 
 	/** فیلد مخفی که نشان می‌دهد فرم، تیک‌های این بخش را هم فرستاده است (تا ذخیرهٔ بخش دیگر، آن‌ها را پاک نکند). */
-	public const FORM_MARKER = 'paia_autosync_present';
+	public const FORM_MARKER = 'pwc_autosync_present';
 
 	/**
 	 * @return array<string, array{add:bool, train:bool}>
@@ -62,7 +62,7 @@ final class SyncSettings {
 	/**
 	 * ذخیرهٔ همهٔ منبع‌ها یک‌جا از فرم تنظیمات. تیکِ نخورده در فرم ارسال نمی‌شود، پس غیبتش یعنی false.
 	 *
-	 * @param mixed $input مقدار $_POST['paia_autosync'] (ناسالم‌سازی‌نشده؛ فقط ارزش‌های بولی از آن خوانده می‌شود).
+	 * @param mixed $input مقدار $_POST['pwc_autosync'] (ناسالم‌سازی‌نشده؛ فقط ارزش‌های بولی از آن خوانده می‌شود).
 	 * @return array<string, array{add:bool, train:bool}> تنظیمات کامل پس از ذخیره.
 	 */
 	public static function save_from_form( $input ): array {

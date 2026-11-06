@@ -1,9 +1,9 @@
 <?php
-namespace PersianAIAssistant\Admin\Pages;
+namespace PersianWPChatbot\Admin\Pages;
 
-use PersianAIAssistant\Admin\Chatbot\Tabs\ExtractionTab;
-use PersianAIAssistant\Admin\Chatbot\Tabs\DocumentsTab;
-use PersianAIAssistant\Admin\Chatbot\Tabs\UpdatesTab;
+use PersianWPChatbot\Admin\Chatbot\Tabs\ExtractionTab;
+use PersianWPChatbot\Admin\Chatbot\Tabs\DocumentsTab;
+use PersianWPChatbot\Admin\Chatbot\Tabs\UpdatesTab;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -12,18 +12,18 @@ defined( 'ABSPATH' ) || exit;
  */
 final class ResourcesPage extends AbstractTabbedPage {
 
-	public const SLUG = 'paia-resources';
+	public const SLUG = 'pwc-resources';
 
 	public function slug(): string {
 		return self::SLUG;
 	}
 
 	public function page_title(): string {
-		return __( 'منابع AI', 'persian-ai-assistant' );
+		return __( 'منابع AI', 'persian-wp-chatbot' );
 	}
 
 	public function menu_title(): string {
-		return __( 'منابع AI', 'persian-ai-assistant' );
+		return __( 'منابع AI', 'persian-wp-chatbot' );
 	}
 
 	protected function build_tabs(): array {

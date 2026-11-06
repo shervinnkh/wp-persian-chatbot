@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Core;
+namespace PersianWPChatbot\Core;
 
-use PersianAIAssistant\Database\Schema;
+use PersianWPChatbot\Database\Schema;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -9,15 +9,15 @@ final class Activator {
 
 	public static function activate(): void {
 		Schema::install();
-		\PersianAIAssistant\Chat\Cleanup::schedule(); // پاک‌سازی روزانهٔ داده‌های چت (P-2)
+		\PersianWPChatbot\Chat\Cleanup::schedule(); // پاک‌سازی روزانهٔ داده‌های چت (P-2)
 
-		if ( false === get_option( 'paia_installed_at' ) ) {
-			add_option( 'paia_installed_at', time(), '', false );
+		if ( false === get_option( 'pwc_installed_at' ) ) {
+			add_option( 'pwc_installed_at', time(), '', false );
 		}
 
 		// پاک‌سازی روزانهٔ داده‌های چت (S-8).
-		\PersianAIAssistant\Chat\Retention::schedule();
+		\PersianWPChatbot\Chat\Retention::schedule();
 
-		do_action( 'paia_activated' );
+		do_action( 'pwc_activated' );
 	}
 }

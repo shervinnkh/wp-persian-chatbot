@@ -1,22 +1,22 @@
 <?php
-namespace PersianAIAssistant\Database;
+namespace PersianWPChatbot\Database;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * جدول‌های اطلاعات افزونه:
- *  - {prefix}paia_items  اطلاعات استخراج‌شدهٔ سایت (توضیح ستون‌ها در ادامه)
- *  - {prefix}paia_texts  متن‌های دستی تب «اسناد اضافه» (از نسخهٔ ساختار ۳) — سازوکار مثل paia_items:
+ *  - {prefix}pwc_items  اطلاعات استخراج‌شدهٔ سایت (توضیح ستون‌ها در ادامه)
+ *  - {prefix}pwc_texts  متن‌های دستی تب «اسناد اضافه» (از نسخهٔ ساختار ۳) — سازوکار مثل pwc_items:
  *                        هر باکس متن یک رکورد؛ ستون‌های اضافه: draft، chunks، words، created_at، updated_at
- *  - {prefix}paia_files  فایل‌های آپلودشدهٔ تب «اسناد اضافه» (از نسخهٔ ساختار ۴): هر فایل یک رکورد
- *                        (id مثل file:1700000000000، عنوان، نام اصلی، مسیر نسبی داخل uploads/paia-docs، پسوند، حجم، ai_status)
- *  - {prefix}paia_logs   لاگ سرور هوش مصنوعی (از نسخهٔ ساختار ۴): status = success | error | info،
+ *  - {prefix}pwc_files  فایل‌های آپلودشدهٔ تب «اسناد اضافه» (از نسخهٔ ساختار ۴): هر فایل یک رکورد
+ *                        (id مثل file:1700000000000، عنوان، نام اصلی، مسیر نسبی داخل uploads/pwc-docs، پسوند، حجم، ai_status)
+ *  - {prefix}pwc_logs   لاگ سرور هوش مصنوعی (از نسخهٔ ساختار ۴): status = success | error | info،
  *                        message = متن لاگ، data = JSON جزئیات (متد، آدرس، کد وضعیت، …)
- *  - {prefix}paia_live_products / {prefix}paia_live_data  تب «اطلاعات به‌روز» (از نسخهٔ ساختار ۵) — ستون‌های جدا، بدون JSON؛ توضیح در LiveStore
- *  - {prefix}paia_live_blog / {prefix}paia_live_pages    اطلاعات به‌روز تمام وبلاگ‌ها و تمام برگه‌ها (از نسخهٔ ساختار ۶) — مثل paia_live_products
- *  - {prefix}paia_removed  نوشته‌هایی که از سایت حذف شده‌اند و هنوز مدیر دربارهٔ حذفشان از هوش مصنوعی تصمیم نگرفته (از نسخهٔ ساختار ۶) — توضیح در RemovedStore
+ *  - {prefix}pwc_live_products / {prefix}pwc_live_data  تب «اطلاعات به‌روز» (از نسخهٔ ساختار ۵) — ستون‌های جدا، بدون JSON؛ توضیح در LiveStore
+ *  - {prefix}pwc_live_blog / {prefix}pwc_live_pages    اطلاعات به‌روز تمام وبلاگ‌ها و تمام برگه‌ها (از نسخهٔ ساختار ۶) — مثل pwc_live_products
+ *  - {prefix}pwc_removed  نوشته‌هایی که از سایت حذف شده‌اند و هنوز مدیر دربارهٔ حذفشان از هوش مصنوعی تصمیم نگرفته (از نسخهٔ ساختار ۶) — توضیح در RemovedStore
  *
- * جدول اطلاعات استخراج‌شده: {prefix}paia_items
+ * جدول اطلاعات استخراج‌شده: {prefix}pwc_items
  *
  * ستون‌ها:
  *  - id        شناسهٔ رکورد به شکل «دسته:شناسه»، مثل product:23 ، blog:45 ، page:7 ، site:1 ، product_taxonomies:all
@@ -31,60 +31,60 @@ defined( 'ABSPATH' ) || exit;
 final class Schema {
 
 	public const DB_VERSION = '6';
-	public const OPTION     = 'paia_db_version';
+	public const OPTION     = 'pwc_db_version';
 
 	public static function table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_items';
+		return $wpdb->prefix . 'pwc_items';
 	}
 
 	public static function texts_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_texts';
+		return $wpdb->prefix . 'pwc_texts';
 	}
 
 	public static function files_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_files';
+		return $wpdb->prefix . 'pwc_files';
 	}
 
 	public static function logs_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_logs';
+		return $wpdb->prefix . 'pwc_logs';
 	}
 
 	public static function live_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_live_data';
+		return $wpdb->prefix . 'pwc_live_data';
 	}
 
 	public static function live_products_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_live_products';
+		return $wpdb->prefix . 'pwc_live_products';
 	}
 
 	public static function live_blog_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_live_blog';
+		return $wpdb->prefix . 'pwc_live_blog';
 	}
 
 	public static function live_pages_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_live_pages';
+		return $wpdb->prefix . 'pwc_live_pages';
 	}
 
 	public static function removed_table(): string {
 		global $wpdb;
 
-		return $wpdb->prefix . 'paia_removed';
+		return $wpdb->prefix . 'pwc_removed';
 	}
 
 	/**
@@ -138,7 +138,7 @@ final class Schema {
 ) {$charset};"
 		);
 
-		// فایل‌های آپلودشدهٔ «اسناد اضافه»: خود فایل در uploads/paia-docs است و اینجا فقط رکوردش (مسیر نسبی) نگه‌داری می‌شود.
+		// فایل‌های آپلودشدهٔ «اسناد اضافه»: خود فایل در uploads/pwc-docs است و اینجا فقط رکوردش (مسیر نسبی) نگه‌داری می‌شود.
 		$files = self::files_table();
 		dbDelta(
 			"CREATE TABLE {$files} (

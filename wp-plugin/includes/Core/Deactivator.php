@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Core;
+namespace PersianWPChatbot\Core;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -7,13 +7,13 @@ final class Deactivator {
 
 	public static function deactivate(): void {
 		// کرون بازبینی وضعیت رکوردهای هوش مصنوعی (apis/Reconciler.php).
-		\PersianAIAssistant\Apis\Reconciler::unschedule();
+		\PersianWPChatbot\Apis\Reconciler::unschedule();
 		// پاک‌سازی روزانهٔ داده‌های چت (includes/Chat/Cleanup.php).
-		\PersianAIAssistant\Chat\Cleanup::unschedule();
+		\PersianWPChatbot\Chat\Cleanup::unschedule();
 
 		// پاک‌سازی روزانهٔ داده‌های چت (S-8).
-		\PersianAIAssistant\Chat\Retention::unschedule();
+		\PersianWPChatbot\Chat\Retention::unschedule();
 
-		do_action( 'paia_deactivated' );
+		do_action( 'pwc_deactivated' );
 	}
 }

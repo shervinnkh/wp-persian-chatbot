@@ -22,12 +22,12 @@
  * (ولی نشانگرش از متن حذف می‌شود). آدرس کارت همیشه permalink واقعی نوشته است نه رشتهٔ خام هوش مصنوعی.
  * متن ذخیره‌شده در دیتابیس دست‌نخورده می‌ماند (نشانگرها در همان `content` هستند)؛ فقط هنگام ساخت خروجی حذف می‌شوند.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Extraction\PostTypes;
+use PersianWPChatbot\Extraction\PostTypes;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -256,9 +256,9 @@ final class MessageLinks {
 	/** برچسب نوع کارت. @return array<string,string> */
 	private static function labels(): array {
 		return array(
-			'product' => __( 'محصول', 'persian-ai-assistant' ),
-			'blog'    => __( 'مقاله', 'persian-ai-assistant' ),
-			'page'    => __( 'صفحه', 'persian-ai-assistant' ),
+			'product' => __( 'محصول', 'persian-wp-chatbot' ),
+			'blog'    => __( 'مقاله', 'persian-wp-chatbot' ),
+			'page'    => __( 'صفحه', 'persian-wp-chatbot' ),
 		);
 	}
 
@@ -428,7 +428,7 @@ final class MessageLinks {
 				return '';
 			}
 			if ( ! $product->is_in_stock() ) {
-				return __( 'ناموجود', 'persian-ai-assistant' );
+				return __( 'ناموجود', 'persian-wp-chatbot' );
 			}
 
 			$prefix = '';
@@ -439,7 +439,7 @@ final class MessageLinks {
 					return '';
 				}
 				$value  = $min;
-				$prefix = $max > $min ? __( 'از', 'persian-ai-assistant' ) . ' ' : '';
+				$prefix = $max > $min ? __( 'از', 'persian-wp-chatbot' ) . ' ' : '';
 			} else {
 				if ( '' === (string) $product->get_price() ) {
 					return '';

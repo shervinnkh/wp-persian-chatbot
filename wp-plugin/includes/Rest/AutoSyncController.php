@@ -1,23 +1,23 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Apis\Reconciler;
-use PersianAIAssistant\Apis\Records;
-use PersianAIAssistant\Database\ItemStore;
-use PersianAIAssistant\Database\RemovedStore;
-use PersianAIAssistant\Extraction\Sources;
-use PersianAIAssistant\Sync\AiBackend;
+use PersianWPChatbot\Apis\Reconciler;
+use PersianWPChatbot\Apis\Records;
+use PersianWPChatbot\Database\ItemStore;
+use PersianWPChatbot\Database\RemovedStore;
+use PersianWPChatbot\Extraction\Sources;
+use PersianWPChatbot\Sync\AiBackend;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * GET  /wp-json/paia/v1/extraction/auto-new    رکوردهایی که خودکار ثبت شده و هنوز «دیده» نشده‌اند (seen = 0)
- * GET  /wp-json/paia/v1/extraction/record      داده‌ی کامل یک رکورد (برای باز شدن جزئیات هر مورد در فرم): ?id=
- * POST /wp-json/paia/v1/extraction/auto-seen   «همه را دیدم»: {ids} همان رکوردهای نمایش‌داده‌شده را seen = 1 می‌کند
- * POST /wp-json/paia/v1/extraction/auto-train  «آموزش به هوش مصنوعی»: {ids} رکوردهای تیک‌خورده seen = 1 می‌شوند و برای آموزش فرستاده می‌شوند
- * GET  /wp-json/paia/v1/extraction/removed     نوشته‌های حذف‌شده از سایت که هنوز دربارهٔ حذفشان از هوش مصنوعی تصمیمی گرفته نشده
- * POST /wp-json/paia/v1/extraction/removed/delete  «حذف»: {id} برای حذف از آموزش‌ها به سرور داده می‌شود؛ ردیف «در حال حذف» (loading) می‌شود تا وب‌هوک برسد
- * POST /wp-json/paia/v1/extraction/untrain     «حذف آموزش» رکوردهایی که در سایت می‌مانند (درخت استخراج، اسناد): {ids} ← DELETE سرور ← ai_status = 1 ← وب‌هوک ← 0
+ * GET  /wp-json/pwc/v1/extraction/auto-new    رکوردهایی که خودکار ثبت شده و هنوز «دیده» نشده‌اند (seen = 0)
+ * GET  /wp-json/pwc/v1/extraction/record      داده‌ی کامل یک رکورد (برای باز شدن جزئیات هر مورد در فرم): ?id=
+ * POST /wp-json/pwc/v1/extraction/auto-seen   «همه را دیدم»: {ids} همان رکوردهای نمایش‌داده‌شده را seen = 1 می‌کند
+ * POST /wp-json/pwc/v1/extraction/auto-train  «آموزش به هوش مصنوعی»: {ids} رکوردهای تیک‌خورده seen = 1 می‌شوند و برای آموزش فرستاده می‌شوند
+ * GET  /wp-json/pwc/v1/extraction/removed     نوشته‌های حذف‌شده از سایت که هنوز دربارهٔ حذفشان از هوش مصنوعی تصمیمی گرفته نشده
+ * POST /wp-json/pwc/v1/extraction/removed/delete  «حذف»: {id} برای حذف از آموزش‌ها به سرور داده می‌شود؛ ردیف «در حال حذف» (loading) می‌شود تا وب‌هوک برسد
+ * POST /wp-json/pwc/v1/extraction/untrain     «حذف آموزش» رکوردهایی که در سایت می‌مانند (درخت استخراج، اسناد): {ids} ← DELETE سرور ← ai_status = 1 ← وب‌هوک ← 0
  *
  * (تیک‌های «استخراج خودکار اطلاعات سایت» دیگر REST ندارند؛ با دکمهٔ «ذخیرهٔ تغییرات» تب تنظیمات ذخیره می‌شوند — SyncSettings.)
  */
@@ -219,14 +219,14 @@ final class AutoSyncController extends AbstractController {
 	public function removed_delete( \WP_REST_Request $request ) {
 		$id = (string) $request->get_param( 'id' );
 		if ( ! RemovedStore::exists( $id ) ) {
-			return new \WP_Error( 'paia_not_found', __( 'این مورد پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_not_found', __( 'این مورد پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		// درخواست حذف به سرور می‌رود؛ اگر ناموفق بود (سرور در دسترس نیست) ردیف در لیست می‌ماند تا مدیر دوباره تلاش کند.
 		// اگر اتصال به سرور اصلاً تنظیم نشده، چیزی در سرور نیست که حذف شود.
 		if ( AiBackend::is_configured() ) {
 			if ( ! AiBackend::delete( $id ) ) {
-				return new \WP_Error( 'paia_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در صفحهٔ «لاگ» است؛ دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 502 ) );
+				return new \WP_Error( 'pwc_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در صفحهٔ «لاگ» است؛ دوباره تلاش کنید.', 'persian-wp-chatbot' ), array( 'status' => 502 ) );
 			}
 
 			// سرور درخواست را پذیرفت (۲۰۰ = ۱): ردیف «در حال حذف» می‌شود و بعد از وب‌هوک `untrained` از لیست می‌رود.
@@ -242,7 +242,7 @@ final class AutoSyncController extends AbstractController {
 		}
 
 		if ( ! RemovedStore::delete( $id ) ) {
-			return new \WP_Error( 'paia_failed', __( 'ذخیره در پایگاه داده ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new \WP_Error( 'pwc_failed', __( 'ذخیره در پایگاه داده ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		return rest_ensure_response( array( 'count' => RemovedStore::count() ) );
@@ -340,7 +340,7 @@ final class AutoSyncController extends AbstractController {
 	public function record( \WP_REST_Request $request ) {
 		$row = ItemStore::get( (string) $request->get_param( 'id' ) );
 		if ( null === $row ) {
-			return new \WP_Error( 'paia_not_found', __( 'این مورد پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_not_found', __( 'این مورد پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		return rest_ensure_response(

@@ -8,12 +8,12 @@
  * وقتی مهمان در وردپرس ثبت‌نام/ورود کند، همان uid به کاربر وصل می‌شود (wp_user_id پر می‌شود)
  * و هیچ پیامی پاک نمی‌شود.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Support\Uuid;
+use PersianWPChatbot\Support\Uuid;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -54,7 +54,7 @@ final class ChatStore {
 		} catch ( \Throwable $e ) {
 			// منبع تصادفی رمزنگاری‌شده در دسترس نیست: بدون fallback ضعیف، ساخت بازدیدکننده شکست می‌خورد (فراخوان خطای ۵۰۰ می‌دهد).
 			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			error_log( 'PAIA: secure visitor uid generation failed.' );
+			error_log( 'PWC: secure visitor uid generation failed.' );
 			return null;
 		}
 		$new   = array(

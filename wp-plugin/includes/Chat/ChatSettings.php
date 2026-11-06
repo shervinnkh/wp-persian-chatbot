@@ -1,19 +1,19 @@
 <?php
 /**
- * تنظیمات ویجت چت سمت سایت (option مستقل: paia_chat_settings).
+ * تنظیمات ویجت چت سمت سایت (option مستقل: pwc_chat_settings).
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Apis\Client;
+use PersianWPChatbot\Apis\Client;
 
 defined( 'ABSPATH' ) || exit;
 
 final class ChatSettings {
 
-	public const OPTION = 'paia_chat_settings';
+	public const OPTION = 'pwc_chat_settings';
 
 	/**
 	 * @return array<string,mixed>
@@ -22,16 +22,16 @@ final class ChatSettings {
 		return array(
 			'enabled'             => 1,
 			'position'            => 'right',
-			'bot_name'            => __( 'دستیار هوشمند', 'persian-ai-assistant' ),
+			'bot_name'            => __( 'چت بات هوشمند', 'persian-wp-chatbot' ),
 			'bot_logo'            => '', // آدرس لوگوی بالای چت سایت (از کتابخانهٔ رسانه)؛ خالی = آیکن پیش‌فرض
-			'teaser_title'        => __( 'هر سوالی دارید بپرسید.', 'persian-ai-assistant' ),
-			'teaser_text'         => __( 'پاسخگوی شما هستیم.', 'persian-ai-assistant' ),
-			'profile_intro'       => __( 'درود، خوش آمدید.', 'persian-ai-assistant' ),
-			'welcome_message'     => __( 'درود، خوش آمدید! چطور می‌توانم کمکتان کنم؟', 'persian-ai-assistant' ),
-			'default_suggestions' => __( "می‌خواهم محصولات را ببینم\nچطور سفارش بدهم؟\nمی‌خواهم با پشتیبانی صحبت کنم", 'persian-ai-assistant' ),
-			'fallback_reply'      => __( 'پیام شما ثبت شد. به‌زودی پاسخ می‌دهیم.', 'persian-ai-assistant' ),
-			'online_text'         => __( 'آنلاین و آماده پاسخ‌گویی', 'persian-ai-assistant' ),
-			'offline_text'        => __( 'پیام بگذارید، در اولین فرصت پاسخ می‌دهیم', 'persian-ai-assistant' ),
+			'teaser_title'        => __( 'هر سوالی دارید بپرسید.', 'persian-wp-chatbot' ),
+			'teaser_text'         => __( 'پاسخگوی شما هستیم.', 'persian-wp-chatbot' ),
+			'profile_intro'       => __( 'درود، خوش آمدید.', 'persian-wp-chatbot' ),
+			'welcome_message'     => __( 'درود، خوش آمدید! چطور می‌توانم کمکتان کنم؟', 'persian-wp-chatbot' ),
+			'default_suggestions' => __( "می‌خواهم محصولات را ببینم\nچطور سفارش بدهم؟\nمی‌خواهم با پشتیبانی صحبت کنم", 'persian-wp-chatbot' ),
+			'fallback_reply'      => __( 'پیام شما ثبت شد. به‌زودی پاسخ می‌دهیم.', 'persian-wp-chatbot' ),
+			'online_text'         => __( 'آنلاین و آماده پاسخ‌گویی', 'persian-wp-chatbot' ),
+			'offline_text'        => __( 'پیام بگذارید، در اولین فرصت پاسخ می‌دهیم', 'persian-wp-chatbot' ),
 			'ai_delay'            => 3,
 			'online_schedule'     => 0,
 			'online_from'         => '09:00',
@@ -80,8 +80,8 @@ final class ChatSettings {
 			'budget_daily_usd'    => 0,
 			'budget_monthly_usd'  => 0,
 			// قدیمی: فرم دیگر نشانشان نمی‌دهد ولی ReplyEngine هنوز می‌خواندشان؛ مقدارشان هنگام ذخیره حفظ می‌شود.
-			// آدرس و کلید اتصال به سرور هوش مصنوعی (S-5). روش اصلی: ثابت‌های PAIA_API_URL و PAIA_API_SECRET در wp-config.php؛
-			// با تعریف PAIA_API_SECRET مقدار api_key هرگز در دیتابیس ذخیره نمی‌شود (sanitize آن را خالی می‌کند).
+			// آدرس و کلید اتصال به سرور هوش مصنوعی (S-5). روش اصلی: ثابت‌های PWC_API_URL و PWC_API_SECRET در wp-config.php؛
+			// با تعریف PWC_API_SECRET مقدار api_key هرگز در دیتابیس ذخیره نمی‌شود (sanitize آن را خالی می‌کند).
 			'api_url'             => '',
 			'api_key'             => '',
 		);
@@ -114,8 +114,8 @@ final class ChatSettings {
 	 */
 	public static function tones(): array {
 		return array(
-			'formal'   => __( 'رسمی', 'persian-ai-assistant' ),
-			'friendly' => __( 'دوستانه', 'persian-ai-assistant' ),
+			'formal'   => __( 'رسمی', 'persian-wp-chatbot' ),
+			'friendly' => __( 'دوستانه', 'persian-wp-chatbot' ),
 		);
 	}
 
@@ -171,7 +171,7 @@ final class ChatSettings {
 	 * فقط وقتی اتصال به سرور هوش مصنوعی تنظیم شده باشد معنا دارد (کلید امضا + آدرس).
 	 */
 	public static function realtime_enabled(): bool {
-		return (bool) apply_filters( 'paia_realtime_enabled', ! empty( self::get( 'realtime_enabled' ) ) );
+		return (bool) apply_filters( 'pwc_realtime_enabled', ! empty( self::get( 'realtime_enabled' ) ) );
 	}
 
 	/**
@@ -205,13 +205,13 @@ final class ChatSettings {
 	}
 
 	/**
-	 * سقف نرخ‌ها (هر مقدار قابل‌تنظیم از تنظیمات؛ فیلتر paia_rate_limits برای override در کد).
+	 * سقف نرخ‌ها (هر مقدار قابل‌تنظیم از تنظیمات؛ فیلتر pwc_rate_limits برای override در کد).
 	 *
 	 * @return array{poll_per_min:int,token_per_min:int,create_per_hour:int}
 	 */
 	public static function rate_limits(): array {
 		return (array) apply_filters(
-			'paia_rate_limits',
+			'pwc_rate_limits',
 			array(
 				'poll_per_min'    => self::int_setting( 'rl_poll_per_min', 10, 600 ),
 				'token_per_min'   => self::int_setting( 'rl_token_per_min', 3, 120 ),
@@ -249,7 +249,7 @@ final class ChatSettings {
 	}
 
 	/**
-	 * اگر PAIA_API_SECRET در wp-config.php تعریف شده، کلیدِ احتمالاً ذخیره‌شدهٔ قبلی را از دیتابیس پاک می‌کند (S-5).
+	 * اگر PWC_API_SECRET در wp-config.php تعریف شده، کلیدِ احتمالاً ذخیره‌شدهٔ قبلی را از دیتابیس پاک می‌کند (S-5).
 	 * باید پیش از admin_init (ثبت sanitize_callback) صدا زده شود تا update_option وارد sanitize نشود.
 	 */
 	public static function scrub_stored_key(): void {

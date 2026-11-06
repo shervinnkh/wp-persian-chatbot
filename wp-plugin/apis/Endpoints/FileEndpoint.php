@@ -1,14 +1,14 @@
 <?php
-namespace PersianAIAssistant\Apis\Endpoints;
+namespace PersianWPChatbot\Apis\Endpoints;
 
-use PersianAIAssistant\Apis\FileLink;
-use PersianAIAssistant\Database\FileStore;
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Apis\FileLink;
+use PersianWPChatbot\Database\FileStore;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * GET /wp-json/paia/v1/ai/file?id=file:…&exp=…&sig=…
+ * GET /wp-json/pwc/v1/ai/file?id=file:…&exp=…&sig=…
  *
  * دانلود فایلِ «اسناد اضافه» برای سرور هوش مصنوعی با لینک امضادار و کوتاه‌عمر (Apis\FileLink).
  * احراز هویت = خودِ امضای لینک (نه هدر HMAC): سرور هوش مصنوعی لینک را از افزونه گرفته و فقط باز می‌کند.
@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class FileEndpoint extends AbstractEndpoint {
 
-	private const FAIL_THROTTLE = 'paia_file_linkfail';
+	private const FAIL_THROTTLE = 'pwc_file_linkfail';
 
 	public function register_routes(): void {
 		register_rest_route(
@@ -57,10 +57,10 @@ final class FileEndpoint extends AbstractEndpoint {
 			set_transient( self::FAIL_THROTTLE, 1, MINUTE_IN_SECONDS );
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'درخواست دانلود فایل با لینک نامعتبر یا منقضی رد شد.', 'persian-ai-assistant' ),
+				__( 'درخواست دانلود فایل با لینک نامعتبر یا منقضی رد شد.', 'persian-wp-chatbot' ),
 				array(
 					'method'      => 'GET',
-					'endpoint'    => '/paia/v1/ai/file',
+					'endpoint'    => '/pwc/v1/ai/file',
 					'http_status' => 403,
 					'error'       => $ok->get_error_code(),
 				)
@@ -79,7 +79,7 @@ final class FileEndpoint extends AbstractEndpoint {
 		$abs = $row ? FileStore::absolute_path( (string) $row['path'] ) : '';
 
 		if ( '' === $abs || ! is_file( $abs ) || ! is_readable( $abs ) ) {
-			return new \WP_Error( 'paia_file_missing', __( 'فایل پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_file_missing', __( 'فایل پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		$ext  = strtolower( (string) $row['ext'] );

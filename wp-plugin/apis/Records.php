@@ -1,12 +1,12 @@
 <?php
-namespace PersianAIAssistant\Apis;
+namespace PersianWPChatbot\Apis;
 
-use PersianAIAssistant\Database\Schema;
+use PersianWPChatbot\Database\Schema;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * دسترسی سبک و دسته‌ای به وضعیت رکوردهای قابل‌آموزش در سه جدول: paia_items، paia_texts، paia_files.
+ * دسترسی سبک و دسته‌ای به وضعیت رکوردهای قابل‌آموزش در سه جدول: pwc_items، pwc_texts، pwc_files.
  *
  * نوع رکورد از پیشوند شناسه معلوم می‌شود: «text:…» متن دستی، «file:…» فایل آپلودی، بقیه (product:، blog:، page:، site:، …) آیتم‌ها.
  *

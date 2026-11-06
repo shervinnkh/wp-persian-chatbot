@@ -2,32 +2,32 @@
 /**
  * جدول‌های چت: بازدیدکننده‌ها و پیام‌ها.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 defined( 'ABSPATH' ) || exit;
 
 final class ChatSchema {
 
 	public const VERSION = '1.5.0'; // 1.5.0: ایندکس last_seen در جدول بازدیدکننده‌ها (polling سبک)؛ 1.4.0: ستون refs (ارجاع‌های پاسخ هوش مصنوعی) در جدول پیام‌ها
-	public const OPTION  = 'paia_chat_db_version';
+	public const OPTION  = 'pwc_chat_db_version';
 
 	public static function visitors_table(): string {
 		global $wpdb;
-		return $wpdb->prefix . 'paia_chat_visitors';
+		return $wpdb->prefix . 'pwc_chat_visitors';
 	}
 
 	public static function messages_table(): string {
 		global $wpdb;
-		return $wpdb->prefix . 'paia_messages';
+		return $wpdb->prefix . 'pwc_messages';
 	}
 
 	/** جدول وضعیت لحظه‌ای (تایپینگ کاربر/پشتیبان). */
 	public static function status_table(): string {
 		global $wpdb;
-		return $wpdb->prefix . 'paia_chat_status';
+		return $wpdb->prefix . 'pwc_chat_status';
 	}
 
 	/**

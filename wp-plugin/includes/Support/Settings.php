@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Support;
+namespace PersianWPChatbot\Support;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -8,13 +8,13 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Settings {
 
-	public const OPTION = 'paia_settings';
+	public const OPTION = 'pwc_settings';
 
 	/**
 	 * @return array<string, mixed>
 	 */
 	public static function defaults(): array {
-		return (array) apply_filters( 'paia_default_settings', array() );
+		return (array) apply_filters( 'pwc_default_settings', array() );
 	}
 
 	/**

@@ -1,16 +1,16 @@
 <?php
-namespace PersianAIAssistant\Database;
+namespace PersianWPChatbot\Database;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * اطلاعات به‌روز (تب «اطلاعات به‌روز») — جدول‌های استاندارد با ستون‌های جدا (بدون JSON):
  *
- *  - {prefix}paia_live_products / paia_live_blog / paia_live_pages  تنظیمات «اطلاعات به‌روز تمام محصولات/وبلاگ‌ها/برگه‌ها»؛
+ *  - {prefix}pwc_live_products / pwc_live_blog / pwc_live_pages  تنظیمات «اطلاعات به‌روز تمام محصولات/وبلاگ‌ها/برگه‌ها»؛
  *      در هر جدول همیشه فقط یک ردیف (id = 1). enabled = فعال بودن کل این مورد؛ هر ستون دیگر (FIELDS) یعنی
  *      «این فیلد باید هنگام پاسخ، زنده از سایت گرفته شود» (پیش‌فرض همه ۱).
  *      فیلدی که «زنده» باشد (enabled = 1 و تیک خورده) دیگر در اطلاعات استخراج‌شده ذخیره/نمایش/ارسال نمی‌شود (Extraction\LiveFields).
- *  - {prefix}paia_live_data      اطلاعات به‌روزی که مدیر تعریف می‌کند: name (نام نوع داده = نام ابزار هوش مصنوعی)،
+ *  - {prefix}pwc_live_data      اطلاعات به‌روزی که مدیر تعریف می‌کند: name (نام نوع داده = نام ابزار هوش مصنوعی)،
  *      description (توضیح کوتاه = توضیح ابزار؛ هوش مصنوعی با آن تشخیص می‌دهد کی سراغ داده برود)،
  *      content (اطلاعات داده)، enabled، created_at، updated_at.
  */
@@ -324,7 +324,7 @@ final class LiveStore {
 	}
 
 	/**
-	 * دادهٔ اولیهٔ صفحه (window.PAIA_ADMIN.live).
+	 * دادهٔ اولیهٔ صفحه (window.PWC_ADMIN.live).
 	 *
 	 * @return array<string, mixed>
 	 */

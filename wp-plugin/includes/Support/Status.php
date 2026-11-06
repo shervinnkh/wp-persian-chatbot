@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Support;
+namespace PersianWPChatbot\Support;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -8,12 +8,12 @@ defined( 'ABSPATH' ) || exit;
  *
  * وقتی خاموش است هیچ بخشی از چت‌بات روی سایت و پنل کار نمی‌کند: ویجت نمایش داده نمی‌شود،
  * مسیرهای REST چت ثبت نمی‌شوند، هیچ رکوردی ساخته نمی‌شود (ذخیرهٔ خودکار، پیام، کرون) و
- * تب‌های پنل به‌جز «عمومی» قفل هستند. ذخیره در option مستقل `paia_chatbot_status`
+ * تب‌های پنل به‌جز «عمومی» قفل هستند. ذخیره در option مستقل `pwc_chatbot_status`
  * (autoload=yes چون در هر درخواست سایت یک‌بار خوانده می‌شود) تا به بقیهٔ تنظیمات وابسته نباشد.
  */
 final class Status {
 
-	public const OPTION = 'paia_chatbot_status';
+	public const OPTION = 'pwc_chatbot_status';
 
 	/** @var bool|null کش درون‌درخواستی. */
 	private static $cache = null;

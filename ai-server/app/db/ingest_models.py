@@ -130,7 +130,7 @@ class CallbackDelivery(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)  # reported to the plugin
     state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # Rows sent together share a batch id = the X-PAIA-Delivery value; a retry reuses it.
+    # Rows sent together share a batch id = the X-PWC-Delivery value; a retry reuses it.
     batch_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)  # why a send failed
     available_at: Mapped[datetime] = mapped_column(

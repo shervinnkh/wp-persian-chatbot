@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Admin\Pages;
+namespace PersianWPChatbot\Admin\Pages;
 
-use PersianAIAssistant\Admin\Chatbot\Tabs\ServerLogTab;
+use PersianWPChatbot\Admin\Chatbot\Tabs\ServerLogTab;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -10,18 +10,18 @@ defined( 'ABSPATH' ) || exit;
  */
 final class LogsPage extends AbstractTabbedPage {
 
-	public const SLUG = 'paia-logs';
+	public const SLUG = 'pwc-logs';
 
 	public function slug(): string {
 		return self::SLUG;
 	}
 
 	public function page_title(): string {
-		return __( 'لاگ', 'persian-ai-assistant' );
+		return __( 'لاگ', 'persian-wp-chatbot' );
 	}
 
 	public function menu_title(): string {
-		return __( 'لاگ', 'persian-ai-assistant' );
+		return __( 'لاگ', 'persian-wp-chatbot' );
 	}
 
 	protected function build_tabs(): array {

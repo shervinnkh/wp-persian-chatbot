@@ -1,0 +1,38 @@
+# Publishes the WordPress plugin to GitHub Releases when a tag like plugin-v1.0.1 is pushed.
+# The in-plugin updater looks for exactly these two assets: persian-wp-chatbot.zip and persian-wp-chatbot.zip.sha256
+name: Plugin release
+
+on:
+  push:
+    tags:
+      - "plugin-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"   # the plugin promises PHP 7.4+, so lint with the oldest supported version
+
+      - name: PHP syntax check
+        run: find wp-plugin -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+
+      - name: Build package (also checks tag == plugin version)
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: bash scripts/build-plugin.sh "${GITHUB_REPOSITORY}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/persian-wp-chatbot.zip dist/persian-wp-chatbot.zip.sha256 \
+            --title "Persian WP Chatbot ${GITHUB_REF_NAME#plugin-v}" \
+            --generate-notes

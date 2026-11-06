@@ -1,8 +1,8 @@
 <?php
-namespace PersianAIAssistant\Apis\Endpoints;
+namespace PersianWPChatbot\Apis\Endpoints;
 
-use PersianAIAssistant\Apis\Auth\Signature;
-use PersianAIAssistant\Rest\AbstractController;
+use PersianWPChatbot\Apis\Auth\Signature;
+use PersianWPChatbot\Rest\AbstractController;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -19,7 +19,7 @@ abstract class AbstractEndpoint extends AbstractController {
 	}
 
 	/** option: عمر کش پاسخ ابزارهای زنده (ثانیه)؛ پیش‌فرض ۶۰، ۰ = کش خاموش. */
-	public const CACHE_TTL_OPTION  = 'paia_tool_cache_ttl';
+	public const CACHE_TTL_OPTION  = 'pwc_tool_cache_ttl';
 	public const CACHE_TTL_DEFAULT = 60;
 
 	private static function cache_ttl(): int {
@@ -31,7 +31,7 @@ abstract class AbstractEndpoint extends AbstractController {
 	 * @param array<string, mixed> $parts پارامترهای درخواست (بدون request_id)؛ کلید = hash آن‌ها.
 	 */
 	private static function cache_key( string $kind, array $parts ): string {
-		return 'paia_tc_' . substr( hash( 'sha256', $kind . '|' . wp_json_encode( $parts ) ), 0, 40 );
+		return 'pwc_tc_' . substr( hash( 'sha256', $kind . '|' . wp_json_encode( $parts ) ), 0, 40 );
 	}
 
 	/**

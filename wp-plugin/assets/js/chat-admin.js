@@ -1,16 +1,16 @@
 /**
- * تب «مدیریت چت» — دستیار هوش مصنوعی وردپرس فارسی
+ * تب «مدیریت چت» — چت بات هوشمند
  * فهرست گفتگوها (سمت راست در RTL) + پنجرهٔ چت با همان ظاهر ویجت سایت.
  * به‌روزرسانی لحظه‌ای با polling ساده (دقیقاً در تب مدیریت چت: هر ۱ ثانیه، وگرنه ۳ ثانیه؛ در حالت «بهینه‌شده» ۴ برابر کندتر)؛
  * تایپینگ از طریق جدول وضعیت سرور. کش گفتگوها و فهرست در localStorage و با sig به‌روز نگه داشته می‌شود.
  * پشتیبان مثل کاربر می‌تواند عکس و ویس بفرستد.
- * متن‌ها از window.PAIA_CHATADMIN.i18n (PHP) می‌آیند.
+ * متن‌ها از window.PWC_CHATADMIN.i18n (PHP) می‌آیند.
  */
 (function () {
 	'use strict';
 
-	var cfg = window.PAIA_CHATADMIN;
-	var root = document.getElementById('paia-cm');
+	var cfg = window.PWC_CHATADMIN;
+	var root = document.getElementById('pwc-cm');
 	if (!cfg || !root) { return; }
 	var t = cfg.i18n;
 
@@ -199,7 +199,7 @@
 	/* ---------- کش (localStorage) ----------
 	   گفتگوهای دیده‌شده و فهرست گفتگوها بلافاصله از کش نمایش داده می‌شوند و فقط با «امضا» (sig) از سرور اعتبارسنجی می‌شوند؛
 	   اگر تغییری نباشد سرور چیزی نمی‌فرستد و خواندن از اول انجام نمی‌شود. کش بین بازدیدها و تب‌ها می‌ماند (قبلاً sessionStorage بود). */
-	var CK = 'paia_cm_cache_v3_' + cfg.me.id;
+	var CK = 'pwc_cm_cache_v3_' + cfg.me.id;
 	var CACHE_TTL = 30 * 24 * 3600 * 1000; // گفتگوهای قدیمی‌تر از ۳۰ روز از کش پاک می‌شوند
 	var CACHE_MAX = 15;
 	function loadCache() {
@@ -251,7 +251,7 @@
 	function setLoading(on) { loadingEl.hidden = !on; }
 
 	/* ---------- نشان تب ---------- */
-	var tabLink = document.getElementById('paia-tab-chatmanage');
+	var tabLink = document.getElementById('pwc-tab-chatmanage');
 	var tabBadge = null;        // دایرهٔ قرمز: تعداد گفتگوهای خوانده‌نشده
 	var tabBadgeMarked = null;  // دایرهٔ زرد: تعداد گفتگوهای مارک‌شده (مثلاً توسط هوش مصنوعی برای پاسخ پشتیبانان)
 	function updateTabBadge() {
@@ -259,12 +259,12 @@
 		var n = st.counts.unread || 0, k = st.counts.marked || 0;
 		if (!n) { if (tabBadge && tabBadge.parentNode) { tabBadge.parentNode.removeChild(tabBadge); } tabBadge = null; }
 		else {
-			if (!tabBadge) { tabBadge = el('span', { class: 'paia-tab__badge', title: t.unread, 'aria-label': t.unread }); tabLink.insertBefore(tabBadge, tabBadgeMarked); }
+			if (!tabBadge) { tabBadge = el('span', { class: 'pwc-tab__badge', title: t.unread, 'aria-label': t.unread }); tabLink.insertBefore(tabBadge, tabBadgeMarked); }
 			tabBadge.textContent = fmtNum(n);
 		}
 		if (!k) { if (tabBadgeMarked && tabBadgeMarked.parentNode) { tabBadgeMarked.parentNode.removeChild(tabBadgeMarked); } tabBadgeMarked = null; }
 		else {
-			if (!tabBadgeMarked) { tabBadgeMarked = el('span', { class: 'paia-tab__badge paia-tab__badge--marked', title: t.marked, 'aria-label': t.marked }); tabLink.appendChild(tabBadgeMarked); }
+			if (!tabBadgeMarked) { tabBadgeMarked = el('span', { class: 'pwc-tab__badge pwc-tab__badge--marked', title: t.marked, 'aria-label': t.marked }); tabLink.appendChild(tabBadgeMarked); }
 			tabBadgeMarked.textContent = fmtNum(k);
 		}
 	}
@@ -272,20 +272,20 @@
 	/* ---------- نوتیف منوی وردپرس (تعداد پیام‌های نخوانده؛ زنده با هر به‌روزرسانی فهرست) ---------- */
 	function setBubble(host, n) {
 		if (!host) { return; }
-		var b = host.querySelector('.paia-bubble');
+		var b = host.querySelector('.pwc-bubble');
 		if (!n) { if (b && b.parentNode) { b.parentNode.removeChild(b); } return; }
 		if (!b) {
-			b = el('span', { class: 'update-plugins paia-bubble' }, [el('span', { class: 'plugin-count' })]);
+			b = el('span', { class: 'update-plugins pwc-bubble' }, [el('span', { class: 'plugin-count' })]);
 			host.appendChild(document.createTextNode(' '));
 			host.appendChild(b);
 		}
-		b.className = 'update-plugins paia-bubble count-' + n;
+		b.className = 'update-plugins pwc-bubble count-' + n;
 		b.firstChild.textContent = fmtNum(n);
 	}
 	function updateMenuBadges() {
 		var n = st.total || 0;
-		setBubble(document.querySelector('#toplevel_page_paia > a .wp-menu-name'), n);
-		setBubble(document.querySelector('#toplevel_page_paia .wp-submenu a[href*="page=paia-chatbot"]'), n);
+		setBubble(document.querySelector('#toplevel_page_pwc > a .wp-menu-name'), n);
+		setBubble(document.querySelector('#toplevel_page_pwc .wp-submenu a[href*="page=pwc-chatbot"]'), n);
 	}
 
 	/* ---------- فهرست گفتگوها ---------- */
@@ -369,7 +369,7 @@
 	}
 
 	/* فیلترهای بالای فهرست (خوانده‌نشده / مارک‌شده) به‌صورت محلی ذخیره می‌شوند و بعد از رفرش همان حالت می‌مانند. */
-	var FK = 'paia_cm_filters_v1_' + cfg.me.id;
+	var FK = 'pwc_cm_filters_v1_' + cfg.me.id;
 	function saveFilters() {
 		try { window.localStorage.setItem(FK, JSON.stringify(st.filters)); } catch (e) { /* noop */ }
 	}

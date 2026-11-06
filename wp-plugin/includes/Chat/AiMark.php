@@ -6,10 +6,10 @@
  * داده نمی‌شود و فقط گفتگو مارک می‌شود تا پشتیبانان پاسخ بدهند.
  * تنظیم «مارک کردن چت توسط هوش مصنوعی» (`ai_mark`) به‌صورت `mark-the-conversation: true|false` همراه پیام به سرور می‌رود.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 defined( 'ABSPATH' ) || exit;
 

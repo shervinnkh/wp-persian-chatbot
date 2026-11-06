@@ -1,14 +1,14 @@
 <?php
-namespace PersianAIAssistant\Core;
+namespace PersianWPChatbot\Core;
 
-use PersianAIAssistant\Admin\AdminModule;
-use PersianAIAssistant\Apis\ApisModule;
-use PersianAIAssistant\Chat\ChatModule;
-use PersianAIAssistant\Contracts\Module;
-use PersianAIAssistant\Rest\RestModule;
-use PersianAIAssistant\Support\Status;
-use PersianAIAssistant\Sync\AutoSync;
-use PersianAIAssistant\Updates\Updater;
+use PersianWPChatbot\Admin\AdminModule;
+use PersianWPChatbot\Apis\ApisModule;
+use PersianWPChatbot\Chat\ChatModule;
+use PersianWPChatbot\Contracts\Module;
+use PersianWPChatbot\Rest\RestModule;
+use PersianWPChatbot\Support\Status;
+use PersianWPChatbot\Sync\AutoSync;
+use PersianWPChatbot\Updates\Updater;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -59,7 +59,7 @@ final class Plugin {
 		 *
 		 * @param Plugin $plugin نمونهٔ هستهٔ افزونه.
 		 */
-		do_action( 'paia_loaded', $this );
+		do_action( 'pwc_loaded', $this );
 	}
 
 	/**
@@ -82,7 +82,7 @@ final class Plugin {
 			$modules[] = ApisModule::class; // API‌های ورودی از سرور هوش مصنوعی (apis/)
 		}
 
-		return (array) apply_filters( 'paia_modules', $modules );
+		return (array) apply_filters( 'pwc_modules', $modules );
 	}
 
 	public function module( string $class ): ?Module {

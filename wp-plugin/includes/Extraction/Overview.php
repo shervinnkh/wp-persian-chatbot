@@ -1,13 +1,13 @@
 <?php
-namespace PersianAIAssistant\Extraction;
+namespace PersianWPChatbot\Extraction;
 
-use PersianAIAssistant\Database\ItemStore;
-use PersianAIAssistant\Support\Settings;
+use PersianWPChatbot\Database\ItemStore;
+use PersianWPChatbot\Support\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * آمار اطلاعات ثبت‌شده در جدول paia_items + زمان آخرین به‌روزرسانی + تنظیم استخراج خودکار.
+ * آمار اطلاعات ثبت‌شده در جدول pwc_items + زمان آخرین به‌روزرسانی + تنظیم استخراج خودکار.
  * کلیدهای Settings: last_extraction_at (timestamp)، auto_extract_new (bool).
  */
 final class Overview {
@@ -54,7 +54,7 @@ final class Overview {
 		$format = trim( get_option( 'date_format', 'j F Y' ) . ' - ' . get_option( 'time_format', 'H:i' ) );
 
 		/* translators: %s: human readable time difference, e.g. "3 hours" */
-		$ago = sprintf( __( '%s پیش', 'persian-ai-assistant' ), human_time_diff( $timestamp, time() ) );
+		$ago = sprintf( __( '%s پیش', 'persian-wp-chatbot' ), human_time_diff( $timestamp, time() ) );
 
 		return wp_date( $format, $timestamp ) . ' (' . $ago . ')';
 	}

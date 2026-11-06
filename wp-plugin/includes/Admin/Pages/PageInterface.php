@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Admin\Pages;
+namespace PersianWPChatbot\Admin\Pages;
 
 defined( 'ABSPATH' ) || exit;
 

@@ -1,7 +1,7 @@
 """WebSocket auth token (must match the plugin's Chat\\Realtime::issue).
 
 token   = b64url(payload_json) + "." + b64url(HMAC_SHA256(ws_key, b64url(payload_json)))
-ws_key  = HMAC_SHA256(key=API_SHARED_SECRET, msg=b"paia-ws-v1")
+ws_key  = HMAC_SHA256(key=API_SHARED_SECRET, msg=b"pwc-ws-v1")
 payload = {"v": visitor_uid, "aud": "host[:port]", "iat": int, "exp": int, "jti": str}
 """
 
@@ -17,7 +17,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 
-KEY_LABEL = b"paia-ws-v1"
+KEY_LABEL = b"pwc-ws-v1"
 _UID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 _JTI = re.compile(r"^[A-Za-z0-9]{16,64}$")
 

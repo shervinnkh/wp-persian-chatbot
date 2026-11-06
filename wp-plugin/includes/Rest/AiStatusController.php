@@ -1,13 +1,13 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Apis\Reconciler;
-use PersianAIAssistant\Apis\Records;
+use PersianWPChatbot\Apis\Reconciler;
+use PersianWPChatbot\Apis\Records;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * GET /wp-json/paia/v1/ai-status?ids=product:1,text:1700…,file:1700…
+ * GET /wp-json/pwc/v1/ai-status?ids=product:1,text:1700…,file:1700…
  *
  * وضعیت فعلی ai_status چند رکورد (۰ = آموزش‌ندیده، ۱ = در حال پردازش سمت سرور، ۲ = پردازش‌شده).
  * رابط مدیر فقط برای رکوردهایی که «در حال پردازش» نشان می‌دهد هر چند ثانیه این را می‌پرسد تا وقتی سرور

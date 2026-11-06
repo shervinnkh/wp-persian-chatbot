@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Apis;
+namespace PersianWPChatbot\Apis;
 
-use PersianAIAssistant\Database\RemovedStore;
+use PersianWPChatbot\Database\RemovedStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -166,7 +166,7 @@ final class Results {
 		 *
 		 * @param array<string, mixed> $summary applied / ignored / failed
 		 */
-		do_action( 'paia_ai_results_applied', $summary );
+		do_action( 'pwc_ai_results_applied', $summary );
 
 		return $summary;
 	}

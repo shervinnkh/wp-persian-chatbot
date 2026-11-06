@@ -1,8 +1,8 @@
 <?php
-namespace PersianAIAssistant\Apis\Live;
+namespace PersianWPChatbot\Apis\Live;
 
-use PersianAIAssistant\Database\LiveStore;
-use PersianAIAssistant\Extraction\PostTypes;
+use PersianWPChatbot\Database\LiveStore;
+use PersianWPChatbot\Extraction\PostTypes;
 
 defined( 'ABSPATH' ) || exit;
 

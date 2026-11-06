@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Persian AI Assistant — inbound APIs (AI server -> WordPress plugin)
+  title: Persian WP Chatbot — inbound APIs (AI server -> WordPress plugin)
   version: "1"
   description: |
     Called by the AI server on each WordPress site. Authenticate with HMAC-SHA256 over "{timestamp}.{raw body}"
@@ -9,18 +9,18 @@ info:
     Record life cycle in the plugin (column ai_status): 0 = not sent; 1 = plugin sent the record and the server answered
     200/202 ("processing on the server", spinner in the UI); 2 = the server called POST /ai/results with status "trained".
 servers:
-  - url: https://{site}/wp-json/paia/v1
+  - url: https://{site}/wp-json/pwc/v1
     variables:
       site: { default: shop.example.com }
 components:
   securitySchemes:
-    paiaHmac:
+    pwcHmac:
       type: apiKey
       in: header
-      name: X-PAIA-Signature
+      name: X-PWC-Signature
       description: |
-        Also required: X-PAIA-Timestamp (unix seconds, +-300s) and, recommended, X-PAIA-Delivery (unique id, reused on retries).
-        X-PAIA-Signature = "sha256=" + hex(HMAC_SHA256(api_key, timestamp + "." + rawBody)). Empty body for GET.
+        Also required: X-PWC-Timestamp (unix seconds, +-300s) and, recommended, X-PWC-Delivery (unique id, reused on retries).
+        X-PWC-Signature = "sha256=" + hex(HMAC_SHA256(api_key, timestamp + "." + rawBody)). Empty body for GET.
   schemas:
     Result:
       type: object
@@ -50,7 +50,7 @@ components:
     Error:
       type: object
       properties:
-        code: { type: string, example: paia_bad_signature }
+        code: { type: string, example: pwc_bad_signature }
         message: { type: string }
         data: { type: object, properties: { status: { type: integer } } }
 paths:
@@ -98,7 +98,7 @@ paths:
   /ai/ping:
     get:
       summary: Health check / handshake (empty body)
-      security: [{ paiaHmac: [] }]
+      security: [{ pwcHmac: [] }]
       responses:
         "200":
           description: OK
@@ -123,7 +123,7 @@ paths:
       summary: دانلود فایلِ «اسناد اضافه» با لینک امضادار و کوتاه‌عمر (سرور هوش مصنوعی ← سایت)
       description: >
         لینک را خود افزونه می‌سازد و داخل رکورد `file:*` زیر `data.download.url` به سرور می‌دهد.
-        احراز هویت = امضای خود لینک: `sig = hex(HMAC_SHA256(api_key, "paia-file\n{id}\n{exp}"))`؛
+        احراز هویت = امضای خود لینک: `sig = hex(HMAC_SHA256(api_key, "pwc-file\n{id}\n{exp}"))`؛
         بعد از `exp` (ثانیهٔ یونیکس) کار نمی‌کند. فقط همان یک فایل؛ فقط GET؛ بدون redirect.
         پاسخ `application/octet-stream` + `Content-Disposition: attachment`.
       security: []
@@ -133,13 +133,13 @@ paths:
         - {name: sig, in: query, required: true, schema: {type: string, pattern: '^[0-9a-f]{64}$'}}
       responses:
         '200': {description: محتوای فایل}
-        '403': {description: امضا نامعتبر (paia_bad_link) یا لینک منقضی (paia_link_expired)}
-        '404': {description: فایل روی سایت نیست (paia_file_missing)}
+        '403': {description: امضا نامعتبر (pwc_bad_link) یا لینک منقضی (pwc_link_expired)}
+        '404': {description: فایل روی سایت نیست (pwc_file_missing)}
         '503': {description: api_key در افزونه تنظیم نشده}
   /ai/results:
     post:
       summary: Report processing results for a batch of records (idempotent)
-      security: [{ paiaHmac: [] }]
+      security: [{ pwcHmac: [] }]
       requestBody:
         required: true
         content:
@@ -147,7 +147,7 @@ paths:
             schema: { $ref: "#/components/schemas/ResultsRequest" }
       responses:
         "200":
-          description: Accepted (also returned with duplicate=true for a repeated X-PAIA-Delivery)
+          description: Accepted (also returned with duplicate=true for a repeated X-PWC-Delivery)
           content:
             application/json:
               schema:
@@ -164,8 +164,8 @@ paths:
                       properties:
                         id: { type: string }
                         reason: { type: string, enum: [not_found, stale, invalid_id, invalid_status] }
-        "400": { description: "paia_bad_json / paia_no_results / paia_too_many — do not retry" }
-        "401": { description: "paia_bad_signature / paia_stale_timestamp" }
+        "400": { description: "pwc_bad_json / pwc_no_results / pwc_too_many — do not retry" }
+        "401": { description: "pwc_bad_signature / pwc_stale_timestamp" }
         "404": { description: Chatbot disabled on the site — pause deliveries }
         "413": { description: Body larger than 1 MB }
         "500": { description: Internal plugin error — retry with backoff }

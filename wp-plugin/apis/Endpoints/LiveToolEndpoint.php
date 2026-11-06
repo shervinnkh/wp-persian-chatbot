@@ -1,19 +1,19 @@
 <?php
-namespace PersianAIAssistant\Apis\Endpoints;
+namespace PersianWPChatbot\Apis\Endpoints;
 
-use PersianAIAssistant\Apis\Live\Text;
-use PersianAIAssistant\Database\LiveStore;
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Apis\Live\Text;
+use PersianWPChatbot\Database\LiveStore;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * POST /wp-json/paia/v1/live/tool   (API شمارهٔ ۲ ابزارهای هوش مصنوعی — LIVE_TOOLS_API.md §6)
+ * POST /wp-json/pwc/v1/live/tool   (API شمارهٔ ۲ ابزارهای هوش مصنوعی — LIVE_TOOLS_API.md §6)
  *
  * بدنه: { request_id, tool_id: 0 }   ← tool_id همان id ابزار در tools[] پیام (= شناسهٔ ردیف «اطلاعات تعریف‌شده»)
  * پاسخ: { ok: true, text: "<متن زندهٔ ابزار>" }  یا  { ok: false, error: "این ابزار وجود ندارد یا غیرفعال است" }
  *
- * پاسخ موفق ۶۰ ثانیه با transient کش می‌شود (option: paia_tool_cache_ttl؛ ۰ = خاموش)؛ ویرایش مدیر حداکثر تا همین مدت دیر اثر می‌کند.
+ * پاسخ موفق ۶۰ ثانیه با transient کش می‌شود (option: pwc_tool_cache_ttl؛ ۰ = خاموش)؛ ویرایش مدیر حداکثر تا همین مدت دیر اثر می‌کند.
  * tool_id فقط به عدد تبدیل و با prepare در LiveStore::get استفاده می‌شود (هرگز مستقیم در SQL/مسیر فایل).
  */
 final class LiveToolEndpoint extends AbstractEndpoint {
@@ -52,7 +52,7 @@ final class LiveToolEndpoint extends AbstractEndpoint {
 				return $this->respond(
 					array(
 						'ok'    => false,
-						'error' => __( 'این ابزار وجود ندارد یا غیرفعال است', 'persian-ai-assistant' ),
+						'error' => __( 'این ابزار وجود ندارد یا غیرفعال است', 'persian-wp-chatbot' ),
 					)
 				);
 			}
@@ -62,7 +62,7 @@ final class LiveToolEndpoint extends AbstractEndpoint {
 				return $this->respond(
 					array(
 						'ok'    => false,
-						'error' => __( 'متن این ابزار خالی است', 'persian-ai-assistant' ),
+						'error' => __( 'متن این ابزار خالی است', 'persian-wp-chatbot' ),
 					)
 				);
 			}
@@ -77,10 +77,10 @@ final class LiveToolEndpoint extends AbstractEndpoint {
 		} catch ( \Throwable $e ) {
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'خطا در API زندهٔ ابزارها (/live/tool).', 'persian-ai-assistant' ),
+				__( 'خطا در API زندهٔ ابزارها (/live/tool).', 'persian-wp-chatbot' ),
 				array(
 					'method'   => 'POST',
-					'endpoint' => '/paia/v1/live/tool',
+					'endpoint' => '/pwc/v1/live/tool',
 					'error'    => get_class( $e ) . ': ' . $e->getMessage(),
 				)
 			);
@@ -88,7 +88,7 @@ final class LiveToolEndpoint extends AbstractEndpoint {
 			return $this->respond(
 				array(
 					'ok'    => false,
-					'error' => __( 'خطای داخلی سایت در خواندن ابزار', 'persian-ai-assistant' ),
+					'error' => __( 'خطای داخلی سایت در خواندن ابزار', 'persian-wp-chatbot' ),
 				)
 			);
 		}

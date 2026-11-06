@@ -1,11 +1,11 @@
 <?php
-namespace PersianAIAssistant\Admin\Chatbot\Tabs;
+namespace PersianWPChatbot\Admin\Chatbot\Tabs;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * تب «لاگ سرور»: آمار کلی درخواست‌ها + فهرست لاگ‌ها (موفق سبز، ناموفق قرمز، عادی بدون رنگ ویژه).
- * داده با JS از REST (LogsController) خوانده می‌شود؛ آمار اولیه در window.PAIA_ADMIN.logs است.
+ * داده با JS از REST (LogsController) خوانده می‌شود؛ آمار اولیه در window.PWC_ADMIN.logs است.
  */
 final class ServerLogTab extends AbstractTab {
 
@@ -14,6 +14,6 @@ final class ServerLogTab extends AbstractTab {
 	}
 
 	public function title(): string {
-		return __( 'لاگ سرور', 'persian-ai-assistant' );
+		return __( 'لاگ سرور', 'persian-wp-chatbot' );
 	}
 }

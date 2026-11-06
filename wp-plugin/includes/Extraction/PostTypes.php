@@ -1,11 +1,11 @@
 <?php
-namespace PersianAIAssistant\Extraction;
+namespace PersianWPChatbot\Extraction;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * تشخیص نقش نوع‌نوشته‌ها (محصول / وبلاگ / برگه) بدون وابستگی به یک افزونهٔ خاص.
- * فیلترها: paia_product_post_types, paia_blog_post_types.
+ * فیلترها: pwc_product_post_types, pwc_blog_post_types.
  */
 final class PostTypes {
 
@@ -18,7 +18,7 @@ final class PostTypes {
 
 	/** @return string[] */
 	public static function products(): array {
-		return self::existing( (array) apply_filters( 'paia_product_post_types', array( 'product', 'download', 'wpsc-product', 'jigoshop_product' ) ) );
+		return self::existing( (array) apply_filters( 'pwc_product_post_types', array( 'product', 'download', 'wpsc-product', 'jigoshop_product' ) ) );
 	}
 
 	/** @return string[] */
@@ -39,7 +39,7 @@ final class PostTypes {
 			}
 		}
 
-		return self::existing( (array) apply_filters( 'paia_blog_post_types', $types ) );
+		return self::existing( (array) apply_filters( 'pwc_blog_post_types', $types ) );
 	}
 
 	/**

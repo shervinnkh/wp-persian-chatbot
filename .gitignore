@@ -1,0 +1,50 @@
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- AI server runtime data ----
+ai-server/logs/*
+!ai-server/logs/.gitkeep
+ai-server/data/*
+!ai-server/data/.gitkeep
+ai-server/uploads/*
+!ai-server/uploads/.gitkeep
+*.db
+*.sqlite3
+*.log
+
+# ---- WordPress plugin ----
+wp-config.php
+node_modules/
+vendor/
+
+# ---- Build output (releases are built by GitHub Actions, never committed) ----
+/dist/
+/build/
+*.zip
+*.sha256
+
+# ---- Editors / OS ----
+.vscode/
+.idea/
+*.swp
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db
+desktop.ini

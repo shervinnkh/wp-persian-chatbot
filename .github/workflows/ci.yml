@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  plugin:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ["7.4", "8.3"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+      - name: PHP syntax check
+        run: find wp-plugin -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+      - name: JS syntax check
+        run: for f in wp-plugin/assets/js/*.js; do node --check "$f"; done
+      - name: Package builds
+        run: bash scripts/build-plugin.sh "${GITHUB_REPOSITORY}"
+
+  server:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.12"]
+    defaults:
+      run:
+        working-directory: ai-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -r requirements.txt
+      - name: Import app and workers
+        run: |
+          python -c "import app.main, app.workers.ingestion, app.workers.delivery, app.workers.summarizer"
+      - name: Shell scripts
+        run: for f in deploy/*.sh; do bash -n "$f"; done

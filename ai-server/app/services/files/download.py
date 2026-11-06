@@ -307,7 +307,7 @@ class DownloadManager:
                 request = client.build_request(
                     "GET",
                     target,
-                    headers={"Host": host_header, "User-Agent": "PersianAIBackend/0.4"},
+                    headers={"Host": host_header, "User-Agent": "PersianWPChatbotServer/1.0.0"},
                     extensions={"sni_hostname": host},
                 )
                 resp = await client.send(request, stream=True)

@@ -1,16 +1,16 @@
 <?php
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * وضعیت سقف مصرف دلاری (S-2) که سرور با POST /paia/v1/ai/budget می‌فرستد. فقط با get_option خوانده می‌شود (بدون درخواست شبکه).
- * option: paia_budget_state (autoload=no) = {day:{level,used,limit,percent,period_end}, month:{…}, updated_at}
+ * وضعیت سقف مصرف دلاری (S-2) که سرور با POST /pwc/v1/ai/budget می‌فرستد. فقط با get_option خوانده می‌شود (بدون درخواست شبکه).
+ * option: pwc_budget_state (autoload=no) = {day:{level,used,limit,percent,period_end}, month:{…}, updated_at}
  * ردیفی که period_end آن گذشته نادیده گرفته می‌شود (خودپاک‌شو).
  */
 final class BudgetState {
 
-	public const OPTION = 'paia_budget_state';
+	public const OPTION = 'pwc_budget_state';
 
 	private const PERIODS = array( 'day', 'month' );
 	private const LEVELS  = array( 'ok', 'warn80', 'limit100' );
@@ -76,14 +76,14 @@ final class BudgetState {
 			if ( ! $e || (int) $e['period_end'] <= time() || 'ok' === $e['level'] ) {
 				continue;
 			}
-			$name   = 'day' === $p ? __( 'روزانه', 'persian-ai-assistant' ) : __( 'ماهانه', 'persian-ai-assistant' );
+			$name   = 'day' === $p ? __( 'روزانه', 'persian-wp-chatbot' ) : __( 'ماهانه', 'persian-wp-chatbot' );
 			$amount = sprintf( '%s / %s $', number_format_i18n( (float) $e['used'], 2 ), number_format_i18n( (float) $e['limit'], 2 ) );
 			if ( 'limit100' === $e['level'] ) {
 				$worst   = 'limit100';
-				$lines[] = sprintf( /* translators: 1: daily/monthly 2: amount */ __( 'سقف مصرف %1$s تمام شد؛ هوش مصنوعی تا شروع دورهٔ بعد پاسخ نمی‌دهد. (%2$s)', 'persian-ai-assistant' ), $name, $amount );
+				$lines[] = sprintf( /* translators: 1: daily/monthly 2: amount */ __( 'سقف مصرف %1$s تمام شد؛ هوش مصنوعی تا شروع دورهٔ بعد پاسخ نمی‌دهد. (%2$s)', 'persian-wp-chatbot' ), $name, $amount );
 			} else {
 				$worst   = 'limit100' === $worst ? $worst : 'warn80';
-				$lines[] = sprintf( /* translators: 1: daily/monthly 2: amount */ __( '۸۰٪ از سقف مصرف %1$s به پایان رسیده است. (%2$s)', 'persian-ai-assistant' ), $name, $amount );
+				$lines[] = sprintf( /* translators: 1: daily/monthly 2: amount */ __( '۸۰٪ از سقف مصرف %1$s به پایان رسیده است. (%2$s)', 'persian-wp-chatbot' ), $name, $amount );
 			}
 		}
 		return $lines ? array( 'level' => $worst, 'lines' => $lines ) : null;

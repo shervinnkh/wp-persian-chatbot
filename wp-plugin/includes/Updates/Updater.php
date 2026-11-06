@@ -1,8 +1,8 @@
 <?php
-namespace PersianAIAssistant\Updates;
+namespace PersianWPChatbot\Updates;
 
-use PersianAIAssistant\Contracts\Module;
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Contracts\Module;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -10,18 +10,18 @@ defined( 'ABSPATH' ) || exit;
  * به‌روزرسانی افزونه از GitHub Releases (S-4).
  *
  * ریپو را صاحب پروژه بعداً می‌سازد؛ آدرسش ثابت قابل‌تنظیم است:
- *   const GITHUB_REPO = 'OWNER/REPO'   (یا ثابت PAIA_GITHUB_REPO در wp-config.php؛ الگوی ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$)
+ *   const GITHUB_REPO = 'OWNER/REPO'   (یا ثابت PWC_GITHUB_REPO در wp-config.php؛ الگوی ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$)
  * تا وقتی مقدار همان OWNER/REPO است، به‌روزرسان خاموش است و هیچ درخواستی به شبکه نمی‌زند.
  *
  * انتشار: Action ریپو با تگ plugin-vX.Y.Z دو فایل را در Release می‌گذارد:
- *   persian-ai-assistant.zip  و  persian-ai-assistant.zip.sha256   (zip باید پوشهٔ ریشهٔ persian-ai-assistant/ داشته باشد)
+ *   persian-wp-chatbot.zip  و  persian-wp-chatbot.zip.sha256   (zip باید پوشهٔ ریشهٔ persian-wp-chatbot/ داشته باشد)
  *
  * جریان:
  *  ۱) GET https://api.github.com/repos/{repo}/releases?per_page=10 ← اولین release که draft و prerelease نیست و
  *     tag_name آن با «plugin-v» شروع می‌شود؛ نسخه = بقیهٔ تگ؛ هر دو asset را باید داشته باشد (وگرنه نادیده گرفته می‌شود).
  *  ۲) download_url فقط اگر با https://github.com/{repo}/releases/download/ شروع شود پذیرفته می‌شود (وگرنه release رد می‌شود).
- *  ۳) کش ۱۲ ساعته با set_site_transient('paia_update_info'). اگر GitHub خطا داد یا rate-limit کرد (۴۰۳/۴۲۹)، آخرین اطلاعات
- *     سالم (option paia_update_info_last) استفاده و خطا لاگ می‌شود (حداکثر ساعتی یک‌بار).
+ *  ۳) کش ۱۲ ساعته با set_site_transient('pwc_update_info'). اگر GitHub خطا داد یا rate-limit کرد (۴۰۳/۴۲۹)، آخرین اطلاعات
+ *     سالم (option pwc_update_info_last) استفاده و خطا لاگ می‌شود (حداکثر ساعتی یک‌بار).
  *  ۴) پیش از نصب (فیلتر upgrader_pre_download، فقط برای URLهای همین ریپو): zip دانلود می‌شود، sha256 آن با فایل .sha256 مقایسه
  *     می‌شود (hash_equals)؛ ناهمخوان ← WP_Error و نصب متوقف.
  *  ۵) نصب فقط با تأیید مدیر (دکمهٔ «به‌روزرسانی افزونه» یا دکمهٔ استاندارد وردپرس)؛ به‌روزرسانی خودکار وردپرس برای این افزونه خاموش است.
@@ -38,16 +38,16 @@ final class Updater implements Module {
 	private const PLACEHOLDER = 'OWNER/REPO';
 	private const REPO_REGEX  = '#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#';
 	private const TAG_PREFIX  = 'plugin-v';
-	private const ASSET_ZIP   = 'persian-ai-assistant.zip';
-	private const ASSET_SHA   = 'persian-ai-assistant.zip.sha256';
+	private const ASSET_ZIP   = 'persian-wp-chatbot.zip';
+	private const ASSET_SHA   = 'persian-wp-chatbot.zip.sha256';
 	private const VERSION_RE  = '/^\d+(\.\d+){1,3}([-.][0-9A-Za-z.]+)?$/';
 
-	private const CACHE_KEY    = 'paia_update_info';
-	private const LAST_GOOD    = 'paia_update_info_last';
-	private const ERR_THROTTLE = 'paia_update_errlog';
+	private const CACHE_KEY    = 'pwc_update_info';
+	private const LAST_GOOD    = 'pwc_update_info_last';
+	private const ERR_THROTTLE = 'pwc_update_errlog';
 	private const CACHE_TTL    = 12 * HOUR_IN_SECONDS;
 	private const FAIL_TTL     = HOUR_IN_SECONDS;
-	private const SLUG         = 'persian-ai-assistant';
+	private const SLUG         = 'persian-wp-chatbot';
 
 	public function register(): void {
 		add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'inject' ) );
@@ -61,10 +61,10 @@ final class Updater implements Module {
 	}
 
 	/**
-	 * «owner/repo» معتبر (ثابت PAIA_GITHUB_REPO در wp-config.php یا GITHUB_REPO)؛ نامعتبر = ''.
+	 * «owner/repo» معتبر (ثابت PWC_GITHUB_REPO در wp-config.php یا GITHUB_REPO)؛ نامعتبر = ''.
 	 */
 	public static function repo(): string {
-		$repo = defined( 'PAIA_GITHUB_REPO' ) ? (string) PAIA_GITHUB_REPO : self::GITHUB_REPO;
+		$repo = defined( 'PWC_GITHUB_REPO' ) ? (string) PWC_GITHUB_REPO : self::GITHUB_REPO;
 		$repo = trim( $repo );
 
 		return 1 === preg_match( self::REPO_REGEX, $repo ) ? $repo : '';
@@ -158,7 +158,7 @@ final class Updater implements Module {
 					'Accept'               => 'application/vnd.github+json',
 					'X-GitHub-Api-Version' => '2022-11-28',
 				),
-				'user-agent'  => 'PersianAIAssistant/' . PAIA_VERSION . '; ' . home_url( '/' ),
+				'user-agent'  => 'PersianWPChatbot/' . PWC_VERSION . '; ' . home_url( '/' ),
 			)
 		);
 
@@ -258,7 +258,7 @@ final class Updater implements Module {
 		set_transient( self::ERR_THROTTLE, 1, HOUR_IN_SECONDS );
 		LogStore::add(
 			LogStore::ERROR,
-			__( 'بررسی نسخهٔ جدید افزونه از GitHub ناموفق بود؛ از آخرین اطلاعات ذخیره‌شده استفاده می‌شود.', 'persian-ai-assistant' ),
+			__( 'بررسی نسخهٔ جدید افزونه از GitHub ناموفق بود؛ از آخرین اطلاعات ذخیره‌شده استفاده می‌شود.', 'persian-wp-chatbot' ),
 			array(
 				'endpoint' => 'github:releases',
 				'error'    => $error,
@@ -274,7 +274,7 @@ final class Updater implements Module {
 	public static function available( bool $fetch = false ) {
 		$info = self::latest( $fetch );
 
-		return ( is_array( $info ) && version_compare( $info['version'], PAIA_VERSION, '>' ) ) ? $info : null;
+		return ( is_array( $info ) && version_compare( $info['version'], PWC_VERSION, '>' ) ) ? $info : null;
 	}
 
 	/**
@@ -309,14 +309,14 @@ final class Updater implements Module {
 	 * @return object
 	 */
 	private function apply( $transient, $info ) {
-		if ( ! is_array( $info ) || ! version_compare( $info['version'], PAIA_VERSION, '>' ) ) {
+		if ( ! is_array( $info ) || ! version_compare( $info['version'], PWC_VERSION, '>' ) ) {
 			return $transient;
 		}
 
-		$transient->response[ PAIA_BASENAME ] = (object) array(
-			'id'           => 'paia/' . self::SLUG,
+		$transient->response[ PWC_BASENAME ] = (object) array(
+			'id'           => 'pwc/' . self::SLUG,
 			'slug'         => self::SLUG,
-			'plugin'       => PAIA_BASENAME,
+			'plugin'       => PWC_BASENAME,
 			'new_version'  => $info['version'],
 			'url'          => 'https://github.com/' . self::repo(),
 			'package'      => $info['download_url'],
@@ -324,7 +324,7 @@ final class Updater implements Module {
 			'requires_php' => $info['requires_php'],
 			'tested'       => $info['tested'],
 		);
-		unset( $transient->no_update[ PAIA_BASENAME ] );
+		unset( $transient->no_update[ PWC_BASENAME ] );
 
 		return $transient;
 	}
@@ -358,7 +358,7 @@ final class Updater implements Module {
 
 		$path = (string) wp_parse_url( $package, PHP_URL_PATH );
 		if ( self::ASSET_ZIP !== basename( $path ) ) {
-			return $bad( 'paia_update_package', __( 'آدرس بستهٔ به‌روزرسانی معتبر نیست؛ نصب متوقف شد.', 'persian-ai-assistant' ) );
+			return $bad( 'pwc_update_package', __( 'آدرس بستهٔ به‌روزرسانی معتبر نیست؛ نصب متوقف شد.', 'persian-wp-chatbot' ) );
 		}
 
 		// ۱) مقدار مورد انتظار از فایل .sha256 کنار همان release.
@@ -366,15 +366,15 @@ final class Updater implements Module {
 			$package . '.sha256',
 			array(
 				'timeout'    => 15,
-				'user-agent' => 'PersianAIAssistant/' . PAIA_VERSION . '; ' . home_url( '/' ),
+				'user-agent' => 'PersianWPChatbot/' . PWC_VERSION . '; ' . home_url( '/' ),
 			)
 		);
 		if ( is_wp_error( $sha ) || 200 !== (int) wp_remote_retrieve_response_code( $sha ) ) {
-			return $bad( 'paia_update_checksum', __( 'فایل sha256 بستهٔ به‌روزرسانی دریافت نشد؛ نصب متوقف شد.', 'persian-ai-assistant' ) );
+			return $bad( 'pwc_update_checksum', __( 'فایل sha256 بستهٔ به‌روزرسانی دریافت نشد؛ نصب متوقف شد.', 'persian-wp-chatbot' ) );
 		}
 		$body = trim( (string) wp_remote_retrieve_body( $sha ) );
 		if ( strlen( $body ) > 1024 || 1 !== preg_match( '/^([0-9a-fA-F]{64})(?:\s|$)/', $body, $m ) ) {
-			return $bad( 'paia_update_checksum', __( 'فایل sha256 بستهٔ به‌روزرسانی معتبر نیست؛ نصب متوقف شد.', 'persian-ai-assistant' ) );
+			return $bad( 'pwc_update_checksum', __( 'فایل sha256 بستهٔ به‌روزرسانی معتبر نیست؛ نصب متوقف شد.', 'persian-wp-chatbot' ) );
 		}
 		$expected = strtolower( $m[1] );
 
@@ -391,14 +391,14 @@ final class Updater implements Module {
 			wp_delete_file( $tmp );
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'sha256 بستهٔ به‌روزرسانی با فایل .sha256 همخوان نیست؛ نصب متوقف شد.', 'persian-ai-assistant' ),
+				__( 'sha256 بستهٔ به‌روزرسانی با فایل .sha256 همخوان نیست؛ نصب متوقف شد.', 'persian-wp-chatbot' ),
 				array(
 					'endpoint' => 'github:package',
 					'error'    => 'checksum_mismatch',
 				)
 			);
 
-			return $bad( 'paia_update_checksum_mismatch', __( 'بستهٔ دانلودشده با فایل sha256 همخوان نیست (فایل خراب یا دست‌کاری شده)؛ نصب متوقف شد.', 'persian-ai-assistant' ) );
+			return $bad( 'pwc_update_checksum_mismatch', __( 'بستهٔ دانلودشده با فایل sha256 همخوان نیست (فایل خراب یا دست‌کاری شده)؛ نصب متوقف شد.', 'persian-wp-chatbot' ) );
 		}
 
 		return $tmp;
@@ -412,7 +412,7 @@ final class Updater implements Module {
 	 * @return bool|null
 	 */
 	public function no_auto_update( $update, $item ) {
-		if ( is_object( $item ) && isset( $item->plugin ) && PAIA_BASENAME === $item->plugin ) {
+		if ( is_object( $item ) && isset( $item->plugin ) && PWC_BASENAME === $item->plugin ) {
 			return false;
 		}
 
@@ -436,7 +436,7 @@ final class Updater implements Module {
 		}
 
 		return (object) array(
-			'name'          => __( 'دستیار هوشمند', 'persian-ai-assistant' ),
+			'name'          => __( 'چت بات هوشمند', 'persian-wp-chatbot' ),
 			'slug'          => self::SLUG,
 			'version'       => $info['version'],
 			'author'        => 'شروین نخعی‌نیا',
@@ -445,8 +445,8 @@ final class Updater implements Module {
 			'tested'        => $info['tested'],
 			'download_link' => $info['download_url'],
 			'sections'      => array(
-				'description' => esc_html__( 'سیستم مدیریت هوشمند وب‌سایت با هوش مصنوعی.', 'persian-ai-assistant' ),
-				'changelog'   => '' !== $info['changelog'] ? nl2br( esc_html( $info['changelog'] ) ) : esc_html__( 'توضیحی ثبت نشده است.', 'persian-ai-assistant' ),
+				'description' => esc_html__( 'چت‌بات هوشمند فارسی برای وردپرس؛ پاسخ‌گویی خودکار به بازدیدکنندگان با هوش مصنوعی.', 'persian-wp-chatbot' ),
+				'changelog'   => '' !== $info['changelog'] ? nl2br( esc_html( $info['changelog'] ) ) : esc_html__( 'توضیحی ثبت نشده است.', 'persian-wp-chatbot' ),
 			),
 		);
 	}
@@ -456,33 +456,33 @@ final class Updater implements Module {
 	 * @param array<mixed> $options
 	 */
 	public function after_upgrade( $upgrader, $options ): void {
-		if ( 'update' === ( $options['action'] ?? '' ) && 'plugin' === ( $options['type'] ?? '' ) && in_array( PAIA_BASENAME, (array) ( $options['plugins'] ?? array() ), true ) ) {
+		if ( 'update' === ( $options['action'] ?? '' ) && 'plugin' === ( $options['type'] ?? '' ) && in_array( PWC_BASENAME, (array) ( $options['plugins'] ?? array() ), true ) ) {
 			delete_site_transient( self::CACHE_KEY );
 		}
 	}
 
 	/**
-	 * لینک «بررسی دوباره»: ?paia_recheck=1&_wpnonce=… — کش را پاک و دوباره از GitHub می‌خواند.
+	 * لینک «بررسی دوباره»: ?pwc_recheck=1&_wpnonce=… — کش را پاک و دوباره از GitHub می‌خواند.
 	 */
 	public function maybe_recheck(): void {
-		if ( empty( $_GET['paia_recheck'] ) || ! current_user_can( 'update_plugins' ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+		if ( empty( $_GET['pwc_recheck'] ) || ! current_user_can( 'update_plugins' ) ) { // phpcs:ignore WordPress.Security.NonceVerification
 			return;
 		}
-		check_admin_referer( 'paia_recheck' );
+		check_admin_referer( 'pwc_recheck' );
 
 		self::latest( true, true );
 		delete_site_transient( 'update_plugins' ); // وردپرس دوباره می‌سنجد و نسخهٔ جدید را در لیست می‌گذارد.
 
-		wp_safe_redirect( remove_query_arg( array( 'paia_recheck', '_wpnonce' ) ) );
+		wp_safe_redirect( remove_query_arg( array( 'pwc_recheck', '_wpnonce' ) ) );
 		exit;
 	}
 
 	/**
-	 * نوار بالای همهٔ صفحه‌های افزونه (slug ها با paia شروع می‌شوند).
+	 * نوار بالای همهٔ صفحه‌های افزونه (slug ها با pwc شروع می‌شوند).
 	 */
 	public function render_notice(): void {
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
-		if ( 'paia' !== $page && 0 !== strpos( $page, 'paia-' ) ) {
+		if ( 'pwc' !== $page && 0 !== strpos( $page, 'pwc-' ) ) {
 			return;
 		}
 
@@ -491,32 +491,32 @@ final class Updater implements Module {
 			return;
 		}
 
-		$update_url = wp_nonce_url( self_admin_url( 'update.php?action=upgrade-plugin&plugin=' . rawurlencode( PAIA_BASENAME ) ), 'upgrade-plugin_' . PAIA_BASENAME );
-		$recheck    = wp_nonce_url( add_query_arg( 'paia_recheck', '1' ), 'paia_recheck' );
+		$update_url = wp_nonce_url( self_admin_url( 'update.php?action=upgrade-plugin&plugin=' . rawurlencode( PWC_BASENAME ) ), 'upgrade-plugin_' . PWC_BASENAME );
+		$recheck    = wp_nonce_url( add_query_arg( 'pwc_recheck', '1' ), 'pwc_recheck' );
 		?>
 		<style>
-			.paia-update-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:0;padding:12px 20px;background:#6d28d9;color:#fff;font-size:14px;line-height:1.7;position:relative;z-index:5}
-			.paia-update-bar strong{font-weight:700}
-			.paia-update-bar__actions{display:flex;gap:8px;margin-inline-start:auto;align-items:center}
-			.paia-update-bar a.paia-update-bar__btn{background:#fff;color:#4c1d95;text-decoration:none;font-weight:700;padding:6px 16px;border-radius:8px}
-			.paia-update-bar a.paia-update-bar__btn:hover,.paia-update-bar a.paia-update-bar__btn:focus{background:#ede9fe}
-			.paia-update-bar a.paia-update-bar__link{color:#fff;text-decoration:underline}
+			.pwc-update-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:0;padding:12px 20px;background:#6d28d9;color:#fff;font-size:14px;line-height:1.7;position:relative;z-index:5}
+			.pwc-update-bar strong{font-weight:700}
+			.pwc-update-bar__actions{display:flex;gap:8px;margin-inline-start:auto;align-items:center}
+			.pwc-update-bar a.pwc-update-bar__btn{background:#fff;color:#4c1d95;text-decoration:none;font-weight:700;padding:6px 16px;border-radius:8px}
+			.pwc-update-bar a.pwc-update-bar__btn:hover,.pwc-update-bar a.pwc-update-bar__btn:focus{background:#ede9fe}
+			.pwc-update-bar a.pwc-update-bar__link{color:#fff;text-decoration:underline}
 		</style>
-		<div class="paia-update-bar" role="alert">
+		<div class="pwc-update-bar" role="alert">
 			<span>
 				<?php
 				printf(
 					/* translators: 1: new version, 2: installed version */
-					esc_html__( 'نسخهٔ جدید «دستیار هوشمند» (%1$s) منتشر شده است؛ نسخهٔ نصب‌شدهٔ شما %2$s است. لطفاً افزونه را به‌روزرسانی کنید.', 'persian-ai-assistant' ),
+					esc_html__( 'نسخهٔ جدید «چت بات هوشمند» (%1$s) منتشر شده است؛ نسخهٔ نصب‌شدهٔ شما %2$s است. لطفاً افزونه را به‌روزرسانی کنید.', 'persian-wp-chatbot' ),
 					'<strong dir="ltr">' . esc_html( $info['version'] ) . '</strong>',
-					'<strong dir="ltr">' . esc_html( PAIA_VERSION ) . '</strong>'
+					'<strong dir="ltr">' . esc_html( PWC_VERSION ) . '</strong>'
 				);
 				?>
 			</span>
 			<?php if ( current_user_can( 'update_plugins' ) ) : ?>
-				<span class="paia-update-bar__actions">
-					<a class="paia-update-bar__link" href="<?php echo esc_url( $recheck ); ?>"><?php esc_html_e( 'بررسی دوباره', 'persian-ai-assistant' ); ?></a>
-					<a class="paia-update-bar__btn" href="<?php echo esc_url( $update_url ); ?>"><?php esc_html_e( 'به‌روزرسانی افزونه', 'persian-ai-assistant' ); ?></a>
+				<span class="pwc-update-bar__actions">
+					<a class="pwc-update-bar__link" href="<?php echo esc_url( $recheck ); ?>"><?php esc_html_e( 'بررسی دوباره', 'persian-wp-chatbot' ); ?></a>
+					<a class="pwc-update-bar__btn" href="<?php echo esc_url( $update_url ); ?>"><?php esc_html_e( 'به‌روزرسانی افزونه', 'persian-wp-chatbot' ); ?></a>
 				</span>
 			<?php endif; ?>
 		</div>

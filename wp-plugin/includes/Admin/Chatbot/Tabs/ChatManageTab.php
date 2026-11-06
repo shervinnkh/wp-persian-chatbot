@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Admin\Chatbot\Tabs;
+namespace PersianWPChatbot\Admin\Chatbot\Tabs;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -14,6 +14,6 @@ final class ChatManageTab extends AbstractTab {
 	}
 
 	public function title(): string {
-		return __( 'مدیریت چت', 'persian-ai-assistant' );
+		return __( 'مدیریت چت', 'persian-wp-chatbot' );
 	}
 }

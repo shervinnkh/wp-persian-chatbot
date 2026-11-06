@@ -1,8 +1,8 @@
 <?php
-namespace PersianAIAssistant\Documents;
+namespace PersianWPChatbot\Documents;
 
-use PersianAIAssistant\Database\FileStore;
-use PersianAIAssistant\Database\TextStore;
+use PersianWPChatbot\Database\FileStore;
+use PersianWPChatbot\Database\TextStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -22,7 +22,7 @@ final class Overview {
 	}
 
 	/**
-	 * فایل‌های آپلودشده (از جدول paia_files): مجموع، تعداد هر فرمت و تعداد آموزش‌دیده‌ها.
+	 * فایل‌های آپلودشده (از جدول pwc_files): مجموع، تعداد هر فرمت و تعداد آموزش‌دیده‌ها.
 	 * فرمت‌ها: PDF، Word (doc و docx با هم)، TXT.
 	 *
 	 * @return array{total:int, trained:int, formats:array<int, array{id:string, label:string, count:int}>}

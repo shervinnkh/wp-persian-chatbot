@@ -1,14 +1,14 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * تب «لاگ سرور»:
- * GET /wp-json/paia/v1/logs        آمار (تعداد کل/موفق/ناموفق) + صفحه‌ای از لاگ‌ها (تازه‌ترین اول): ?before=&limit=
- * GET /wp-json/paia/v1/logs/item   متن کامل و جزئیات یک لاگ: ?id=
+ * GET /wp-json/pwc/v1/logs        آمار (تعداد کل/موفق/ناموفق) + صفحه‌ای از لاگ‌ها (تازه‌ترین اول): ?before=&limit=
+ * GET /wp-json/pwc/v1/logs/item   متن کامل و جزئیات یک لاگ: ?id=
  */
 final class LogsController extends AbstractController {
 
@@ -74,7 +74,7 @@ final class LogsController extends AbstractController {
 		return rest_ensure_response(
 			array(
 				'stats'    => LogStore::stats(),
-				'last_update' => \PersianAIAssistant\Apis\ServerLogs::last_update()['label'],
+				'last_update' => \PersianWPChatbot\Apis\ServerLogs::last_update()['label'],
 				'items'    => $page['items'],
 				'has_more' => $page['has_more'],
 			)
@@ -85,8 +85,8 @@ final class LogsController extends AbstractController {
 	 * دکمهٔ «به‌روزرسانی»: لاگ‌های تازهٔ سرور را می‌گیرد و ذخیره می‌کند.
 	 */
 	public function sync(): \WP_REST_Response {
-		$result = \PersianAIAssistant\Apis\ServerLogs::sync();
-		$result['last_update'] = \PersianAIAssistant\Apis\ServerLogs::last_update()['label'];
+		$result = \PersianWPChatbot\Apis\ServerLogs::sync();
+		$result['last_update'] = \PersianWPChatbot\Apis\ServerLogs::last_update()['label'];
 		$result['stats']       = LogStore::stats();
 
 		return rest_ensure_response( $result );
@@ -98,7 +98,7 @@ final class LogsController extends AbstractController {
 	public function item( \WP_REST_Request $request ) {
 		$log = LogStore::get( (int) $request->get_param( 'id' ) );
 		if ( null === $log ) {
-			return new \WP_Error( 'paia_not_found', __( 'این لاگ پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_not_found', __( 'این لاگ پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		return rest_ensure_response( $log );

@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Extraction\Extractors;
+namespace PersianWPChatbot\Extraction\Extractors;
 
-use PersianAIAssistant\Extraction\PostTypes;
+use PersianWPChatbot\Extraction\PostTypes;
 
 defined( 'ABSPATH' ) || exit;
 

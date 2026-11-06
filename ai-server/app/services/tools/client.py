@@ -6,8 +6,8 @@ Two endpoints on the site (paths in .env, host = PLUGIN_BASE_URL - never taken f
   POST {PLUGIN_BASE_URL}{TOOLS_DYNAMIC_PATH}    text of a dynamic tool  -> {"ok", "text"}
 
 Signing is the same as for the completion callbacks (PLUGIN_CALLBACK_SECRET, default = the
-shared API secret):  X-PAIA-Timestamp / X-PAIA-Signature = "sha256=" + hex HMAC_SHA256(key,
-"{timestamp}.{raw body}"), plus X-PAIA-Request (unique id, for the site's logs).
+shared API secret):  X-PWC-Timestamp / X-PWC-Signature = "sha256=" + hex HMAC_SHA256(key,
+"{timestamp}.{raw body}"), plus X-PWC-Request (unique id, for the site's logs).
 Redirects are never followed. Every failure becomes a `ToolCallError` with a SAFE message (the
 model reads it as the tool result, so it never contains a URL or a secret).
 """
@@ -29,7 +29,7 @@ from app.services.ingestion.delivery import H_SIGNATURE, H_TIMESTAMP, sign
 
 logger = logging.getLogger(__name__)
 
-H_REQUEST = "X-PAIA-Request"
+H_REQUEST = "X-PWC-Request"
 _MAX_RESPONSE_BYTES = 256 * 1024
 
 

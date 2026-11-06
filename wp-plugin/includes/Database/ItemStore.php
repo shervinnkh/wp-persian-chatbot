@@ -1,10 +1,10 @@
 <?php
-namespace PersianAIAssistant\Database;
+namespace PersianWPChatbot\Database;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * ذخیره‌سازی اطلاعات استخراج‌شده در جدول paia_items؛ هر مورد یک رکورد.
+ * ذخیره‌سازی اطلاعات استخراج‌شده در جدول pwc_items؛ هر مورد یک رکورد.
  *
  * شناسهٔ رکورد: «دسته:شناسهٔ واقعی» (product:23 ، blog:45 ، page:7).
  * اطلاعات سایت یک رکورد است (site:{blog_id}) و دسته‌بندی/طبقه‌بندی‌های هر منبع هم یک رکورد ({دسته}_taxonomies:all).
@@ -77,7 +77,7 @@ final class ItemStore {
 
 		$ok = false !== $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 
-		// یک شناسه هم‌زمان در paia_items و در لیست «موارد حذف‌شده» نباشد (دو نمایش برای یک مورد).
+		// یک شناسه هم‌زمان در pwc_items و در لیست «موارد حذف‌شده» نباشد (دو نمایش برای یک مورد).
 		if ( $ok ) {
 			RemovedStore::forget( $id );
 		}
@@ -101,9 +101,9 @@ final class ItemStore {
 		$data     = is_array( $data ) ? $data : array();
 		$category = (string) strstr( $id, ':', true );
 
-		foreach ( \PersianAIAssistant\Extraction\Sources::all() as $source_id => $source ) {
+		foreach ( \PersianWPChatbot\Extraction\Sources::all() as $source_id => $source ) {
 			if ( (string) ( $source['record'] ?? '' ) === $category ) {
-				$data = \PersianAIAssistant\Extraction\LiveFields::strip( (string) $source_id, $data );
+				$data = \PersianWPChatbot\Extraction\LiveFields::strip( (string) $source_id, $data );
 				break;
 			}
 		}

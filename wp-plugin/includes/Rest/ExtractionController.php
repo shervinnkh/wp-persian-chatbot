@@ -1,21 +1,21 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Database\ItemStore;
-use PersianAIAssistant\Extraction\Overview;
-use PersianAIAssistant\Extraction\Registry;
-use PersianAIAssistant\Extraction\Site;
-use PersianAIAssistant\Extraction\Sources;
-use PersianAIAssistant\Support\Settings;
+use PersianWPChatbot\Database\ItemStore;
+use PersianWPChatbot\Extraction\Overview;
+use PersianWPChatbot\Extraction\Registry;
+use PersianWPChatbot\Extraction\Site;
+use PersianWPChatbot\Extraction\Sources;
+use PersianWPChatbot\Support\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * POST /wp-json/paia/v1/extraction       یک دستهٔ (batch) استخراج برای یک منبع: {source, offset, limit}
- * GET  /wp-json/paia/v1/extraction/site  اطلاعات کلی سایت و محیط
+ * POST /wp-json/pwc/v1/extraction       یک دستهٔ (batch) استخراج برای یک منبع: {source, offset, limit}
+ * GET  /wp-json/pwc/v1/extraction/site  اطلاعات کلی سایت و محیط
  *
  * مرورگر منبع‌ها و دسته‌ها را پشت‌سرهم صدا می‌زند؛ بنابراین حتی روی سایت‌های بزرگ تایم‌اوت نمی‌شود.
- * هر چیزی که استخراج شود همان لحظه در جدول paia_items ذخیره می‌شود (هر آیتم یک رکورد، ai_status = 0)
+ * هر چیزی که استخراج شود همان لحظه در جدول pwc_items ذخیره می‌شود (هر آیتم یک رکورد، ai_status = 0)
  * و شناسهٔ رکوردها (record_ids / taxonomies_record_id / record_id) در پاسخ برمی‌گردد.
  * هنوز هیچ دادهای به سرویس پایتون فرستاده نمی‌شود.
  */
@@ -142,8 +142,8 @@ final class ExtractionController extends AbstractController {
 
 		if ( null === $extractor ) {
 			return new \WP_Error(
-				'paia_unknown_source',
-				__( 'برای این منبع هنوز استخراج‌کننده‌ای تعریف نشده است.', 'persian-ai-assistant' ),
+				'pwc_unknown_source',
+				__( 'برای این منبع هنوز استخراج‌کننده‌ای تعریف نشده است.', 'persian-wp-chatbot' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -164,9 +164,9 @@ final class ExtractionController extends AbstractController {
 			$result = $extractor->extract( $offset, $limit );
 		} catch ( \Throwable $e ) {
 			return new \WP_Error(
-				'paia_extraction_failed',
+				'pwc_extraction_failed',
 				/* translators: %s: error message */
-				sprintf( __( 'استخراج با خطا متوقف شد: %s', 'persian-ai-assistant' ), $e->getMessage() ),
+				sprintf( __( 'استخراج با خطا متوقف شد: %s', 'persian-wp-chatbot' ), $e->getMessage() ),
 				array( 'status' => 500 )
 			);
 		}
@@ -212,7 +212,7 @@ final class ExtractionController extends AbstractController {
 		if ( $failed > 0 ) {
 			$result['warnings']   = isset( $result['warnings'] ) ? (array) $result['warnings'] : array();
 			/* translators: %d: number of items */
-			$result['warnings'][] = sprintf( __( 'ذخیرهٔ %d مورد در پایگاه داده ناموفق بود.', 'persian-ai-assistant' ), $failed );
+			$result['warnings'][] = sprintf( __( 'ذخیرهٔ %d مورد در پایگاه داده ناموفق بود.', 'persian-wp-chatbot' ), $failed );
 		}
 		if ( $touched ) {
 			Overview::touch();
@@ -261,7 +261,7 @@ final class ExtractionController extends AbstractController {
 
 	/**
 	 * GET /extraction/saved?source=site|products|blog|pages&offset=0&limit=100
-	 * همان قالب پاسخ استخراج را برمی‌گرداند، اما از جدول paia_items خوانده می‌شود.
+	 * همان قالب پاسخ استخراج را برمی‌گرداند، اما از جدول pwc_items خوانده می‌شود.
 	 */
 	public function saved( \WP_REST_Request $request ): \WP_REST_Response {
 		$source = (string) $request->get_param( 'source' );

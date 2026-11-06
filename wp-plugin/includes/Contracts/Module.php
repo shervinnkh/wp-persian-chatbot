@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Contracts;
+namespace PersianWPChatbot\Contracts;
 
 defined( 'ABSPATH' ) || exit;
 

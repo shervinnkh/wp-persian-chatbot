@@ -10,16 +10,16 @@
  * اجرا از سه مسیر (هر کدام با قفل اتمیِ ChatStore::claim، پس پاسخ دوبار ساخته نمی‌شود):
  *  - polling ویجت (سریع‌ترین)، - WP-Cron (اگر کاربر صفحه را بسته باشد)، - مستقیم وقتی ai_delay = 0.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 defined( 'ABSPATH' ) || exit;
 
 final class Responder {
 
-	public const CRON_HOOK = 'paia_chat_process';
+	public const CRON_HOOK = 'pwc_chat_process';
 
 	/** @var ChatStore */
 	private $store;

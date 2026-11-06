@@ -1,18 +1,18 @@
 /**
- * ویجت چت سمت سایت — دستیار هوش مصنوعی وردپرس فارسی
- * متن‌ها از window.PAIA_CHAT.i18n (PHP) می‌آیند.
+ * ویجت چت سمت سایت — چت بات هوشمند
+ * متن‌ها از window.PWC_CHAT.i18n (PHP) می‌آیند.
  */
 (function () {
 	'use strict';
 
 	function start() {
-	var cfg = window.PAIA_CHAT;
-	var root = document.getElementById('paia-chat-root');
+	var cfg = window.PWC_CHAT;
+	var root = document.getElementById('pwc-chat-root');
 	if (!cfg) { return; }
 	if (!root) {
 		root = document.createElement('div');
-		root.id = 'paia-chat-root';
-		root.className = 'paia-chat';
+		root.id = 'pwc-chat-root';
+		root.className = 'pwc-chat';
 		root.setAttribute('data-position', 'right');
 		root.setAttribute('dir', document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl');
 		document.body.appendChild(root);
@@ -115,9 +115,9 @@
 	}
 	initTheme();
 
-	var K_UID = 'paia_chat_visitor_v1';
-	var K_SEEN = 'paia_chat_seen_v1';
-	var K_TEASER = 'paia_chat_teaser_closed';
+	var K_UID = 'pwc_chat_visitor_v1';
+	var K_SEEN = 'pwc_chat_seen_v1';
+	var K_TEASER = 'pwc_chat_teaser_closed';
 
 	var state = {
 		open: false, loaded: false, loading: false, uid: '',
@@ -215,7 +215,7 @@
 		opts = opts || {};
 		var headers = {};
 		if (!noNonce && !state.noNonce && cfg.nonce) { headers['X-WP-Nonce'] = cfg.nonce; }
-		if (state.uid) { headers['X-PAIA-Visitor'] = state.uid; }
+		if (state.uid) { headers['X-PWC-Visitor'] = state.uid; }
 		var init = { method: opts.method || 'GET', headers: headers, credentials: 'same-origin' };
 		if (opts.body) {
 			if (typeof FormData !== 'undefined' && opts.body instanceof FormData) { init.body = opts.body; }
@@ -230,7 +230,7 @@
 				state.noNonce = true; // دفعات بعد دیگر nonce نامعتبر را نفرست (بدون ۴۰۳ اضافه)
 				return api(path, opts, true); // nonce قدیمی (کش صفحه): به‌عنوان مهمان ادامه بده
 			}
-			if (x.r.status === 400 && x.j && x.j.code === 'paia_bad_visitor' && path.indexOf('chat/init') !== 0 && !opts._retried) {
+			if (x.r.status === 400 && x.j && x.j.code === 'pwc_bad_visitor' && path.indexOf('chat/init') !== 0 && !opts._retried) {
 				// uid نامعتبر/ناموجود (S-1): فقط init بازدیدکنندهٔ تازه می‌سازد؛ یک‌بار init و بعد تکرار همین درخواست.
 				state.uid = ''; lsSet(K_UID, '');
 				if (!state.reinitP) { state.reinitP = api('chat/init', {}, noNonce).then(applyInit).then(function () { state.reinitP = null; }, function (err) { state.reinitP = null; throw err; }); }
@@ -954,7 +954,7 @@
 	function enterFallback(reason, noRetry) {
 		window.clearTimeout(rt.retryT); window.clearTimeout(rt.watchT);
 		rt.state = 'fallback'; rt.fails = 0;
-		if (window.console && cfg.debug) { window.console.debug('paia: fallback to polling (' + reason + ')'); }
+		if (window.console && cfg.debug) { window.console.debug('pwc: fallback to polling (' + reason + ')'); }
 		if (state.engaged && !document.hidden) { window.clearTimeout(state.pollT); poll(); } // catch-up فوری + polling فاز ۱
 		if (!noRetry) { rt.retryT = window.setTimeout(retryWs, jitter(cfg.poll.retry)); }
 	}

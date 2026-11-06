@@ -1,9 +1,10 @@
 [project]
-name = "persian-ai-backend"
-version = "0.6.0"
+name = "persian-wp-chatbot-server"
+version = "1.0.0"
 
-description = "FastAPI backend (RAG, chat, tools) for the Persian AI Assistant WordPress plugin"
+description = "FastAPI backend (RAG, chat, tools) for the Persian WP Chatbot WordPress plugin"
 requires-python = ">=3.10"
+license = { text = "MIT" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,15 +1,15 @@
 /**
- * دستیار هوش مصنوعی وردپرس فارسی — صفحهٔ «پنل مانیتورینگ»
+ * چت بات هوشمند — صفحهٔ «پنل مانیتورینگ»
  *
- * هر بار صفحه باز شود (یا بازه/تقویم عوض شود) گزارش از GET paia/v1/monitoring گرفته می‌شود
+ * هر بار صفحه باز شود (یا بازه/تقویم عوض شود) گزارش از GET pwc/v1/monitoring گرفته می‌شود
  * (افزونه آن را به POST /v1/get_monitoring سرور هوش مصنوعی می‌فرستد) و کل صفحه با آن ساخته می‌شود.
  * بدون وابستگی؛ نمودارها SVG ساده‌اند. ساختار داده: MONITORING.md (بخش summary / series).
  */
 ( function () {
 	'use strict';
 
-	var cfg = window.PAIA_MONITOR || {};
-	var root = document.getElementById( 'paia-monitoring' );
+	var cfg = window.PWC_MONITOR || {};
+	var root = document.getElementById( 'pwc-monitoring' );
 	if ( ! root ) {
 		return;
 	}
@@ -41,7 +41,7 @@
 
 	/** نام لاتین (مدل، مسیر، IP) داخل متن راست‌به‌چپ. */
 	function ltr( value ) {
-		return '<bdi class="paia-mon__ltr">' + esc( value ) + '</bdi>';
+		return '<bdi class="pwc-mon__ltr">' + esc( value ) + '</bdi>';
 	}
 
 	function has( v ) {
@@ -178,41 +178,41 @@
 	/* ------------------------------------------------------------------ */
 
 	function kpi( name, value, hint, tone ) {
-		return '<div class="paia-stat' + ( tone ? ' paia-stat--' + tone : '' ) + '"><p class="paia-stat__name">' + esc( name ) + '</p><div class="paia-stat__value">' + value + '</div>' +
-			( hint ? '<div class="paia-stat__hint">' + hint + '</div>' : '' ) + '</div>';
+		return '<div class="pwc-stat' + ( tone ? ' pwc-stat--' + tone : '' ) + '"><p class="pwc-stat__name">' + esc( name ) + '</p><div class="pwc-stat__value">' + value + '</div>' +
+			( hint ? '<div class="pwc-stat__hint">' + hint + '</div>' : '' ) + '</div>';
 	}
 
 	function kpis( list ) {
 		var html = list.filter( Boolean ).join( '' );
-		return html ? '<div class="paia-summary paia-mon__kpis">' + html + '</div>' : '';
+		return html ? '<div class="pwc-summary pwc-mon__kpis">' + html + '</div>' : '';
 	}
 
 	function note( text ) {
-		return '<p class="paia-note">' + text + '</p>';
+		return '<p class="pwc-note">' + text + '</p>';
 	}
 
 	function sub( title, html ) {
-		return html ? '<div class="paia-mon__sub"><h3 class="paia-mon__subtitle">' + esc( title ) + '</h3>' + html + '</div>' : '';
+		return html ? '<div class="pwc-mon__sub"><h3 class="pwc-mon__subtitle">' + esc( title ) + '</h3>' + html + '</div>' : '';
 	}
 
 	function cols( blocks ) {
 		var html = blocks.filter( Boolean ).join( '' );
-		return html ? '<div class="paia-mon__cols">' + html + '</div>' : '';
+		return html ? '<div class="pwc-mon__cols">' + html + '</div>' : '';
 	}
 
 	function section( id, title, html, hint ) {
 		if ( ! html || ! html.replace( /\s/g, '' ) ) {
 			return '';
 		}
-		return '<section class="paia-card paia-mon__sec" id="mon-' + id + '" data-title="' + esc( title ) + '"><div class="paia-card__head"><h2 class="paia-card__title">' + esc( title ) + '</h2>' +
-			( hint ? '<span class="paia-count">' + hint + '</span>' : '' ) + '</div><div class="paia-mon__secbody">' + html + '</div></section>';
+		return '<section class="pwc-card pwc-mon__sec" id="mon-' + id + '" data-title="' + esc( title ) + '"><div class="pwc-card__head"><h2 class="pwc-card__title">' + esc( title ) + '</h2>' +
+			( hint ? '<span class="pwc-count">' + hint + '</span>' : '' ) + '</div><div class="pwc-mon__secbody">' + html + '</div></section>';
 	}
 
 	function table( head, rows, empty ) {
 		if ( ! rows.length ) {
 			return empty === false ? '' : note( empty || 'موردی ثبت نشده است.' );
 		}
-		var h = '<div class="paia-mon__tablewrap"><table class="paia-mon__table"><thead><tr>';
+		var h = '<div class="pwc-mon__tablewrap"><table class="pwc-mon__table"><thead><tr>';
 		head.forEach( function ( t, i ) {
 			h += '<th' + ( i ? ' class="is-num"' : '' ) + '>' + esc( t ) + '</th>';
 		} );
@@ -241,10 +241,10 @@
 			max = Math.max( max, i.value );
 			total += i.value;
 		} );
-		var html = '<div class="paia-mon__hbars">';
+		var html = '<div class="pwc-mon__hbars">';
 		items.forEach( function ( i ) {
 			var text = i.text || num( i.value ) + ( share ? ' <small>(' + pct( i.value / total ) + ')</small>' : '' );
-			html += '<div class="paia-mon__hrow"><span class="paia-mon__hlabel">' + i.label + '</span><span class="paia-mon__htrack"><i style="width:' + Math.max( 2, ( i.value / max ) * 100 ).toFixed( 1 ) + '%;background:' + ( i.color || COLORS.violet ) + '"></i></span><span class="paia-mon__hval">' + text + '</span></div>';
+			html += '<div class="pwc-mon__hrow"><span class="pwc-mon__hlabel">' + i.label + '</span><span class="pwc-mon__htrack"><i style="width:' + Math.max( 2, ( i.value / max ) * 100 ).toFixed( 1 ) + '%;background:' + ( i.color || COLORS.violet ) + '"></i></span><span class="pwc-mon__hval">' + text + '</span></div>';
 		} );
 		return html + '</div>';
 	}
@@ -350,17 +350,17 @@
 			return pt + ih - ( v / max ) * ih;
 		}
 
-		var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="paia-mon__svg" role="img" aria-label="' + esc( spec.title || '' ) + '"">';
+		var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="pwc-mon__svg" role="img" aria-label="' + esc( spec.title || '' ) + '"">';
 		for ( var t = 0; t <= 4; t++ ) {
 			var gv = ( max / 4 ) * t;
 			var gy = y( gv );
-			svg += '<line x1="' + pl + '" x2="' + ( W - pr ) + '" y1="' + gy + '" y2="' + gy + '" class="paia-mon__grid"/>';
-			svg += '<text x="' + ( pl - 8 ) + '" y="' + ( gy + 4 ) + '" text-anchor="end" class="paia-mon__axis">' + esc( axis( gv ) ) + '</text>';
+			svg += '<line x1="' + pl + '" x2="' + ( W - pr ) + '" y1="' + gy + '" y2="' + gy + '" class="pwc-mon__grid"/>';
+			svg += '<text x="' + ( pl - 8 ) + '" y="' + ( gy + 4 ) + '" text-anchor="end" class="pwc-mon__axis">' + esc( axis( gv ) ) + '</text>';
 		}
 
 		var every = Math.ceil( n / 9 );
 		for ( var li = 0; li < n; li += every ) {
-			svg += '<text x="' + ( pl + step * ( li + 0.5 ) ) + '" y="' + ( H - 8 ) + '" text-anchor="middle" class="paia-mon__axis">' + esc( spec.labels[ li ] ) + '</text>';
+			svg += '<text x="' + ( pl + step * ( li + 0.5 ) ) + '" y="' + ( H - 8 ) + '" text-anchor="middle" class="pwc-mon__axis">' + esc( spec.labels[ li ] ) + '</text>';
 		}
 
 		// ستون‌ها (کنار هم یا روی هم)
@@ -408,18 +408,18 @@
 
 		// ناحیهٔ حرکت موس
 		for ( var o = 0; o < n; o++ ) {
-			svg += '<rect x="' + ( pl + step * o ).toFixed( 1 ) + '" y="' + pt + '" width="' + step.toFixed( 1 ) + '" height="' + ih + '" fill="transparent" data-i="' + o + '" class="paia-mon__hit"/>';
+			svg += '<rect x="' + ( pl + step * o ).toFixed( 1 ) + '" y="' + pt + '" width="' + step.toFixed( 1 ) + '" height="' + ih + '" fill="transparent" data-i="' + o + '" class="pwc-mon__hit"/>';
 		}
 		svg += '</svg>';
 
-		var legend = '<div class="paia-mon__legend">' + spec.series.map( function ( s ) {
+		var legend = '<div class="pwc-mon__legend">' + spec.series.map( function ( s ) {
 			return '<span><i style="background:' + s.color + '"></i>' + esc( s.name ) + '</span>';
 		} ).join( '' ) + '</div>';
 
-		box.innerHTML = legend + '<div class="paia-mon__plot">' + svg + '<div class="paia-mon__tip" hidden></div></div>';
+		box.innerHTML = legend + '<div class="pwc-mon__plot">' + svg + '<div class="pwc-mon__tip" hidden></div></div>';
 
-		var plot = box.querySelector( '.paia-mon__plot' );
-		var tip = box.querySelector( '.paia-mon__tip' );
+		var plot = box.querySelector( '.pwc-mon__plot' );
+		var tip = box.querySelector( '.pwc-mon__tip' );
 		function show( ev ) {
 			var idx = ev.target && ev.target.getAttribute ? ev.target.getAttribute( 'data-i' ) : null;
 			if ( idx === null ) {
@@ -448,7 +448,7 @@
 	function chartBox( id, title, spec ) {
 		charts[ id ] = spec;
 		spec.title = title;
-		return '<div class="paia-mon__chartcard"><h3 class="paia-mon__subtitle">' + esc( title ) + '</h3><div class="paia-mon__chart" data-chart="' + id + '"></div></div>';
+		return '<div class="pwc-mon__chartcard"><h3 class="pwc-mon__subtitle">' + esc( title ) + '</h3><div class="pwc-mon__chart" data-chart="' + id + '"></div></div>';
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -466,7 +466,7 @@
 
 	function savedCalendar() {
 		try {
-			var c = window.localStorage.getItem( 'paia_mon_calendar' );
+			var c = window.localStorage.getItem( 'pwc_mon_calendar' );
 			return c === 'gregorian' ? 'gregorian' : 'jalali';
 		} catch ( e ) {
 			return 'jalali';
@@ -572,7 +572,7 @@
 			setBusy( false );
 			if ( ! r.ok || ! r.data || ! r.data.summary ) {
 				var msg = ( r.data && r.data.message ) || 'دریافت اطلاعات ناموفق بود.';
-				els[ 'mon-error' ].innerHTML = '<strong>دریافت گزارش مانیتورینگ ناموفق بود.</strong><br>' + esc( msg ) + '<br><button type="button" class="paia-btn paia-btn--ghost paia-mon__retry" data-role="mon-retry">تلاش دوباره</button>';
+				els[ 'mon-error' ].innerHTML = '<strong>دریافت گزارش مانیتورینگ ناموفق بود.</strong><br>' + esc( msg ) + '<br><button type="button" class="pwc-btn pwc-btn--ghost pwc-mon__retry" data-role="mon-retry">تلاش دوباره</button>';
 				els[ 'mon-error' ].hidden = false;
 				return;
 			}
@@ -692,19 +692,19 @@
 		}
 		meta.push( 'آخرین دریافت: ' + fa( new Date( ( data.generated_at || 0 ) * 1000 ).toLocaleTimeString( 'fa-IR' ) ) + ( data.cached ? ' (از کش سرور)' : '' ) );
 
-		var html = '<section class="paia-card paia-mon__health is-' + level + '" id="mon-health" data-title="وضعیت کلی"><div class="paia-mon__healthhead"><span class="paia-mon__dot"></span><h2 class="paia-card__title">' + title + '</h2></div>';
+		var html = '<section class="pwc-card pwc-mon__health is-' + level + '" id="mon-health" data-title="وضعیت کلی"><div class="pwc-mon__healthhead"><span class="pwc-mon__dot"></span><h2 class="pwc-card__title">' + title + '</h2></div>';
 		if ( issues.length ) {
-			html += '<ul class="paia-mon__issues">' + issues.map( function ( i ) {
+			html += '<ul class="pwc-mon__issues">' + issues.map( function ( i ) {
 				return '<li class="is-' + i.level + '">' + esc( i.text ) + '</li>';
 			} ).join( '' ) + '</ul>';
 		}
-		html += '<p class="paia-mon__meta">' + meta.join( ' <span>•</span> ' ) + '</p>';
+		html += '<p class="pwc-mon__meta">' + meta.join( ' <span>•</span> ' ) + '</p>';
 		var missing = ( cov.days_missing || [] ).length;
 		if ( missing && state.period !== 'day' ) {
-			html += '<p class="paia-mon__meta paia-mon__meta--warn">برای ' + num( missing ) + ' روز از این بازه داده‌ای وجود ندارد (سرور خاموش بوده، مانیتورینگ روشن نبوده، یا داده‌ها پاک شده‌اند).</p>';
+			html += '<p class="pwc-mon__meta pwc-mon__meta--warn">برای ' + num( missing ) + ' روز از این بازه داده‌ای وجود ندارد (سرور خاموش بوده، مانیتورینگ روشن نبوده، یا داده‌ها پاک شده‌اند).</p>';
 		}
 		if ( cov.bad_lines ) {
-			html += '<p class="paia-mon__meta paia-mon__meta--warn">' + num( cov.bad_lines ) + ' خط خراب در فایل‌های خام نادیده گرفته شد.</p>';
+			html += '<p class="pwc-mon__meta pwc-mon__meta--warn">' + num( cov.bad_lines ) + ' خط خراب در فایل‌های خام نادیده گرفته شد.</p>';
 		}
 		return html + '</section>';
 	}
@@ -762,7 +762,7 @@
 			return Object.assign( { labels: labels, tips: tips, series: series }, extra || {} );
 		}
 		var C = COLORS;
-		var html = '<div class="paia-mon__charts">' + [
+		var html = '<div class="pwc-mon__charts">' + [
 			chartBox( 'http', 'درخواست‌های HTTP', spec( [
 				{ name: 'درخواست‌ها', color: C.violet, type: 'bar', values: vals( 'http.requests' ) },
 				{ name: 'خطای 4xx', color: C.amber, type: 'line', values: vals( 'http.status.4xx' ) },
@@ -916,7 +916,7 @@
 		] ) + sub( 'Embedding به تفکیک مدل', table( [ 'مدل', 'درخواست', 'توکن' ], embModels, false ) ) + sub( 'Embedding به تفکیک نوع', table( [ 'نوع', 'درخواست', 'توکن', 'میانگین زمان', 'p95 زمان' ], embOps, false ) ) +
 			sub( 'تأخیرها', latTable( [ [ 'فراخوانی مدل چت', llm.lat, 'ms' ], [ 'Embedding', emb.lat, 'ms' ], [ 'تبدیل گفتار به متن', stt.lat, 'ms' ] ] ) ) +
 			sub( 'برآورد هزینه (واحد: همان واحد قیمت‌های تنظیم‌شده)', costRows.length ? table( [ 'مدل', 'ورودی', 'خروجی', 'جمع' ], costRows ) : '' );
-		return section( 'ai', 'هوش مصنوعی، توکن و هزینه', html, costRows.length ? '' : 'برای نمایش هزینه، فیلتر paia_monitor_prices را تنظیم کنید' );
+		return section( 'ai', 'هوش مصنوعی، توکن و هزینه', html, costRows.length ? '' : 'برای نمایش هزینه، فیلتر pwc_monitor_prices را تنظیم کنید' );
 	}
 
 	function renderRag( s ) {
@@ -1162,7 +1162,7 @@
 			kpi( 'رویداد دورریخته‌شده', num( g( s, 'monitor.dropped_events' ) ), 'پر بودن صف حافظه', g( s, 'monitor.dropped_events' ) ? 'warn' : '' ),
 			kpi( 'رسیدن به سقف روزانه', num( g( s, 'monitor.cap_reached' ) ), 'LOG_MAX_MB × LOG_BACKUP_COUNT', g( s, 'monitor.cap_reached' ) ? 'warn' : '' ),
 		] ) + sub( 'رویدادها به تفکیک نوع', hbars( events.slice( 0, 24 ).map( function ( e ) {
-			return { label: esc( tr( 'events', e.key ) ) + ' <small class="paia-mon__ltr">' + esc( e.key ) + '</small>', value: e.value, color: COLORS.slate };
+			return { label: esc( tr( 'events', e.key ) ) + ' <small class="pwc-mon__ltr">' + esc( e.key ) + '</small>', value: e.value, color: COLORS.slate };
 		} ), true ) ) +
 			note( 'تنظیمات سرور: نگهداری خط‌های خام ' + fa( mon.retention_days || '—' ) + ' روز · سقف کل فضا ' + ( mon.max_total_mb ? mb( mon.max_total_mb ) : '—' ) + ' · مرز روز: UTC' + esc( mon.utc_offset || '' ) + ' · نمونه‌برداری منابع هر ' + fa( mon.snapshot_seconds || 0 ) + ' ثانیه' );
 		return section( 'monitor', 'وضعیت خود مانیتورینگ', html );
@@ -1217,7 +1217,7 @@
 
 		// فهرست پرش به بخش‌ها (همه در یک صفحه‌اند؛ تب نیست)
 		var jump = '';
-		[].slice.call( els[ 'mon-body' ].querySelectorAll( '.paia-card[id^="mon-"]' ) ).forEach( function ( sec ) {
+		[].slice.call( els[ 'mon-body' ].querySelectorAll( '.pwc-card[id^="mon-"]' ) ).forEach( function ( sec ) {
 			jump += '<a href="#' + sec.id + '" data-jump="' + sec.id + '">' + esc( sec.getAttribute( 'data-title' ) || '' ) + '</a>';
 		} );
 		els[ 'mon-jump' ].innerHTML = jump;
@@ -1249,7 +1249,7 @@
 			state.calendar = c;
 			state.date = ''; // تاریخ انتخاب‌شده مال تقویم قبلی بود
 			try {
-				window.localStorage.setItem( 'paia_mon_calendar', c );
+				window.localStorage.setItem( 'pwc_mon_calendar', c );
 			} catch ( e ) {} // eslint-disable-line no-empty
 			load();
 		} );

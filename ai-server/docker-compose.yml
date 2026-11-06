@@ -1,0 +1,105 @@
+# Persian WP Chatbot Server - production stack
+#   qdrant              vector database (private, API key)
+#   api                 FastAPI server (private; only Caddy can reach it)
+#   worker-ingestion    chunk -> embed -> Qdrant
+#   worker-delivery     sends results/answers back to WordPress (run exactly ONE)
+#   worker-summarizer   summarizes long conversations
+#   caddy               HTTPS (automatic Let's Encrypt certificate) on ports 80/443
+#
+# All settings come from ./.env  (create it with:  bash deploy/init-env.sh)
+# Start:  docker compose up -d --build
+
+name: persian-wp-chatbot
+
+x-app: &app
+  build: .
+  image: persian-wp-chatbot-server:1.0.0
+  restart: unless-stopped
+  init: true
+  depends_on:
+    qdrant:
+      condition: service_healthy
+  volumes:
+    - ./.env:/app/.env:ro
+    - app_data:/app/data
+    - app_uploads:/app/uploads
+    - app_logs:/app/logs
+  environment: &app-env
+    # Docker wiring. These win over whatever .env says, so a wrong value in .env cannot break the stack.
+    APP_ENV: production
+    HOST: 0.0.0.0
+    PORT: "8000"
+    RELOAD: "false"
+    WORKERS: "1"
+    REQUIRE_HTTPS: "true"
+    FORWARDED_ALLOW_IPS: "*"           # port 8000 is never published; only Caddy can reach it
+    QDRANT_MODE: server
+    QDRANT_PATH: ""
+    QDRANT_URL: http://qdrant:6333
+    QDRANT_API_KEY: "${QDRANT_API_KEY:?QDRANT_API_KEY is missing in .env - run bash deploy/init-env.sh}"
+    WS_INTERNAL_URL: http://api:8000
+    INGEST_RUN_IN_API: "false"
+    CALLBACK_ALLOW_PRIVATE_NETWORKS: "false"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.0
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY:?QDRANT_API_KEY is missing in .env - run bash deploy/init-env.sh}"
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "bash", "-c", ":> /dev/tcp/127.0.0.1/6333"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  api:
+    <<: *app
+    command: ["python", "-m", "app"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker-ingestion:
+    <<: *app
+    command: ["python", "-m", "app.workers.ingestion"]
+
+  worker-delivery:
+    <<: *app
+    command: ["python", "-m", "app.workers.delivery"]
+
+  worker-summarizer:
+    <<: *app
+    command: ["python", "-m", "app.workers.summarizer"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: "${DOMAIN:?DOMAIN is missing in .env - run bash deploy/init-env.sh}"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  qdrant_storage:
+  app_data:
+  app_uploads:
+  app_logs:
+  caddy_data:
+  caddy_config:

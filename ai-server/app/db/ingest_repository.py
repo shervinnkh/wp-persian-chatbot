@@ -378,7 +378,7 @@ class IngestRepository:
         """Pick the results to send next for one site.
 
         A batch that failed before keeps its batch id, so a retry sends exactly the same results
-        under the same X-PAIA-Delivery value (the plugin then answers `duplicate`, not twice).
+        under the same X-PWC-Delivery value (the plugin then answers `duplicate`, not twice).
         """
         now = now or utcnow()
         async with self.db.session() as s:

@@ -1,12 +1,12 @@
 <?php
-namespace PersianAIAssistant\Database;
+namespace PersianWPChatbot\Database;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * فایل‌های آپلودشدهٔ تب «اسناد اضافه» در جدول paia_files؛ هر فایل یک رکورد.
+ * فایل‌های آپلودشدهٔ تب «اسناد اضافه» در جدول pwc_files؛ هر فایل یک رکورد.
  *
- * خود فایل در uploads/paia-docs/سال/ماه با نام تصادفی ذخیره می‌شود و فقط مسیر نسبی‌اش در ستون path می‌ماند.
+ * خود فایل در uploads/pwc-docs/سال/ماه با نام تصادفی ذخیره می‌شود و فقط مسیر نسبی‌اش در ستون path می‌ماند.
  * ai_status: ۰ = هنوز به سرور داده نشده، ۱ = ارسال شد و سرور ۲۰۰ داد (در حال پردازش؛ AiBackend::send)، ۲ = سرور پردازش را تمام کرد (وب‌هوک apis/Results).
  */
 final class FileStore {
@@ -14,7 +14,7 @@ final class FileStore {
 	/** سقف حجم هر فایل: ۱۰۰ مگابایت (محدودیت PHP/هاست هم جدا اعمال می‌شود؛ max_bytes()). */
 	public const MAX_BYTES = 104857600;
 
-	public const DIR = 'paia-docs';
+	public const DIR = 'pwc-docs';
 
 	/** پسوندهای مجاز. */
 	public const EXTENSIONS = array( 'pdf', 'doc', 'docx', 'txt' );
@@ -151,7 +151,7 @@ final class FileStore {
 	}
 
 	/**
-	 * مسیر کامل روی دیسک؛ فقط اگر داخل uploads/paia-docs باشد (جلوگیری از خروج از پوشه).
+	 * مسیر کامل روی دیسک؛ فقط اگر داخل uploads/pwc-docs باشد (جلوگیری از خروج از پوشه).
 	 */
 	public static function absolute_path( string $relative ): string {
 		$relative = ltrim( str_replace( '\\', '/', $relative ), '/' );

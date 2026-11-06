@@ -3,7 +3,7 @@
  * پاسخ‌های غیرهمزمان هوش مصنوعی.
  *
  * ReplyEngine پیام را با callback به سرور می‌دهد و سرور فوراً «queued» برمی‌گرداند؛ وقتی پاسخ آماده شد سرور آن را
- * با وب‌هوک امضادارِ معمول (POST /paia/v1/ai/results) در قالب آیتمی با kind = "chat_answer" می‌فرستد و اینجا به‌صورت پیام
+ * با وب‌هوک امضادارِ معمول (POST /pwc/v1/ai/results) در قالب آیتمی با kind = "chat_answer" می‌فرستد و اینجا به‌صورت پیام
  * «assistant» در دیتابیس ذخیره می‌شود؛ ویجت با polling عادی آن را می‌بیند.
  *
  * وب‌هوک اولِ هر درخواست (kind = "chat_messages_saved"، قبل از تولید پاسخ) فقط می‌گوید پیام‌ها در سرور ثبت شده‌اند: apply_saved.
@@ -11,12 +11,12 @@
  * تا رسیدن پاسخ، یک transient کوتاه «در انتظار پاسخ» نگه داشته می‌شود تا ویجت نقطه‌های تایپ را نشان دهد؛
  * اگر وب‌هوک هرگز نرسد خودش بعد از چند دقیقه منقضی می‌شود (ویجت دیگر منتظر نمی‌ماند).
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -26,7 +26,7 @@ final class ChatAnswers {
 	private const WAIT = 180;
 
 	private static function wait_key( string $uid ): string {
-		return 'paia_wait_' . md5( $uid );
+		return 'pwc_wait_' . md5( $uid );
 	}
 
 	public static function mark_waiting( string $uid ): void {
@@ -72,10 +72,10 @@ final class ChatAnswers {
 				}
 				LogStore::add(
 					LogStore::ERROR,
-					__( 'سرور هوش مصنوعی نتوانست به پیام کاربر پاسخ بدهد.', 'persian-ai-assistant' ),
+					__( 'سرور هوش مصنوعی نتوانست به پیام کاربر پاسخ بدهد.', 'persian-wp-chatbot' ),
 					array_filter(
 						array(
-							'endpoint' => '/paia/v1/ai/results',
+							'endpoint' => '/pwc/v1/ai/results',
 							'job_id'   => $job,
 							'error'    => isset( $item['error'] ) && is_scalar( $item['error'] ) ? sanitize_text_field( (string) $item['error'] ) : '',
 						),
@@ -86,7 +86,7 @@ final class ChatAnswers {
 			}
 
 			// تکرار همان پاسخ (وب‌هوک دوباره ارسال شده) دوباره ذخیره نمی‌شود.
-			$dedupe = 'paia_ans_' . md5( $job );
+			$dedupe = 'pwc_ans_' . md5( $job );
 			if ( '' !== $job && false !== get_transient( $dedupe ) ) {
 				++$out['ignored'];
 				continue;

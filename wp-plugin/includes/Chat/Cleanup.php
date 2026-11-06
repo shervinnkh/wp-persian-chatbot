@@ -1,28 +1,28 @@
 <?php
 /**
- * پاک‌سازی روزانهٔ داده‌های چت (P-2 Retention): جدول‌ها و پوشهٔ uploads/paia-chat بی‌پایان رشد نکنند.
+ * پاک‌سازی روزانهٔ داده‌های چت (P-2 Retention): جدول‌ها و پوشهٔ uploads/pwc-chat بی‌پایان رشد نکنند.
  *
- * هوک کرون: paia_daily_cleanup (روزانه؛ ثبت در فعال‌سازی + اطمینان در init، لغو در غیرفعال‌سازی).
+ * هوک کرون: pwc_daily_cleanup (روزانه؛ ثبت در فعال‌سازی + اطمینان در init، لغو در غیرفعال‌سازی).
  * هر اجرا:
- *  ۱. پیام‌های قدیمی‌تر از `paia_retention_days` روز (پیش‌فرض ۹۰؛ ۰ = خاموش) + فایل پیوست آن‌ها (فقط داخل uploads/paia-chat).
+ *  ۱. پیام‌های قدیمی‌تر از `pwc_retention_days` روز (پیش‌فرض ۹۰؛ ۰ = خاموش) + فایل پیوست آن‌ها (فقط داخل uploads/pwc-chat).
  *  ۲. بازدیدکننده‌هایی که هیچ پیامی ندارند و last_seen‌شان قدیمی‌تر از ۷ روز است (+ ردیف وضعیت تایپینگشان).
- * هر مرحله حداکثر `paia_cleanup_batch` ردیف (پیش‌فرض ۵۰۰) در هر اجرا؛ اگر هنوز کار مانده باشد یک اجرای
+ * هر مرحله حداکثر `pwc_cleanup_batch` ردیف (پیش‌فرض ۵۰۰) در هر اجرا؛ اگر هنوز کار مانده باشد یک اجرای
  * تک‌باره ۱ دقیقه بعد با WP-Cron زمان‌بندی می‌شود تا هاست قفل نشود و انبار قدیمی هم کم‌کم خالی شود.
  *
- * تنظیمات (option، بدون رابط): paia_retention_days، paia_cleanup_batch.
+ * تنظیمات (option، بدون رابط): pwc_retention_days، pwc_cleanup_batch.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
 defined( 'ABSPATH' ) || exit;
 
 final class Cleanup {
 
-	public const HOOK               = 'paia_daily_cleanup';
-	public const OPT_RETENTION      = 'paia_retention_days';
-	public const OPT_BATCH          = 'paia_cleanup_batch';
+	public const HOOK               = 'pwc_daily_cleanup';
+	public const OPT_RETENTION      = 'pwc_retention_days';
+	public const OPT_BATCH          = 'pwc_cleanup_batch';
 	public const DEFAULT_DAYS       = 90;
 	public const DEFAULT_BATCH      = 500;
 	public const EMPTY_VISITOR_DAYS = 7;
@@ -124,13 +124,13 @@ final class Cleanup {
 		return $report;
 	}
 
-	/** فایل پیوست را فقط اگر داخل uploads/paia-chat باشد پاک می‌کند. */
+	/** فایل پیوست را فقط اگر داخل uploads/pwc-chat باشد پاک می‌کند. */
 	private static function delete_attachment( string $path ): bool {
 		if ( '' === $path ) {
 			return false;
 		}
 		$uploads = wp_upload_dir();
-		$base    = wp_normalize_path( trailingslashit( $uploads['basedir'] ) . 'paia-chat/' );
+		$base    = wp_normalize_path( trailingslashit( $uploads['basedir'] ) . 'pwc-chat/' );
 		$norm    = wp_normalize_path( $path );
 		if ( 0 === strpos( $norm, $base ) && false === strpos( $norm, '..' ) && is_file( $norm ) ) {
 			wp_delete_file( $norm );

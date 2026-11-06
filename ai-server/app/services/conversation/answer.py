@@ -16,7 +16,7 @@ from app.services.conversation.prompt import PromptContext
 from app.services.conversation.reply_format import GeneratedAnswer
 
 FIXED_ANSWER = (
-    "سلام! پیام شما دریافت شد. این یک پاسخ آزمایشی است و به‌زودی دستیار هوشمند پاسخ می‌دهد."
+    "سلام! پیام شما دریافت شد. این یک پاسخ آزمایشی است و به‌زودی چت بات هوشمند پاسخ می‌دهد."
 )
 
 

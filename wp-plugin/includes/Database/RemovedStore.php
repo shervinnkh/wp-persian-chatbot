@@ -1,12 +1,12 @@
 <?php
-namespace PersianAIAssistant\Database;
+namespace PersianWPChatbot\Database;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * نوشته‌هایی (محصول، وبلاگ، برگه) که از سایت حذف شده‌اند و رکوردشان در paia_items بود؛ جدول {prefix}paia_removed.
+ * نوشته‌هایی (محصول، وبلاگ، برگه) که از سایت حذف شده‌اند و رکوردشان در pwc_items بود؛ جدول {prefix}pwc_removed.
  *
- * جریان: هنگام حذف (انتقال به زباله‌دان یا حذف دائمی) رکورد از paia_items برداشته و اینجا ثبت می‌شود (add_from_record)
+ * جریان: هنگام حذف (انتقال به زباله‌دان یا حذف دائمی) رکورد از pwc_items برداشته و اینجا ثبت می‌شود (add_from_record)
  * تا در تب «استخراج اطلاعات سایت» بیاید و مدیر تصمیم بگیرد از آموزش‌های هوش مصنوعی هم حذف شود یا نه.
  * با زدن «حذف» (RemovedStore::delete) ردیف از لیست خارج و درخواست حذف به بک‌اند هوش مصنوعی می‌رود (AiBackend::delete).
  */
@@ -19,7 +19,7 @@ final class RemovedStore {
 	public const ONLY_TRAINED = true;
 
 	/**
-	 * رکورد را از paia_items برمی‌دارد و (در صورت نیاز) در لیست حذف‌شده‌ها ثبت می‌کند.
+	 * رکورد را از pwc_items برمی‌دارد و (در صورت نیاز) در لیست حذف‌شده‌ها ثبت می‌کند.
 	 *
 	 * @return bool true اگر در لیست حذف‌شده‌ها ثبت شد.
 	 */
@@ -31,7 +31,7 @@ final class RemovedStore {
 			return false; // رکوردی نبود؛ هوش مصنوعی هم چیزی دربارهٔ آن نمی‌داند.
 		}
 
-		// «هوش مصنوعی چیزی دربارهٔ آن دارد/خواهد داشت»: در حال پردازش (۱) یا پردازش‌شده (۲). ستون ai_status جدول paia_removed فقط ۰/۱ است.
+		// «هوش مصنوعی چیزی دربارهٔ آن دارد/خواهد داشت»: در حال پردازش (۱) یا پردازش‌شده (۲). ستون ai_status جدول pwc_removed فقط ۰/۱ است.
 		$trained = (int) $row['ai_status'] >= 1;
 		ItemStore::delete( $record_id );
 

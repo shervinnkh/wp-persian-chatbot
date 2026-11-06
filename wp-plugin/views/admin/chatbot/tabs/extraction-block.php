@@ -12,70 +12,70 @@
  * @var array<string, array{label:string, description:string, icon:string, default:bool}> $sources
  */
 
-use PersianAIAssistant\Support\Icons;
-use PersianAIAssistant\Support\View;
+use PersianWPChatbot\Support\Icons;
+use PersianWPChatbot\Support\View;
 
 defined( 'ABSPATH' ) || exit;
 
 $description = isset( $description ) ? (string) $description : '';
 ?>
-<div class="paia-extractor" data-role="extractor" data-mode="<?php echo esc_attr( $mode ); ?>" <?php echo ! empty( $hidden ) ? 'hidden' : ''; ?>>
+<div class="pwc-extractor" data-role="extractor" data-mode="<?php echo esc_attr( $mode ); ?>" <?php echo ! empty( $hidden ) ? 'hidden' : ''; ?>>
 
-	<form class="paia-card" data-role="form" novalidate>
+	<form class="pwc-card" data-role="form" novalidate>
 
-		<div class="paia-card__head">
-			<h2 class="paia-card__title">
+		<div class="pwc-card__head">
+			<h2 class="pwc-card__title">
 				<?php echo esc_html( $title ); ?>
 				<?php if ( 'new' === $mode ) : ?>
-					<span class="paia-chip paia-chip--new"><?php esc_html_e( 'جدید', 'persian-ai-assistant' ); ?></span>
+					<span class="pwc-chip pwc-chip--new"><?php esc_html_e( 'جدید', 'persian-wp-chatbot' ); ?></span>
 				<?php endif; ?>
 			</h2>
-			<div class="paia-card__tools">
-				<button type="button" class="paia-link" data-action="select-all"><?php esc_html_e( 'انتخاب همه', 'persian-ai-assistant' ); ?></button>
-				<button type="button" class="paia-link" data-action="select-none"><?php esc_html_e( 'لغو انتخاب همه', 'persian-ai-assistant' ); ?></button>
+			<div class="pwc-card__tools">
+				<button type="button" class="pwc-link" data-action="select-all"><?php esc_html_e( 'انتخاب همه', 'persian-wp-chatbot' ); ?></button>
+				<button type="button" class="pwc-link" data-action="select-none"><?php esc_html_e( 'لغو انتخاب همه', 'persian-wp-chatbot' ); ?></button>
 			</div>
 		</div>
 
 		<?php if ( '' !== $description ) : ?>
-			<p class="paia-note paia-note--lead"><?php echo esc_html( $description ); ?></p>
+			<p class="pwc-note pwc-note--lead"><?php echo esc_html( $description ); ?></p>
 		<?php endif; ?>
 
-		<div class="paia-options">
+		<div class="pwc-options">
 			<?php foreach ( $sources as $source_id => $source ) : ?>
-				<label class="paia-option">
+				<label class="pwc-option">
 					<input
 						type="checkbox"
 						name="sources[]"
 						value="<?php echo esc_attr( $source_id ); ?>"
 						<?php checked( ! empty( $source['default'] ) ); ?>
 					>
-					<span class="paia-option__card">
-						<span class="paia-option__icon"><?php echo Icons::get( $source['icon'], 22 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
-						<span class="paia-option__text">
+					<span class="pwc-option__card">
+						<span class="pwc-option__icon"><?php echo Icons::get( $source['icon'], 22 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+						<span class="pwc-option__text">
 							<strong><?php echo esc_html( $source['label'] ); ?></strong>
 							<small><?php echo esc_html( $source['description'] ); ?></small>
 						</span>
-						<span class="paia-option__check"><?php echo Icons::get( 'check', 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+						<span class="pwc-option__check"><?php echo Icons::get( 'check', 14 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
 					</span>
 				</label>
 			<?php endforeach; ?>
 		</div>
 
-		<div class="paia-actions">
-			<button type="submit" class="paia-btn" data-role="extract-btn">
+		<div class="pwc-actions">
+			<button type="submit" class="pwc-btn" data-role="extract-btn">
 				<?php echo Icons::get( 'database', 18 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				<span class="paia-btn__label"><?php echo 'new' === $mode ? esc_html__( 'استخراج اطلاعات جدید', 'persian-ai-assistant' ) : esc_html__( 'استخراج اطلاعات', 'persian-ai-assistant' ); ?></span>
-				<span class="paia-spinner" aria-hidden="true"></span>
+				<span class="pwc-btn__label"><?php echo 'new' === $mode ? esc_html__( 'استخراج اطلاعات جدید', 'persian-wp-chatbot' ) : esc_html__( 'استخراج اطلاعات', 'persian-wp-chatbot' ); ?></span>
+				<span class="pwc-spinner" aria-hidden="true"></span>
 			</button>
-			<span class="paia-count" data-role="selected-count" aria-live="polite"></span>
+			<span class="pwc-count" data-role="selected-count" aria-live="polite"></span>
 		</div>
 
-		<div class="paia-progress" data-role="progress" hidden>
-			<div class="paia-progress__bar"><span data-role="progress-fill"></span></div>
-			<p class="paia-progress__text" data-role="progress-text" aria-live="polite"></p>
+		<div class="pwc-progress" data-role="progress" hidden>
+			<div class="pwc-progress__bar"><span data-role="progress-fill"></span></div>
+			<p class="pwc-progress__text" data-role="progress-text" aria-live="polite"></p>
 		</div>
 
-		<div class="paia-notice" data-role="notice" role="status" hidden></div>
+		<div class="pwc-notice" data-role="notice" role="status" hidden></div>
 
 	</form>
 

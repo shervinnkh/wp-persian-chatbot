@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Admin\Chatbot\Tabs;
+namespace PersianWPChatbot\Admin\Chatbot\Tabs;
 
-use PersianAIAssistant\Support\View;
+use PersianWPChatbot\Support\View;
 
 defined( 'ABSPATH' ) || exit;
 

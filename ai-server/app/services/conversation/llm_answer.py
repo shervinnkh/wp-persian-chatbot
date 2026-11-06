@@ -138,7 +138,7 @@ class LLMAnswerGenerator:
         if scope == "off":
             return None
         host = urlparse(self.settings.PLUGIN_BASE_URL or "").netloc or "default"
-        return f"paia:{host}" if scope == "site" else f"paia:{host}:c{conversation_id}"
+        return f"pwc:{host}" if scope == "site" else f"pwc:{host}:c{conversation_id}"
 
     async def _complete(self, kwargs: dict, meta: dict):
         """One chat-completion call; every call (ok or not) is one `llm.chat` monitoring event."""

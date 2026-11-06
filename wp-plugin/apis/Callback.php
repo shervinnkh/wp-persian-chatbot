@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Apis;
+namespace PersianWPChatbot\Apis;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -16,11 +16,11 @@ final class Callback {
 	public const API_VERSION = 1;
 
 	public static function url(): string {
-		return (string) apply_filters( 'paia_callback_url', rest_url( 'paia/v1/ai/results' ) );
+		return (string) apply_filters( 'pwc_callback_url', rest_url( 'pwc/v1/ai/results' ) );
 	}
 
 	public static function ping_url(): string {
-		return rest_url( 'paia/v1/ai/ping' );
+		return rest_url( 'pwc/v1/ai/ping' );
 	}
 
 	/**

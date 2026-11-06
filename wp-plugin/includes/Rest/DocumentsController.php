@@ -1,18 +1,18 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Database\FileStore;
-use PersianAIAssistant\Database\TextStore;
-use PersianAIAssistant\Documents\FileUploader;
-use PersianAIAssistant\Documents\Overview;
-use PersianAIAssistant\Apis\Records;
-use PersianAIAssistant\Sync\AiBackend;
+use PersianWPChatbot\Database\FileStore;
+use PersianWPChatbot\Database\TextStore;
+use PersianWPChatbot\Documents\FileUploader;
+use PersianWPChatbot\Documents\Overview;
+use PersianWPChatbot\Apis\Records;
+use PersianWPChatbot\Sync\AiBackend;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * GET  /wp-json/paia/v1/documents/overview   آمار کارت «مطالب اضافه شده»
- * POST /wp-json/paia/v1/documents/texts      ذخیرهٔ یک باکس متن: {id?, chunks:[...], train}
+ * GET  /wp-json/pwc/v1/documents/overview   آمار کارت «مطالب اضافه شده»
+ * POST /wp-json/pwc/v1/documents/texts      ذخیرهٔ یک باکس متن: {id?, chunks:[...], train}
  *
  * train = false → فقط «ذخیرهٔ پیش‌نویس» (draft = 1).
  * train = true  → اول در دیتابیس ذخیره می‌شود (draft = 0)، بعد برای آموزش به AiBackend داده می‌شود (فعلاً فقط جای فراخوانی است).
@@ -187,7 +187,7 @@ final class DocumentsController extends AbstractController {
 		$id   = (string) $request->get_param( 'id' );
 		$item = 1 === preg_match( '/^text:\d+$/', $id ) ? TextStore::get( $id ) : null;
 		if ( null === $item ) {
-			return new \WP_Error( 'paia_not_found', __( 'این متن پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_not_found', __( 'این متن پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		return rest_ensure_response( $item );
@@ -200,7 +200,7 @@ final class DocumentsController extends AbstractController {
 		$id   = (string) $request->get_param( 'id' );
 		$item = 1 === preg_match( '/^text:\d+$/', $id ) ? TextStore::get( $id ) : null;
 		if ( null === $item || ! $item['chunks'] ) {
-			return new \WP_Error( 'paia_not_found', __( 'این متن پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_not_found', __( 'این متن پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		// پیش‌نویس به «ثبت‌شده برای آموزش» تبدیل می‌شود؛ ai_status را AiBackend::send بعد از ۲۰۰ سرور ۱ می‌کند (در حال پردازش) و وب‌هوک ۲.
@@ -241,7 +241,7 @@ final class DocumentsController extends AbstractController {
 			}
 		}
 		if ( 1 !== preg_match( '/^text:\d+$/', $id ) || ! TextStore::delete( $id ) ) {
-			return new \WP_Error( 'paia_delete_failed', __( 'حذف متن ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new \WP_Error( 'pwc_delete_failed', __( 'حذف متن ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		return rest_ensure_response(
@@ -263,7 +263,7 @@ final class DocumentsController extends AbstractController {
 		$files = $request->get_file_params();
 		$file  = isset( $files['file'] ) && is_array( $files['file'] ) ? $files['file'] : array();
 		if ( ! $file ) {
-			return new \WP_Error( 'paia_upload_none', __( 'فایلی ارسال نشد. اگر حجم فایل زیاد است، ممکن است از محدودیت آپلود سرور بیشتر باشد.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new \WP_Error( 'pwc_upload_none', __( 'فایلی ارسال نشد. اگر حجم فایل زیاد است، ممکن است از محدودیت آپلود سرور بیشتر باشد.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 
 		$record = FileUploader::handle( $file, (string) $request->get_param( 'title' ) );
@@ -286,7 +286,7 @@ final class DocumentsController extends AbstractController {
 		$id  = (string) $request->get_param( 'id' );
 		$row = 1 === preg_match( '/^file:\d+$/', $id ) ? FileStore::get( $id ) : null;
 		if ( null === $row ) {
-			return new \WP_Error( 'paia_not_found', __( 'این فایل پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_not_found', __( 'این فایل پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		$item    = FileStore::present( $row );
@@ -327,7 +327,7 @@ final class DocumentsController extends AbstractController {
 		$abs = $row ? FileStore::absolute_path( (string) $row['path'] ) : '';
 
 		if ( '' === $abs || ! is_file( $abs ) || ! is_readable( $abs ) ) {
-			return new \WP_Error( 'paia_file_missing', __( 'فایل پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+			return new \WP_Error( 'pwc_file_missing', __( 'فایل پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 		}
 
 		$ext   = strtolower( (string) $row['ext'] );
@@ -363,7 +363,7 @@ final class DocumentsController extends AbstractController {
 			}
 		}
 		if ( 1 !== preg_match( '/^file:\d+$/', $id ) || ! FileStore::delete( $id ) ) {
-			return new \WP_Error( 'paia_delete_failed', __( 'حذف فایل ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new \WP_Error( 'pwc_delete_failed', __( 'حذف فایل ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		return rest_ensure_response(
@@ -392,7 +392,7 @@ final class DocumentsController extends AbstractController {
 		$ok     = AiBackend::delete( $id );
 
 		if ( ! $ok && $status >= Records::STATUS_PROCESSING ) {
-			return new \WP_Error( 'paia_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در صفحهٔ «لاگ» است؛ دوباره تلاش کنید.', 'persian-ai-assistant' ), array( 'status' => 502 ) );
+			return new \WP_Error( 'pwc_ai_delete_failed', __( 'حذف از دانش هوش مصنوعی ناموفق بود. جزئیات در صفحهٔ «لاگ» است؛ دوباره تلاش کنید.', 'persian-wp-chatbot' ), array( 'status' => 502 ) );
 		}
 
 		return null;
@@ -408,10 +408,10 @@ final class DocumentsController extends AbstractController {
 	public function save_text( \WP_REST_Request $request ) {
 		$chunks = TextStore::normalize( (array) $request->get_param( 'chunks' ) );
 		if ( ! $chunks ) {
-			return new \WP_Error( 'paia_empty_text', __( 'متنی برای ذخیره وارد نشده است.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new \WP_Error( 'pwc_empty_text', __( 'متنی برای ذخیره وارد نشده است.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 		if ( TextStore::total_chars( $chunks ) > TextStore::MAX_CHARS ) {
-			return new \WP_Error( 'paia_text_too_long', __( 'حجم متن بیش از حد مجاز است. آن را در چند بار ذخیره کنید.', 'persian-ai-assistant' ), array( 'status' => 413 ) );
+			return new \WP_Error( 'pwc_text_too_long', __( 'حجم متن بیش از حد مجاز است. آن را در چند بار ذخیره کنید.', 'persian-wp-chatbot' ), array( 'status' => 413 ) );
 		}
 
 		$train = (bool) $request->get_param( 'train' );
@@ -419,7 +419,7 @@ final class DocumentsController extends AbstractController {
 		// اول ذخیره در دیتابیس، بعد (در صورت درخواست آموزش) ارسال برای هوش مصنوعی.
 		$saved = TextStore::save( (string) $request->get_param( 'id' ), $chunks, ! $train );
 		if ( ! $saved['ok'] ) {
-			return new \WP_Error( 'paia_save_failed', __( 'ذخیرهٔ متن در پایگاه داده ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new \WP_Error( 'pwc_save_failed', __( 'ذخیرهٔ متن در پایگاه داده ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		if ( $train ) {

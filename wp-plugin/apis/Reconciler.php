@@ -1,10 +1,10 @@
 <?php
-namespace PersianAIAssistant\Apis;
+namespace PersianWPChatbot\Apis;
 
-use PersianAIAssistant\Contracts\Module;
-use PersianAIAssistant\Database\LogStore;
-use PersianAIAssistant\Database\RemovedStore;
-use PersianAIAssistant\Sync\AiBackend;
+use PersianWPChatbot\Contracts\Module;
+use PersianWPChatbot\Database\LogStore;
+use PersianWPChatbot\Database\RemovedStore;
+use PersianWPChatbot\Sync\AiBackend;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  * به Apis\Results::apply می‌دهد (ایدمپوتنت؛ همان قانون rev/stale).
  *
  * دو مسیر:
- *  ۱. کرون وردپرس هر ۱۰ دقیقه (paia_ai_reconcile) — فقط وقتی رکوردی ai_status = ۱ دارد به سرور می‌رود؛ وگرنه فقط یک COUNT/SELECT سبک.
+ *  ۱. کرون وردپرس هر ۱۰ دقیقه (pwc_ai_reconcile) — فقط وقتی رکوردی ai_status = ۱ دارد به سرور می‌رود؛ وگرنه فقط یک COUNT/SELECT سبک.
  *  ۲. پایش پنل مدیر (Rest\AiStatusController) — وقتی مدیر پنل را باز دارد و رکوردی «در حال پردازش» است، حداکثر دقیقه‌ای یک‌بار
  *     (و نه زودتر از ۴۵ ثانیه بعد از آخرین ارسال) همین بازبینی با timeout کوتاه اجرا می‌شود؛ پس حتی بدون وب‌هوک آیکن loading حل می‌شود.
  *
@@ -25,14 +25,14 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Reconciler implements Module {
 
-	public const CRON_HOOK = 'paia_ai_reconcile';
-	public const INTERVAL  = 'paia_ten_minutes';
+	public const CRON_HOOK = 'pwc_ai_reconcile';
+	public const INTERVAL  = 'pwc_ten_minutes';
 
 	/** transient قفل: بین دو بازبینیِ فرارسیده از پنل فاصله می‌اندازد. */
-	private const LOCK = 'paia_reconcile_lock';
+	private const LOCK = 'pwc_reconcile_lock';
 
 	/** transient: لاگ خطای بازبینی حداکثر ۱۰ دقیقه‌ای یک‌بار. */
-	private const ERROR_THROTTLE = 'paia_reconcile_err';
+	private const ERROR_THROTTLE = 'pwc_reconcile_err';
 
 	private const PANEL_PAUSE = 60;
 	private const SEND_GRACE  = 45;
@@ -51,7 +51,7 @@ final class Reconciler implements Module {
 		$schedules                    = is_array( $schedules ) ? $schedules : array();
 		$schedules[ self::INTERVAL ] = array(
 			'interval' => 10 * MINUTE_IN_SECONDS,
-			'display'  => __( 'هر ۱۰ دقیقه (بازبینی هوش مصنوعی)', 'persian-ai-assistant' ),
+			'display'  => __( 'هر ۱۰ دقیقه (بازبینی هوش مصنوعی)', 'persian-wp-chatbot' ),
 		);
 
 		return $schedules;
@@ -127,7 +127,7 @@ final class Reconciler implements Module {
 				set_transient( self::ERROR_THROTTLE, 1, 10 * MINUTE_IN_SECONDS );
 				LogStore::add(
 					LogStore::ERROR,
-					__( 'بازبینی وضعیت رکوردها از سرور هوش مصنوعی ناموفق بود.', 'persian-ai-assistant' ),
+					__( 'بازبینی وضعیت رکوردها از سرور هوش مصنوعی ناموفق بود.', 'persian-wp-chatbot' ),
 					array_filter(
 						array(
 							'method'      => 'POST',
@@ -198,7 +198,7 @@ final class Reconciler implements Module {
 				$applied['failed'] ? LogStore::ERROR : LogStore::SUCCESS,
 				sprintf(
 					/* translators: 1: applied, 2: failed, 3: resent */
-					__( 'بازبینی از سرور هوش مصنوعی: %1$s مورد اعمال شد، %2$s مورد ناموفق بود، %3$s مورد دوباره ارسال شد.', 'persian-ai-assistant' ),
+					__( 'بازبینی از سرور هوش مصنوعی: %1$s مورد اعمال شد، %2$s مورد ناموفق بود، %3$s مورد دوباره ارسال شد.', 'persian-wp-chatbot' ),
 					number_format_i18n( $summary['applied'] ),
 					number_format_i18n( count( $applied['failed'] ) ),
 					number_format_i18n( $summary['resent'] )

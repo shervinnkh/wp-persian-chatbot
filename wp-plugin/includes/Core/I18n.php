@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Core;
+namespace PersianWPChatbot\Core;
 
-use PersianAIAssistant\Contracts\Module;
+use PersianWPChatbot\Contracts\Module;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -11,13 +11,13 @@ defined( 'ABSPATH' ) || exit;
  */
 final class I18n implements Module {
 
-	public const DOMAIN = 'persian-ai-assistant';
+	public const DOMAIN = 'persian-wp-chatbot';
 
 	public function register(): void {
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 	}
 
 	public function load_textdomain(): void {
-		load_plugin_textdomain( self::DOMAIN, false, dirname( PAIA_BASENAME ) . '/languages' );
+		load_plugin_textdomain( self::DOMAIN, false, dirname( PWC_BASENAME ) . '/languages' );
 	}
 }

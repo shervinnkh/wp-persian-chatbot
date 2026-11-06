@@ -1,8 +1,8 @@
 <?php
-namespace PersianAIAssistant\Admin\Chatbot\Tabs;
+namespace PersianWPChatbot\Admin\Chatbot\Tabs;
 
-use PersianAIAssistant\Extraction\Overview;
-use PersianAIAssistant\Extraction\Sources;
+use PersianWPChatbot\Extraction\Overview;
+use PersianWPChatbot\Extraction\Sources;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -13,7 +13,7 @@ final class ExtractionTab extends AbstractTab {
 	}
 
 	public function title(): string {
-		return __( 'استخراج اطلاعات سایت', 'persian-ai-assistant' );
+		return __( 'استخراج اطلاعات سایت', 'persian-wp-chatbot' );
 	}
 
 	protected function data(): array {

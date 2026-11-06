@@ -3,25 +3,25 @@
  * ماژول ویجت چت سمت سایت (در Plugin::module_classes() ثبت شده).
  * تنظیمات در تب «تنظیمات» صفحهٔ چت‌بات نمایش داده می‌شود (views/admin/chatbot/tabs/settings.php).
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Contracts\Module;
-use PersianAIAssistant\Support\Status;
-use PersianAIAssistant\Sync\SyncSettings;
+use PersianWPChatbot\Contracts\Module;
+use PersianWPChatbot\Support\Status;
+use PersianWPChatbot\Sync\SyncSettings;
 
 defined( 'ABSPATH' ) || exit;
 
 final class ChatModule implements Module {
 
 	public function register(): void {
-		// S-5: با ثابت PAIA_API_SECRET کلیدِ قدیمیِ option پاک می‌شود (پیش از ثبت sanitize_callback در admin_init).
+		// S-5: با ثابت PWC_API_SECRET کلیدِ قدیمیِ option پاک می‌شود (پیش از ثبت sanitize_callback در admin_init).
 		ChatSettings::scrub_stored_key();
 
 		add_action( 'admin_init', array( $this, 'register_setting' ) );
-		add_filter( 'option_page_capability_paia_chat', array( $this, 'capability' ) );
+		add_filter( 'option_page_capability_pwc_chat', array( $this, 'capability' ) );
 
 		// هندلر پاک‌سازی روزانه (P-2) همیشه بسته می‌شود تا رویداد زمان‌بندی‌شده‌ای که مانده بی‌صدا از بین نرود؛
 		// خودِ زمان‌بندی فقط وقتی چت‌بات روشن است (پایین) یا در فعال‌سازی انجام می‌شود.
@@ -44,12 +44,12 @@ final class ChatModule implements Module {
 	}
 
 	public function capability(): string {
-		return (string) apply_filters( 'paia_required_capability', 'manage_options' );
+		return (string) apply_filters( 'pwc_required_capability', 'manage_options' );
 	}
 
 	public function register_setting(): void {
 		register_setting(
-			'paia_chat',
+			'pwc_chat',
 			ChatSettings::OPTION,
 			array(
 				'type'              => 'array',

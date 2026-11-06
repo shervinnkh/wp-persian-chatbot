@@ -47,9 +47,9 @@ SLOW_MS = 4000  # slower than this -> smaller batches
 FAST_MS = 1500  # faster than this (and the batch was full) -> bigger batches
 MIN_BATCH = 10
 
-H_TIMESTAMP = "X-PAIA-Timestamp"
-H_SIGNATURE = "X-PAIA-Signature"
-H_DELIVERY = "X-PAIA-Delivery"
+H_TIMESTAMP = "X-PWC-Timestamp"
+H_SIGNATURE = "X-PWC-Signature"
+H_DELIVERY = "X-PWC-Delivery"
 
 
 def sign(secret: str, timestamp: str, body: bytes) -> str:
@@ -196,12 +196,12 @@ def classify(result: HttpResult) -> Verdict:
     code = _error_code(result.body)
     detail = f"HTTP {status}" + (f" {code}" if code else "")
     if status == 401:
-        if code == "paia_stale_timestamp":
+        if code == "pwc_stale_timestamp":
             return Verdict("stale_ts", server_time=_server_time(result.body), detail=detail)
         return Verdict("auth", detail=detail)
     if status == 400:
         return Verdict("bad_request", detail=detail)
-    if status == 404 or (status == 503 and code == "paia_not_configured"):
+    if status == 404 or (status == 503 and code == "pwc_not_configured"):
         return Verdict("suspended", detail=detail)
     if status == 413:
         return Verdict("too_large", detail=detail)

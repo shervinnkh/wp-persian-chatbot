@@ -1,23 +1,23 @@
 <?php
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Support\ClientIp;
+use PersianWPChatbot\Support\ClientIp;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * سقف نرخ (S-1) + قفل کوتاه‌مدت.
  *
- * شمارنده‌ها اتمیک و روی جدول {prefix}paia_rl هستند (transient اتمیک نیست). w همیشه «شمارهٔ دقیقه» است
+ * شمارنده‌ها اتمیک و روی جدول {prefix}pwc_rl هستند (transient اتمیک نیست). w همیشه «شمارهٔ دقیقه» است
  * (برای پنجرهٔ یک‌ساعته: دقیقهٔ ابتدای ساعت)، پس پاک‌سازی یکسان است.
  */
 final class RateLimit {
 
-	private const GROUP = 'paia_rl';
+	private const GROUP = 'pwc_rl';
 
 	public static function table(): string {
 		global $wpdb;
-		return $wpdb->prefix . 'paia_rl';
+		return $wpdb->prefix . 'pwc_rl';
 	}
 
 	/**

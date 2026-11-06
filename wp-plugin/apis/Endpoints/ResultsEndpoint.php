@@ -1,14 +1,14 @@
 <?php
-namespace PersianAIAssistant\Apis\Endpoints;
+namespace PersianWPChatbot\Apis\Endpoints;
 
-use PersianAIAssistant\Apis\Auth\Signature;
-use PersianAIAssistant\Apis\Results;
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Apis\Auth\Signature;
+use PersianWPChatbot\Apis\Results;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * POST /wp-json/paia/v1/ai/results
+ * POST /wp-json/pwc/v1/ai/results
  *
  * سرور بعد از پایان پردازش (که ممکن است ۵ دقیقه و بیشتر طول بکشد) نتیجهٔ یک «دسته» رکورد را اینجا اعلام می‌کند و
  * افزونه ai_status آن‌ها را عوض می‌کند (trained → 1 ، untrained → 0). بدنه:
@@ -43,22 +43,22 @@ final class ResultsEndpoint extends AbstractEndpoint {
 		$body    = (string) $request->get_body();
 
 		if ( strlen( $body ) > self::MAX_BODY ) {
-			return new \WP_Error( 'paia_too_large', __( 'حجم درخواست بیش از حد مجاز است.', 'persian-ai-assistant' ), array( 'status' => 413 ) );
+			return new \WP_Error( 'pwc_too_large', __( 'حجم درخواست بیش از حد مجاز است.', 'persian-wp-chatbot' ), array( 'status' => 413 ) );
 		}
 
 		$json = json_decode( $body, true );
 		if ( ! is_array( $json ) ) {
-			return new \WP_Error( 'paia_bad_json', __( 'بدنهٔ درخواست JSON معتبر نیست.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new \WP_Error( 'pwc_bad_json', __( 'بدنهٔ درخواست JSON معتبر نیست.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 
 		$results = $json['results'] ?? null;
 		if ( ! is_array( $results ) || ! $results ) {
-			return new \WP_Error( 'paia_no_results', __( 'فهرست results خالی است.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new \WP_Error( 'pwc_no_results', __( 'فهرست results خالی است.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 		if ( count( $results ) > Results::MAX_RESULTS ) {
 			return new \WP_Error(
-				'paia_too_many',
-				__( 'تعداد نتیجه‌ها در یک درخواست بیش از حد مجاز است.', 'persian-ai-assistant' ),
+				'pwc_too_many',
+				__( 'تعداد نتیجه‌ها در یک درخواست بیش از حد مجاز است.', 'persian-wp-chatbot' ),
 				array(
 					'status'      => 400,
 					'max_results' => Results::MAX_RESULTS,
@@ -88,25 +88,25 @@ final class ResultsEndpoint extends AbstractEndpoint {
 
 		try {
 			if ( $saved ) {
-				\PersianAIAssistant\Chat\ChatAnswers::apply_saved( $saved );
+				\PersianWPChatbot\Chat\ChatAnswers::apply_saved( $saved );
 			}
 			if ( $answers ) {
-				\PersianAIAssistant\Chat\ChatAnswers::apply( $answers );
+				\PersianWPChatbot\Chat\ChatAnswers::apply( $answers );
 			}
 			$summary = Results::apply( $records );
 		} catch ( \Throwable $e ) {
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'اعمال نتیجهٔ سرور هوش مصنوعی با خطا روبه‌رو شد.', 'persian-ai-assistant' ),
+				__( 'اعمال نتیجهٔ سرور هوش مصنوعی با خطا روبه‌رو شد.', 'persian-wp-chatbot' ),
 				array(
 					'method'      => 'POST',
-					'endpoint'    => '/paia/v1/ai/results',
+					'endpoint'    => '/pwc/v1/ai/results',
 					'http_status' => 500,
 					'error'       => $e->getMessage(),
 				)
 			);
 
-			return new \WP_Error( 'paia_internal', __( 'خطای داخلی در افزونه.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new \WP_Error( 'pwc_internal', __( 'خطای داخلی در افزونه.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		if ( ! $records ) {
@@ -127,7 +127,7 @@ final class ResultsEndpoint extends AbstractEndpoint {
 			$failed > 0 ? LogStore::ERROR : ( $applied > 0 ? LogStore::SUCCESS : LogStore::INFO ),
 			sprintf(
 				/* translators: 1: applied count, 2: ignored count, 3: failed count */
-				__( 'نتیجهٔ پردازش از سرور هوش مصنوعی دریافت شد: %1$s مورد اعمال شد، %2$s مورد نادیده گرفته شد، %3$s مورد ناموفق بود.', 'persian-ai-assistant' ),
+				__( 'نتیجهٔ پردازش از سرور هوش مصنوعی دریافت شد: %1$s مورد اعمال شد، %2$s مورد نادیده گرفته شد، %3$s مورد ناموفق بود.', 'persian-wp-chatbot' ),
 				number_format_i18n( $applied ),
 				number_format_i18n( $ignored ),
 				number_format_i18n( $failed )
@@ -135,7 +135,7 @@ final class ResultsEndpoint extends AbstractEndpoint {
 			array_filter(
 				array(
 					'method'      => 'POST',
-					'endpoint'    => '/paia/v1/ai/results',
+					'endpoint'    => '/pwc/v1/ai/results',
 					'http_status' => 200,
 					'duration_ms' => (int) round( ( microtime( true ) - $started ) * 1000 ),
 					'ip'          => isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput

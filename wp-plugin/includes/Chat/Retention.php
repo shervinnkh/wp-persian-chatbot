@@ -1,27 +1,27 @@
 <?php
 /**
- * نگهداری محدود داده‌های چت (S-8): رویداد روزانهٔ WP-Cron با نام paia_daily_cleanup.
+ * نگهداری محدود داده‌های چت (S-8): رویداد روزانهٔ WP-Cron با نام pwc_daily_cleanup.
  *
- *  • پیام‌ها و فایل‌های پیوستِ قدیمی‌تر از ۹۰ روز (قابل‌تغییر با فیلتر paia_retention_days)؛
+ *  • پیام‌ها و فایل‌های پیوستِ قدیمی‌تر از ۹۰ روز (قابل‌تغییر با فیلتر pwc_retention_days)؛
  *  • بازدیدکننده‌های بدون پیام که ۷ روز است دیده نشده‌اند (و ردیف‌های وضعیت/تایپینگِ بی‌صاحب)؛
- *  • transientهای منقضی‌شدهٔ محدودیت نرخ (paia_rl_*) و شناسهٔ ارسال‌ها (paia_dlv_*)؛
- *  • نقطهٔ توسعه برای جدول محدودیت نرخ (S-1): action با نام paia_retention_run.
+ *  • transientهای منقضی‌شدهٔ محدودیت نرخ (pwc_rl_*) و شناسهٔ ارسال‌ها (pwc_dlv_*)؛
+ *  • نقطهٔ توسعه برای جدول محدودیت نرخ (S-1): action با نام pwc_retention_run.
  *
- * حذف فایل‌ها فقط با wp_delete_file و فقط وقتی مسیر واقعاً داخل uploads/paia-chat باشد.
+ * حذف فایل‌ها فقط با wp_delete_file و فقط وقتی مسیر واقعاً داخل uploads/pwc-chat باشد.
  * زمان‌بندی: Core\Activator (فعال‌سازی) و init (برای افزونه‌های به‌روزرسانی‌شده)؛ حذف: Core\Deactivator.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 final class Retention {
 
-	public const CRON_HOOK    = 'paia_daily_cleanup';
+	public const CRON_HOOK    = 'pwc_daily_cleanup';
 	public const DEFAULT_DAYS = 90;
 	public const VISITOR_DAYS = 7;
 
@@ -46,11 +46,11 @@ final class Retention {
 
 	/** تعداد روزهای نگهداری پیام‌ها (حداقل ۱). */
 	public static function days(): int {
-		return max( 1, (int) apply_filters( 'paia_retention_days', self::DEFAULT_DAYS ) );
+		return max( 1, (int) apply_filters( 'pwc_retention_days', self::DEFAULT_DAYS ) );
 	}
 
 	/**
-	 * اجرای پاک‌سازی (cron یا دستی: do_action( 'paia_daily_cleanup' )).
+	 * اجرای پاک‌سازی (cron یا دستی: do_action( 'pwc_daily_cleanup' )).
 	 *
 	 * @return array{messages:int, files:int, visitors:int, transients:int}
 	 */
@@ -100,7 +100,7 @@ final class Retention {
 		$wpdb->query( "DELETE s FROM {$status} s LEFT JOIN {$visitors} v ON v.uid = s.visitor_uid WHERE v.uid IS NULL" );
 
 		// ۳) transientهای منقضی‌شده (محدودیت نرخ و شناسهٔ ارسال‌ها).
-		foreach ( array( 'paia_rl_', 'paia_dlv_' ) as $prefix ) {
+		foreach ( array( 'pwc_rl_', 'pwc_dlv_' ) as $prefix ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 			$sum['transients'] += (int) $wpdb->query(
 				$wpdb->prepare(
@@ -112,19 +112,19 @@ final class Retention {
 		}
 
 		/**
-		 * نقطهٔ توسعه (مثلاً پاک‌کردن ردیف‌های جدول محدودیت نرخ paia_rl در S-1).
+		 * نقطهٔ توسعه (مثلاً پاک‌کردن ردیف‌های جدول محدودیت نرخ pwc_rl در S-1).
 		 *
 		 * @param int                  $now     زمان اجرا (unix).
 		 * @param array<string, int>   $summary آمار حذف‌ها تا اینجا.
 		 */
-		do_action( 'paia_retention_run', $now, $sum );
+		do_action( 'pwc_retention_run', $now, $sum );
 
 		if ( $sum['messages'] || $sum['files'] || $sum['visitors'] ) {
 			LogStore::add(
 				LogStore::INFO,
 				sprintf(
 					/* translators: 1: messages, 2: files, 3: visitors */
-					__( 'پاک‌سازی روزانهٔ چت: %1$s پیام، %2$s فایل پیوست و %3$s بازدیدکنندهٔ بدون پیام حذف شد.', 'persian-ai-assistant' ),
+					__( 'پاک‌سازی روزانهٔ چت: %1$s پیام، %2$s فایل پیوست و %3$s بازدیدکنندهٔ بدون پیام حذف شد.', 'persian-wp-chatbot' ),
 					number_format_i18n( $sum['messages'] ),
 					number_format_i18n( $sum['files'] ),
 					number_format_i18n( $sum['visitors'] )
@@ -137,8 +137,8 @@ final class Retention {
 	}
 
 	/**
-	 * فایل پیوست را فقط اگر داخل uploads/paia-chat باشد با wp_delete_file پاک می‌کند.
-	 * مسیرِ ذخیره‌شده‌ای که از سایت قدیمی/جابه‌جاشده مانده (مسیر مطلق دیگر) با نشانهٔ «/paia-chat/» به پوشهٔ فعلی نگاشت می‌شود.
+	 * فایل پیوست را فقط اگر داخل uploads/pwc-chat باشد با wp_delete_file پاک می‌کند.
+	 * مسیرِ ذخیره‌شده‌ای که از سایت قدیمی/جابه‌جاشده مانده (مسیر مطلق دیگر) با نشانهٔ «/pwc-chat/» به پوشهٔ فعلی نگاشت می‌شود.
 	 *
 	 * @return bool true = فایل واقعاً حذف شد.
 	 */

@@ -1,12 +1,12 @@
 <?php
-namespace PersianAIAssistant\Database;
+namespace PersianWPChatbot\Database;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * متن‌های دستی تب «اسناد اضافه» در جدول paia_texts؛ هر باکس متن یک رکورد.
+ * متن‌های دستی تب «اسناد اضافه» در جدول pwc_texts؛ هر باکس متن یک رکورد.
  *
- * سازوکار مثل ItemStore (paia_items): شناسهٔ رکورد «text:{عدد}»، ستون data = JSON، ستون ai_status
+ * سازوکار مثل ItemStore (pwc_items): شناسهٔ رکورد «text:{عدد}»، ستون data = JSON، ستون ai_status
  * (۰ = به سرور داده نشده، ۱ = در حال پردازش سمت سرور، ۲ = پردازش‌شده)؛ اگر متن ویرایش شود و data تغییر کند، ai_status به ۰ برمی‌گردد.
  * ستون‌های اضافه: draft (۱ = فقط پیش‌نویس ذخیره شده، ۰ = برای آموزش ثبت شده)، chunks و words (برای آمار سریع بدون خواندن JSON)،
  * created_at و updated_at (timestamp).

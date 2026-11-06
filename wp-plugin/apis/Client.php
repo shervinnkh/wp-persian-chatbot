@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Apis;
+namespace PersianWPChatbot\Apis;
 
-use PersianAIAssistant\Chat\ChatSettings;
+use PersianWPChatbot\Chat\ChatSettings;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -15,14 +15,14 @@ defined( 'ABSPATH' ) || exit;
  * برای GET و DELETEِ بی‌بدنه، بدنه رشتهٔ خالی است (امضا روی «timestamp\n»).
  *
  * تنظیم اتصال (به ترتیب اولویت):
- *   - ثابت‌های wp-config.php:  PAIA_API_URL ، PAIA_API_SECRET   ← روش اصلی و توصیه‌شده؛ با تعریف PAIA_API_SECRET کلید
+ *   - ثابت‌های wp-config.php:  PWC_API_URL ، PWC_API_SECRET   ← روش اصلی و توصیه‌شده؛ با تعریف PWC_API_SECRET کلید
  *     هرگز در دیتابیس (option) ذخیره یا در صفحهٔ تنظیمات نمایش داده نمی‌شود (S-5).
  *   - تنظیمات افزونه: api_url ، api_key (ChatSettings)
- *   - فیلترها: paia_api_url ، paia_api_request_secret
+ *   - فیلترها: pwc_api_url ، pwc_api_request_secret
  *
  * کلیدهای جدا (اختیاری؛ در صورت تعریف نشدن به کلید مشترک برمی‌گردند):
- *   - PAIA_CALLBACK_SECRET  : امضای درخواست‌های ورودی از سرور (Auth\Signature) ← باید با PLUGIN_CALLBACK_SECRET سرور یکی باشد
- *   - PAIA_FILE_LINK_SECRET : امضای لینک دانلود فایل‌ها (FileLink) ← فقط در همین افزونه استفاده می‌شود
+ *   - PWC_CALLBACK_SECRET  : امضای درخواست‌های ورودی از سرور (Auth\Signature) ← باید با PLUGIN_CALLBACK_SECRET سرور یکی باشد
+ *   - PWC_FILE_LINK_SECRET : امضای لینک دانلود فایل‌ها (FileLink) ← فقط در همین افزونه استفاده می‌شود
  *
  * هر تلاش دوباره زمان تازه می‌گیرد و دوباره امضا می‌شود (S-6: سرور هر امضای تکراریِ POST/PUT/DELETE را replay می‌داند؛
  * پس دو درخواست هم‌بدنه نباید زمان یکسان داشته باشند: next_timestamp()). فقط خطاهای موقت (timeout/408/429/5xx) تلاش مجدد دارند؛
@@ -44,47 +44,47 @@ final class Client {
 	 * آدرس پایهٔ سرور بدون «/» انتهایی (مثل https://ai.example.com).
 	 */
 	public static function base_url(): string {
-		$url = defined( 'PAIA_API_URL' ) && '' !== (string) PAIA_API_URL ? (string) PAIA_API_URL : (string) ChatSettings::get( 'api_url', '' );
+		$url = defined( 'PWC_API_URL' ) && '' !== (string) PWC_API_URL ? (string) PWC_API_URL : (string) ChatSettings::get( 'api_url', '' );
 
-		return (string) apply_filters( 'paia_api_url', untrailingslashit( trim( $url ) ) );
+		return (string) apply_filters( 'pwc_api_url', untrailingslashit( trim( $url ) ) );
 	}
 
 	/**
-	 * رازِ مشترک خام (همان API_SHARED_SECRET سرور): ثابت PAIA_API_SECRET یا api_key تنظیمات. رشتهٔ ۶۴ نویسه، نه بایت‌های دیکدشده.
+	 * رازِ مشترک خام (همان API_SHARED_SECRET سرور): ثابت PWC_API_SECRET یا api_key تنظیمات. رشتهٔ ۶۴ نویسه، نه بایت‌های دیکدشده.
 	 */
 	public static function shared_secret(): string {
-		if ( defined( 'PAIA_API_SECRET' ) && '' !== (string) PAIA_API_SECRET ) {
-			return trim( (string) PAIA_API_SECRET );
+		if ( defined( 'PWC_API_SECRET' ) && '' !== (string) PWC_API_SECRET ) {
+			return trim( (string) PWC_API_SECRET );
 		}
 
 		return trim( (string) ChatSettings::get( 'api_key', '' ) );
 	}
 
 	/**
-	 * آیا کلید اصلی از ثابت PAIA_API_SECRET (wp-config.php) خوانده می‌شود؟ (آن‌وقت UI چیزی ذخیره/نمایش نمی‌دهد.)
+	 * آیا کلید اصلی از ثابت PWC_API_SECRET (wp-config.php) خوانده می‌شود؟ (آن‌وقت UI چیزی ذخیره/نمایش نمی‌دهد.)
 	 */
 	public static function secret_from_constant(): bool {
-		return defined( 'PAIA_API_SECRET' ) && '' !== trim( (string) PAIA_API_SECRET );
+		return defined( 'PWC_API_SECRET' ) && '' !== trim( (string) PWC_API_SECRET );
 	}
 
 	/**
-	 * کلید امضای درخواست‌های ورودی از سرور (وب‌هوک‌ها). ثابت PAIA_CALLBACK_SECRET (= PLUGIN_CALLBACK_SECRET سرور)
+	 * کلید امضای درخواست‌های ورودی از سرور (وب‌هوک‌ها). ثابت PWC_CALLBACK_SECRET (= PLUGIN_CALLBACK_SECRET سرور)
 	 * یا، اگر تعریف نشده، همان کلید مشترک.
 	 */
 	public static function callback_secret(): string {
-		if ( defined( 'PAIA_CALLBACK_SECRET' ) && '' !== trim( (string) PAIA_CALLBACK_SECRET ) ) {
-			return trim( (string) PAIA_CALLBACK_SECRET );
+		if ( defined( 'PWC_CALLBACK_SECRET' ) && '' !== trim( (string) PWC_CALLBACK_SECRET ) ) {
+			return trim( (string) PWC_CALLBACK_SECRET );
 		}
 
 		return self::shared_secret();
 	}
 
 	/**
-	 * کلید امضای لینک دانلود فایل‌ها. ثابت PAIA_FILE_LINK_SECRET یا، اگر تعریف نشده، همان کلید مشترک.
+	 * کلید امضای لینک دانلود فایل‌ها. ثابت PWC_FILE_LINK_SECRET یا، اگر تعریف نشده، همان کلید مشترک.
 	 */
 	public static function file_link_secret(): string {
-		if ( defined( 'PAIA_FILE_LINK_SECRET' ) && '' !== trim( (string) PAIA_FILE_LINK_SECRET ) ) {
-			return trim( (string) PAIA_FILE_LINK_SECRET );
+		if ( defined( 'PWC_FILE_LINK_SECRET' ) && '' !== trim( (string) PWC_FILE_LINK_SECRET ) ) {
+			return trim( (string) PWC_FILE_LINK_SECRET );
 		}
 
 		return self::shared_secret();
@@ -115,10 +115,10 @@ final class Client {
 	}
 
 	/**
-	 * کلید امضای درخواست‌های خروجی (جهت A). برای وب‌هوک ورودی (جهت B) فیلتر جدای paia_api_secret در Auth\Signature است.
+	 * کلید امضای درخواست‌های خروجی (جهت A). برای وب‌هوک ورودی (جهت B) فیلتر جدای pwc_api_secret در Auth\Signature است.
 	 */
 	public static function secret(): string {
-		return (string) apply_filters( 'paia_api_request_secret', self::shared_secret() );
+		return (string) apply_filters( 'pwc_api_request_secret', self::shared_secret() );
 	}
 
 	public static function is_configured(): bool {
@@ -155,7 +155,7 @@ final class Client {
 		 * @param string                    $path
 		 * @param array<string, mixed>|null $payload
 		 */
-		$custom = apply_filters( 'paia_api_client_request', null, $method, $path, $payload );
+		$custom = apply_filters( 'pwc_api_client_request', null, $method, $path, $payload );
 		if ( is_array( $custom ) && isset( $custom['code'] ) ) {
 			return self::result( (int) $custom['code'], isset( $custom['body'] ) && is_array( $custom['body'] ) ? $custom['body'] : array(), '', '' );
 		}
@@ -163,10 +163,10 @@ final class Client {
 		$base   = self::base_url();
 		$secret = self::secret();
 		if ( '' === $base || '' === $secret ) {
-			return self::result( 0, array(), self::ERR_NOT_CONFIGURED, __( 'آدرس یا کلید اتصال به سرور هوش مصنوعی تنظیم نشده است.', 'persian-ai-assistant' ) );
+			return self::result( 0, array(), self::ERR_NOT_CONFIGURED, __( 'آدرس یا کلید اتصال به سرور هوش مصنوعی تنظیم نشده است.', 'persian-wp-chatbot' ) );
 		}
 		if ( 0 !== stripos( $base, 'https://' ) && ! self::http_allowed() ) {
-			return self::result( 0, array(), self::ERR_HTTPS_REQUIRED, __( 'آدرس سرور هوش مصنوعی باید با https:// شروع شود.', 'persian-ai-assistant' ) );
+			return self::result( 0, array(), self::ERR_HTTPS_REQUIRED, __( 'آدرس سرور هوش مصنوعی باید با https:// شروع شود.', 'persian-wp-chatbot' ) );
 		}
 
 		// بدنه فقط یک‌بار ساخته می‌شود؛ همین رشته امضا و ارسال می‌شود.
@@ -174,11 +174,11 @@ final class Client {
 		if ( null !== $payload ) {
 			$json = wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 			if ( ! is_string( $json ) ) {
-				return self::result( 0, array(), self::ERR_ENCODE_FAILED, __( 'تبدیل داده به JSON ناموفق بود.', 'persian-ai-assistant' ) );
+				return self::result( 0, array(), self::ERR_ENCODE_FAILED, __( 'تبدیل داده به JSON ناموفق بود.', 'persian-wp-chatbot' ) );
 			}
 			$body = $json;
 			if ( strlen( $body ) > self::MAX_BODY ) {
-				return self::result( 0, array(), self::ERR_TOO_LARGE, __( 'حجم درخواست بیش از ۵ مگابایت است.', 'persian-ai-assistant' ) );
+				return self::result( 0, array(), self::ERR_TOO_LARGE, __( 'حجم درخواست بیش از ۵ مگابایت است.', 'persian-wp-chatbot' ) );
 			}
 		}
 
@@ -194,8 +194,8 @@ final class Client {
 				'method'      => $method,
 				'timeout'     => max( 1, $timeout ),
 				'redirection' => 0,
-				'sslverify'   => (bool) apply_filters( 'paia_api_sslverify', true ),
-				'user-agent'  => 'PersianAIAssistant/' . PAIA_VERSION . '; ' . home_url(),
+				'sslverify'   => (bool) apply_filters( 'pwc_api_sslverify', true ),
+				'user-agent'  => 'PersianWPChatbot/' . PWC_VERSION . '; ' . home_url(),
 				'headers'     => array(
 					'Accept'       => 'application/json',
 					'Content-Type' => 'application/json',
@@ -264,7 +264,7 @@ final class Client {
 		// (Local by Flywheel و XAMPP معمولاً WP_ENVIRONMENT_TYPE را «local» نمی‌کنند و قبلاً همین باعث می‌شد هیچ درخواستی ارسال نشود.)
 		$allowed = in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) || self::is_local_host( self::base_url() );
 
-		return (bool) apply_filters( 'paia_api_allow_http', $allowed );
+		return (bool) apply_filters( 'pwc_api_allow_http', $allowed );
 	}
 
 	/**

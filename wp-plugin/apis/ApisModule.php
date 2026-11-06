@@ -1,14 +1,14 @@
 <?php
-namespace PersianAIAssistant\Apis;
+namespace PersianWPChatbot\Apis;
 
-use PersianAIAssistant\Apis\Endpoints\AbstractEndpoint;
-use PersianAIAssistant\Apis\Endpoints\BudgetEndpoint;
-use PersianAIAssistant\Apis\Endpoints\FileEndpoint;
-use PersianAIAssistant\Apis\Endpoints\LiveProductsEndpoint;
-use PersianAIAssistant\Apis\Endpoints\LiveToolEndpoint;
-use PersianAIAssistant\Apis\Endpoints\PingEndpoint;
-use PersianAIAssistant\Apis\Endpoints\ResultsEndpoint;
-use PersianAIAssistant\Contracts\Module;
+use PersianWPChatbot\Apis\Endpoints\AbstractEndpoint;
+use PersianWPChatbot\Apis\Endpoints\BudgetEndpoint;
+use PersianWPChatbot\Apis\Endpoints\FileEndpoint;
+use PersianWPChatbot\Apis\Endpoints\LiveProductsEndpoint;
+use PersianWPChatbot\Apis\Endpoints\LiveToolEndpoint;
+use PersianWPChatbot\Apis\Endpoints\PingEndpoint;
+use PersianWPChatbot\Apis\Endpoints\ResultsEndpoint;
+use PersianWPChatbot\Contracts\Module;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -31,7 +31,7 @@ final class ApisModule implements Module {
 
 	public function register_routes(): void {
 		$endpoints = (array) apply_filters(
-			'paia_api_endpoints',
+			'pwc_api_endpoints',
 			array(
 				PingEndpoint::class,
 				ResultsEndpoint::class,

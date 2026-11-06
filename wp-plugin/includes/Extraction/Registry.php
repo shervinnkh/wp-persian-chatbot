@@ -1,15 +1,15 @@
 <?php
-namespace PersianAIAssistant\Extraction;
+namespace PersianWPChatbot\Extraction;
 
-use PersianAIAssistant\Extraction\Extractors\BlogExtractor;
-use PersianAIAssistant\Extraction\Extractors\ExtractorInterface;
-use PersianAIAssistant\Extraction\Extractors\PagesExtractor;
-use PersianAIAssistant\Extraction\Extractors\ProductsExtractor;
+use PersianWPChatbot\Extraction\Extractors\BlogExtractor;
+use PersianWPChatbot\Extraction\Extractors\ExtractorInterface;
+use PersianWPChatbot\Extraction\Extractors\PagesExtractor;
+use PersianWPChatbot\Extraction\Extractors\ProductsExtractor;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * نگاشت شناسهٔ منبع (Sources) به کلاس استخراج‌کننده. منبع جدید: فیلتر paia_extractors.
+ * نگاشت شناسهٔ منبع (Sources) به کلاس استخراج‌کننده. منبع جدید: فیلتر pwc_extractors.
  */
 final class Registry {
 
@@ -18,7 +18,7 @@ final class Registry {
 	 */
 	public static function classes(): array {
 		return (array) apply_filters(
-			'paia_extractors',
+			'pwc_extractors',
 			array(
 				'products' => ProductsExtractor::class,
 				'blog'     => BlogExtractor::class,

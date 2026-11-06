@@ -1,7 +1,7 @@
 <?php
-namespace PersianAIAssistant\Rest;
+namespace PersianWPChatbot\Rest;
 
-use PersianAIAssistant\Database\LiveStore;
+use PersianWPChatbot\Database\LiveStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -115,15 +115,15 @@ final class LiveController extends AbstractController {
 		$content     = trim( sanitize_textarea_field( (string) $request->get_param( 'content' ) ) );
 
 		if ( '' === $name || '' === $description || '' === $content ) {
-			return new \WP_Error( 'paia_live_empty', __( 'نام نوع داده، توضیح کوتاه و اطلاعات داده را کامل وارد کنید.', 'persian-ai-assistant' ), array( 'status' => 400 ) );
+			return new \WP_Error( 'pwc_live_empty', __( 'نام نوع داده، توضیح کوتاه و اطلاعات داده را کامل وارد کنید.', 'persian-wp-chatbot' ), array( 'status' => 400 ) );
 		}
 		if ( mb_strlen( $name ) > LiveStore::NAME_MAX || mb_strlen( $description ) > LiveStore::DESC_MAX || mb_strlen( $content ) > LiveStore::CONTENT_MAX ) {
-			return new \WP_Error( 'paia_live_long', __( 'متن واردشده از حد مجاز بلندتر است.', 'persian-ai-assistant' ), array( 'status' => 413 ) );
+			return new \WP_Error( 'pwc_live_long', __( 'متن واردشده از حد مجاز بلندتر است.', 'persian-wp-chatbot' ), array( 'status' => 413 ) );
 		}
 
 		$id = LiveStore::save( (int) $request->get_param( 'id' ), $name, $description, $content );
 		if ( $id <= 0 ) {
-			return new \WP_Error( 'paia_live_save_failed', __( 'ذخیره در پایگاه داده ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+			return new \WP_Error( 'pwc_live_save_failed', __( 'ذخیره در پایگاه داده ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 		}
 
 		return rest_ensure_response( array( 'item' => LiveStore::get( $id ) ) );
@@ -167,10 +167,10 @@ final class LiveController extends AbstractController {
 	}
 
 	private function not_found(): \WP_Error {
-		return new \WP_Error( 'paia_live_not_found', __( 'این مورد پیدا نشد.', 'persian-ai-assistant' ), array( 'status' => 404 ) );
+		return new \WP_Error( 'pwc_live_not_found', __( 'این مورد پیدا نشد.', 'persian-wp-chatbot' ), array( 'status' => 404 ) );
 	}
 
 	private function failed(): \WP_Error {
-		return new \WP_Error( 'paia_live_failed', __( 'ذخیره در پایگاه داده ناموفق بود.', 'persian-ai-assistant' ), array( 'status' => 500 ) );
+		return new \WP_Error( 'pwc_live_failed', __( 'ذخیره در پایگاه داده ناموفق بود.', 'persian-wp-chatbot' ), array( 'status' => 500 ) );
 	}
 }

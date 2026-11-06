@@ -3,7 +3,7 @@
  * تولید پاسخ چت‌بات.
  *
  * اولویت:
- *  1) فیلتر `paia_chat_reply` (برای اتصال سرویس پایتون/RAG از کد)
+ *  1) فیلتر `pwc_chat_reply` (برای اتصال سرویس پایتون/RAG از کد)
  *  2) سرور هوش مصنوعی (Apis\Client امضادار): POST /v1/chat/messages/batch ؛ سرور خودش تاریخچه/خلاصه را نگه می‌دارد.
  *     از نسخهٔ ۰.۵.۲۶ هیچ پیامی جداگانه یا فوری به سرور نمی‌رود: هر پیام با ai_sent = 0 ذخیره می‌شود و فقط وقتی هوش مصنوعی
  *     باید جواب بدهد، «همهٔ پیام‌های ارسال‌نشده + پیام جدید کاربر» با ترتیب شناسه (قدیمی ← جدید) در یک درخواست فرستاده می‌شوند
@@ -13,17 +13,17 @@
  * خروجی: ['text' => string, 'suggestions' => string[], 'references' => array] یا null (یعنی هیچ پیامی ارسال نشود؛
  * وقتی هیچ سرویسی پاسخ نداده و «پاسخ پیش‌فرض» در تنظیمات خالی است).
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Apis\Callback;
-use PersianAIAssistant\Apis\Client;
-use PersianAIAssistant\Database\LiveStore;
-use PersianAIAssistant\Database\LogStore;
-use PersianAIAssistant\Extraction\PostTypes;
-use PersianAIAssistant\Support\ClientIp;
+use PersianWPChatbot\Apis\Callback;
+use PersianWPChatbot\Apis\Client;
+use PersianWPChatbot\Database\LiveStore;
+use PersianWPChatbot\Database\LogStore;
+use PersianWPChatbot\Extraction\PostTypes;
+use PersianWPChatbot\Support\ClientIp;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -40,7 +40,7 @@ final class ReplyEngine {
 		 * @param array|null $reply
 		 * @param array      $ctx
 		 */
-		$reply = apply_filters( 'paia_chat_reply', null, $ctx );
+		$reply = apply_filters( 'pwc_chat_reply', null, $ctx );
 
 		if ( ( ! is_array( $reply ) || empty( $reply['text'] ) ) && Client::is_configured() ) {
 			$reply = $this->via_server( $ctx );
@@ -119,7 +119,7 @@ final class ReplyEngine {
 		if ( 'generated' !== ( $ai['status'] ?? '' ) ) {
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'سرور هوش مصنوعی پیام را ذخیره کرد ولی پاسخی تولید نکرد (جزئیات در لاگ سرور AI).', 'persian-ai-assistant' ),
+				__( 'سرور هوش مصنوعی پیام را ذخیره کرد ولی پاسخی تولید نکرد (جزئیات در لاگ سرور AI).', 'persian-wp-chatbot' ),
 				array(
 					'method'      => 'POST',
 					'endpoint'    => '/v1/chat/messages/batch',
@@ -273,7 +273,7 @@ final class ReplyEngine {
 				LogStore::ERROR,
 				sprintf(
 					/* translators: %s: reason */
-					__( 'ارسال پیام‌های چت به سرور هوش مصنوعی ناموفق بود: %s', 'persian-ai-assistant' ),
+					__( 'ارسال پیام‌های چت به سرور هوش مصنوعی ناموفق بود: %s', 'persian-wp-chatbot' ),
 					'' !== (string) $res['error'] ? $res['error'] : ( 'HTTP ' . (int) $res['code'] )
 				),
 				array(
@@ -301,7 +301,7 @@ final class ReplyEngine {
 		if ( $received < count( $messages ) ) {
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'سرور هوش مصنوعی فقط بخشی از پیام‌های چت را دریافت کرد؛ بقیه در درخواست بعدی دوباره ارسال می‌شوند.', 'persian-ai-assistant' ),
+				__( 'سرور هوش مصنوعی فقط بخشی از پیام‌های چت را دریافت کرد؛ بقیه در درخواست بعدی دوباره ارسال می‌شوند.', 'persian-wp-chatbot' ),
 				array(
 					'method'      => 'POST',
 					'endpoint'    => '/v1/chat/messages/batch',
@@ -357,7 +357,7 @@ final class ReplyEngine {
 			return null;
 		}
 		$headers = array( 'Content-Type' => 'application/json' );
-		$key     = \PersianAIAssistant\Apis\Client::shared_secret(); // ثابت PAIA_API_SECRET یا کلید ذخیره‌شده (S-5)
+		$key     = \PersianWPChatbot\Apis\Client::shared_secret(); // ثابت PWC_API_SECRET یا کلید ذخیره‌شده (S-5)
 		if ( '' !== $key ) {
 			$headers['Authorization'] = 'Bearer ' . $key;
 		}

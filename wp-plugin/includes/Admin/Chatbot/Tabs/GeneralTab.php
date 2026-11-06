@@ -1,12 +1,12 @@
 <?php
-namespace PersianAIAssistant\Admin\Chatbot\Tabs;
+namespace PersianWPChatbot\Admin\Chatbot\Tabs;
 
-use PersianAIAssistant\Chat\BudgetState;
-use PersianAIAssistant\Chat\Unread;
-use PersianAIAssistant\Database\LogStore;
-use PersianAIAssistant\Documents\Overview as DocsOverview;
-use PersianAIAssistant\Extraction\Overview as ExtractionOverview;
-use PersianAIAssistant\Support\Status;
+use PersianWPChatbot\Chat\BudgetState;
+use PersianWPChatbot\Chat\Unread;
+use PersianWPChatbot\Database\LogStore;
+use PersianWPChatbot\Documents\Overview as DocsOverview;
+use PersianWPChatbot\Extraction\Overview as ExtractionOverview;
+use PersianWPChatbot\Support\Status;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -21,7 +21,7 @@ final class GeneralTab extends AbstractTab {
 	}
 
 	public function title(): string {
-		return __( 'عمومی', 'persian-ai-assistant' );
+		return __( 'عمومی', 'persian-wp-chatbot' );
 	}
 
 	/**

@@ -1,5 +1,5 @@
 <?php
-namespace PersianAIAssistant\Admin\Chatbot\Tabs;
+namespace PersianWPChatbot\Admin\Chatbot\Tabs;
 
 defined( 'ABSPATH' ) || exit;
 

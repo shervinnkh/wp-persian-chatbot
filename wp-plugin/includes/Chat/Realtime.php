@@ -9,23 +9,23 @@
  *
  * قرارداد توکن (باید با app/services/realtime/tokens.py یکی باشد):
  *   token   = base64url(payload_json) . '.' . base64url(HMAC_SHA256(ws_key, base64url(payload_json)))
- *   ws_key  = HMAC_SHA256(کلید = رازِ مشترک، پیام = "paia-ws-v1")  (۳۲ بایت خام؛ کلید جدا از کلید امضای درخواست‌ها)
+ *   ws_key  = HMAC_SHA256(کلید = رازِ مشترک، پیام = "pwc-ws-v1")  (۳۲ بایت خام؛ کلید جدا از کلید امضای درخواست‌ها)
  *   payload = {"v": visitor_uid, "aud": "host[:port] سایت", "iat": …, "exp": iat+600, "jti": "۳۲ نویسهٔ hex"}
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Apis\Client;
-use PersianAIAssistant\Database\LogStore;
+use PersianWPChatbot\Apis\Client;
+use PersianWPChatbot\Database\LogStore;
 
 defined( 'ABSPATH' ) || exit;
 
 final class Realtime {
 
 	/** برچسب مشتق‌سازی کلید توکن. */
-	public const KEY_LABEL = 'paia-ws-v1';
+	public const KEY_LABEL = 'pwc-ws-v1';
 
 	/** عمر توکن (ثانیه)؛ سرور هم سقف می‌گذارد. */
 	public const TOKEN_TTL = 600;
@@ -113,7 +113,7 @@ final class Realtime {
 			return;
 		}
 		// تایپ پشتیبان را حداکثر هر ۲ ثانیه یک‌بار اعلان می‌کنیم (روشن‌شدن)؛ خاموش‌شدن همیشه می‌رود.
-		if ( 'typing' === $event && ! empty( $extra['on'] ) && ! RateLimit::lock( 'paia_ptyp_' . md5( $uid ), 2 ) ) {
+		if ( 'typing' === $event && ! empty( $extra['on'] ) && ! RateLimit::lock( 'pwc_ptyp_' . md5( $uid ), 2 ) ) {
 			return;
 		}
 		$payload = array(
@@ -129,7 +129,7 @@ final class Realtime {
 			// بدنه/توکن لاگ نمی‌شود؛ فقط نوع خطا. (با blocking=false تقریباً هرگز خطا نمی‌دهد.)
 			LogStore::add(
 				LogStore::ERROR,
-				__( 'اعلان لحظه‌ای به سرور هوش مصنوعی ارسال نشد (پیام ذخیره شده و با polling می‌رسد).', 'persian-ai-assistant' ),
+				__( 'اعلان لحظه‌ای به سرور هوش مصنوعی ارسال نشد (پیام ذخیره شده و با polling می‌رسد).', 'persian-wp-chatbot' ),
 				array(
 					'endpoint' => '/v1/push',
 					'error'    => (string) $res['error_code'],

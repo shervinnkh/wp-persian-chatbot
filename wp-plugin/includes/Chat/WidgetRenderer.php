@@ -2,12 +2,12 @@
 /**
  * نمایش ویجت چت در همهٔ صفحه‌های سایت.
  *
- * @package PersianAIAssistant
+ * @package PersianWPChatbot
  */
 
-namespace PersianAIAssistant\Chat;
+namespace PersianWPChatbot\Chat;
 
-use PersianAIAssistant\Support\Status;
+use PersianWPChatbot\Support\Status;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -18,11 +18,11 @@ final class WidgetRenderer {
 	}
 
 	private function root_url(): string {
-		return plugin_dir_url( $this->root_dir() . '/persian-ai-assistant.php' );
+		return plugin_dir_url( $this->root_dir() . '/persian-wp-chatbot.php' );
 	}
 
 	private function version(): string {
-		return defined( 'PAIA_VERSION' ) ? (string) PAIA_VERSION : '0.5.0';
+		return defined( 'PWC_VERSION' ) ? (string) PWC_VERSION : '1.0.0';
 	}
 
 	public function register(): void {
@@ -39,7 +39,7 @@ final class WidgetRenderer {
 			return false;
 		}
 		/** اجازه می‌دهد ویجت در برخی صفحه‌ها مخفی شود. */
-		return (bool) apply_filters( 'paia_chat_show_widget', true );
+		return (bool) apply_filters( 'pwc_chat_show_widget', true );
 	}
 
 	public function enqueue(): void {
@@ -49,11 +49,11 @@ final class WidgetRenderer {
 		$url = $this->root_url();
 		$ver = $this->version();
 
-		wp_enqueue_style( 'paia-chat-widget', $url . 'assets/css/widget.css', array(), $ver );
-		wp_enqueue_script( 'paia-chat-widget', $url . 'assets/js/widget.js', array(), $ver, true );
+		wp_enqueue_style( 'pwc-chat-widget', $url . 'assets/css/widget.css', array(), $ver );
+		wp_enqueue_script( 'pwc-chat-widget', $url . 'assets/js/widget.js', array(), $ver, true );
 
 		$cfg = array(
-			'restUrl'  => esc_url_raw( rest_url( 'paia/v1/' ) ),
+			'restUrl'  => esc_url_raw( rest_url( 'pwc/v1/' ) ),
 			'nonce'    => wp_create_nonce( 'wp_rest' ),
 			'locale'   => str_replace( '_', '-', get_locale() ),
 			'maxMb'    => (int) ChatSettings::get( 'max_upload_mb', 5 ),
@@ -75,40 +75,40 @@ final class WidgetRenderer {
 			),
 			'intro'    => (string) ChatSettings::get( 'profile_intro' ),
 			'i18n'     => array(
-				'open'         => __( 'باز کردن گفتگو', 'persian-ai-assistant' ),
-				'close'        => __( 'بستن', 'persian-ai-assistant' ),
-				'supportBy'    => __( 'پاسخ از طرف پشتیبانی:', 'persian-ai-assistant' ),
-				'newMessage'   => __( 'پیام جدید', 'persian-ai-assistant' ),
-				'placeholder'  => __( 'پیام خود را بنویسید...', 'persian-ai-assistant' ),
-				'send'         => __( 'ارسال', 'persian-ai-assistant' ),
-				'attach'       => __( 'ارسال عکس', 'persian-ai-assistant' ),
-				'record'       => __( 'ضبط ویس', 'persian-ai-assistant' ),
-				'cancel'       => __( 'لغو', 'persian-ai-assistant' ),
-				'remove'       => __( 'حذف', 'persian-ai-assistant' ),
-				'loading'      => __( 'در حال آماده‌سازی...', 'persian-ai-assistant' ),
-				'loadError'    => __( 'اتصال برقرار نشد. اینترنت خود را بررسی کنید.', 'persian-ai-assistant' ),
-				'retry'        => __( 'تلاش دوباره', 'persian-ai-assistant' ),
-				'sendFailed'   => __( 'ارسال نشد', 'persian-ai-assistant' ),
-				'suggestions'  => __( 'پیشنهاد پیام', 'persian-ai-assistant' ),
-				'nameLabel'    => __( 'نام شما', 'persian-ai-assistant' ),
-				'contactLabel' => __( 'ایمیل یا شماره تماس', 'persian-ai-assistant' ),
-				'nameRequired' => __( 'نام خود را وارد کنید.', 'persian-ai-assistant' ),
-				'contactInvalid' => __( 'ایمیل یا شماره تماس معتبر وارد کنید.', 'persian-ai-assistant' ),
-				'start'        => __( 'شروع گفتگو', 'persian-ai-assistant' ),
-				'guest'        => __( 'ادامه به عنوان مهمان', 'persian-ai-assistant' ),
-				'micDenied'    => __( 'اجازهٔ دسترسی به میکروفون داده نشد.', 'persian-ai-assistant' ),
-				'micUnsupported' => __( 'مرورگر شما از ضبط صدا پشتیبانی نمی‌کند.', 'persian-ai-assistant' ),
-				'tooBig'       => __( 'حجم فایل بیش از حد مجاز است.', 'persian-ai-assistant' ),
-				'badFile'      => __( 'فقط فایل تصویر قابل ارسال است.', 'persian-ai-assistant' ),
-				'recording'    => __( 'در حال ضبط...', 'persian-ai-assistant' ),
-				'image'        => __( 'تصویر', 'persian-ai-assistant' ),
-				'starting'     => __( 'در حال شروع...', 'persian-ai-assistant' ),
-				'loadingMsgs'  => __( 'در حال بارگذاری پیام‌ها', 'persian-ai-assistant' ),
-				'loadingOlder' => __( 'در حال بارگذاری پیام‌های قبلی', 'persian-ai-assistant' ),
-				'openLink'     => __( 'مشاهده', 'persian-ai-assistant' ),
+				'open'         => __( 'باز کردن گفتگو', 'persian-wp-chatbot' ),
+				'close'        => __( 'بستن', 'persian-wp-chatbot' ),
+				'supportBy'    => __( 'پاسخ از طرف پشتیبانی:', 'persian-wp-chatbot' ),
+				'newMessage'   => __( 'پیام جدید', 'persian-wp-chatbot' ),
+				'placeholder'  => __( 'پیام خود را بنویسید...', 'persian-wp-chatbot' ),
+				'send'         => __( 'ارسال', 'persian-wp-chatbot' ),
+				'attach'       => __( 'ارسال عکس', 'persian-wp-chatbot' ),
+				'record'       => __( 'ضبط ویس', 'persian-wp-chatbot' ),
+				'cancel'       => __( 'لغو', 'persian-wp-chatbot' ),
+				'remove'       => __( 'حذف', 'persian-wp-chatbot' ),
+				'loading'      => __( 'در حال آماده‌سازی...', 'persian-wp-chatbot' ),
+				'loadError'    => __( 'اتصال برقرار نشد. اینترنت خود را بررسی کنید.', 'persian-wp-chatbot' ),
+				'retry'        => __( 'تلاش دوباره', 'persian-wp-chatbot' ),
+				'sendFailed'   => __( 'ارسال نشد', 'persian-wp-chatbot' ),
+				'suggestions'  => __( 'پیشنهاد پیام', 'persian-wp-chatbot' ),
+				'nameLabel'    => __( 'نام شما', 'persian-wp-chatbot' ),
+				'contactLabel' => __( 'ایمیل یا شماره تماس', 'persian-wp-chatbot' ),
+				'nameRequired' => __( 'نام خود را وارد کنید.', 'persian-wp-chatbot' ),
+				'contactInvalid' => __( 'ایمیل یا شماره تماس معتبر وارد کنید.', 'persian-wp-chatbot' ),
+				'start'        => __( 'شروع گفتگو', 'persian-wp-chatbot' ),
+				'guest'        => __( 'ادامه به عنوان مهمان', 'persian-wp-chatbot' ),
+				'micDenied'    => __( 'اجازهٔ دسترسی به میکروفون داده نشد.', 'persian-wp-chatbot' ),
+				'micUnsupported' => __( 'مرورگر شما از ضبط صدا پشتیبانی نمی‌کند.', 'persian-wp-chatbot' ),
+				'tooBig'       => __( 'حجم فایل بیش از حد مجاز است.', 'persian-wp-chatbot' ),
+				'badFile'      => __( 'فقط فایل تصویر قابل ارسال است.', 'persian-wp-chatbot' ),
+				'recording'    => __( 'در حال ضبط...', 'persian-wp-chatbot' ),
+				'image'        => __( 'تصویر', 'persian-wp-chatbot' ),
+				'starting'     => __( 'در حال شروع...', 'persian-wp-chatbot' ),
+				'loadingMsgs'  => __( 'در حال بارگذاری پیام‌ها', 'persian-wp-chatbot' ),
+				'loadingOlder' => __( 'در حال بارگذاری پیام‌های قبلی', 'persian-wp-chatbot' ),
+				'openLink'     => __( 'مشاهده', 'persian-wp-chatbot' ),
 			),
 		);
-		wp_add_inline_script( 'paia-chat-widget', 'window.PAIA_CHAT = ' . wp_json_encode( $cfg, JSON_UNESCAPED_UNICODE ) . ';', 'before' );
+		wp_add_inline_script( 'pwc-chat-widget', 'window.PWC_CHAT = ' . wp_json_encode( $cfg, JSON_UNESCAPED_UNICODE ) . ';', 'before' );
 	}
 
 	public function render(): void {
@@ -131,7 +131,7 @@ final class WidgetRenderer {
 			}
 		}
 		printf(
-			'<div id="paia-chat-root" class="paia-chat" dir="%1$s" data-position="%2$s" style="%3$s"></div>',
+			'<div id="pwc-chat-root" class="pwc-chat" dir="%1$s" data-position="%2$s" style="%3$s"></div>',
 			esc_attr( is_rtl() ? 'rtl' : 'ltr' ),
 			esc_attr( 'left' === $s['position'] ? 'left' : 'right' ),
 			esc_attr( $style )
