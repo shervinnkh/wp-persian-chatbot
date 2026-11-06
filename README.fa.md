@@ -1,7 +1,7 @@
 # دستیار هوشمند وردپرس | Persian AI Assistant
 
 <p align="center">
-  <img src="docs/assets/Neon Persian AI Chat Dashboard.png" width="50%" alt="Persian AI Assistant Preview">
+  <img src="docs/assets/Neon Persian AI Chat Dashboard.png" width="70%" alt="Persian AI Assistant Preview">
 </p>
 
 <p align="center">
