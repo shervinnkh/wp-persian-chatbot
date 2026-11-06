@@ -1,3 +1,4 @@
+<div dir="rtl" align="justify">
 # دستیار هوشمند وردپرس | Persian AI Assistant
 
 <p align="center">
@@ -104,3 +105,5 @@
 ## License
 
 نوع مجوز استفاده و انتشار این پروژه در فایل [LICENSE](LICENSE) مشخص شده است.
+
+</div>
