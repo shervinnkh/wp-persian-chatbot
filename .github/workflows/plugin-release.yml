@@ -32,7 +32,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # tags with a suffix (plugin-v1.1.0-beta.1) become pre-releases: the in-plugin updater ignores those
+          PRE=""
+          case "${GITHUB_REF_NAME#plugin-v}" in *-*) PRE="--prerelease" ;; esac
           gh release create "${GITHUB_REF_NAME}" \
             dist/persian-wp-chatbot.zip dist/persian-wp-chatbot.zip.sha256 \
             --title "Persian WP Chatbot ${GITHUB_REF_NAME#plugin-v}" \
-            --generate-notes
+            --generate-notes $PRE
