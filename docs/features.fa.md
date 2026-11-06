@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# <img src="assets/menu-icon-little.png" height="30" align="absmiddle"> آموزش امکانات افزونه Persian Chatbot
+# <img src="assets/menu-icon-little.png" height="40" align="absmiddle"> آموزش امکانات افزونه Persian Chatbot
 
 این راهنما صفحه‌های افزونه را به ترتیب منوی وردپرس توضیح می‌دهد. برای نصب و اتصال به سرور به [INSTALL.md](../INSTALL.md) مراجعه کنید.
 
