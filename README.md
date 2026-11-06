@@ -1,12 +1,14 @@
 
 # Persian AI Assistant for WordPress
-> 🇮🇷 **نسخه فارسی پروژه:** [مطالعه توضیحات به زبان شیرین فارسی](README.fa.md)
+
 
 <div dir="rtl" align="justify">
 
 <p align="center">
   <img src="docs/assets/Neon Persian AI Chat Dashboard.png" width="100%" alt="Persian AI Assistant Preview">
 </p>
+
+> 🇮🇷 **نسخه فارسی پروژه:** [مطالعه توضیحات به زبان شیرین فارسی](README.fa.md)
 
 <p align="center">
   An intelligent Persian chatbot for WordPress websites that uses Artificial Intelligence and the **Retrieval-Augmented Generation (RAG)** architecture to transform each website's own content into a searchable knowledge base, enabling it to answer visitors' questions based on the actual information available on that website.
