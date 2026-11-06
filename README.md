@@ -1,5 +1,6 @@
 
 # Persian AI Assistant for WordPress
+> 🇮🇷 [برای خواندن توضیحات پروژه به زبان شیرین فارسی کلیک کنید.](README.fa.md)
 
 <div dir="rtl" align="justify">
 
